@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { loadChapters, loadKeywords, loadProblem } from '../../data/problem-loader.js';
 import { loadSeed } from '../../data/seed-loader.js';
-import { PlayMode1 } from '../components/PlayMode1.jsx';
+import { PlayMode12 } from '../components/PlayMode12.jsx';
 import { PlayMode34 } from '../components/PlayMode34.jsx';
 import { runDbJob } from '../state/db-jobs.js';
 
 /**
  * 1問を遊ぶ画面。問題を読み、DBをその問題の初期状態にしてから、モードの中身を出す。
- * 今はモード1（なぞり書き）と、モード3・4（書いて判定）。モード2は後の作業。
+ * モード1・2（なぞり書き・打って選ぶ）は PlayMode12、モード3・4（書いて判定）は PlayMode34。
  * @param {{
  *   problemId: string,
  *   mode: '1' | '2' | '3' | '4',
@@ -89,12 +89,12 @@ export function PlayScreen({
       />
     );
   }
-  if (mode !== '1') return <p role="alert">このモードはまだありません。</p>;
   return (
-    <PlayMode1
-      // 問題が変わったら、打っている状態・時計・記録を引き継がないように作り直す
-      key={`${loaded.problem.id}:${attempt}`}
+    <PlayMode12
+      // 問題・モード・やり直しが変わったら、打っている状態・時計・記録・選択肢の並びを引き継がないように作り直す
+      key={`${loaded.problem.id}:${mode}:${attempt}`}
       problem={loaded.problem}
+      mode={mode}
       keywords={keywords}
       runner={runner}
       replaySpeed={replaySpeed}

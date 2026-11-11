@@ -386,6 +386,25 @@ export function pressKey(state, key) {}
 - 打ったキーで候補が0個になる場合は `miss`（モード1と同じく止まる）
 - 候補の1つを最後まで打ち切ったら確定。正解なら `decidedCorrect` で空欄の次へ、間違いなら `decidedWrong` で `why` を表示し、その空欄を最初からやり直す
 - 選択肢がほかの選択肢の先頭部分にならないことは、問題データの検証で保証する（打ち切った時点で1つに決まる）
+- 選んだ間違いは、その空欄ではもう候補にならない（打ち消し線で残す）
+- 状態：`choices`（`{ text, correct, why, target }` を混ぜた順）・`typed`（候補に共通の、打ったスロットの数）・`candidates`・`rejected`。`pressKey` の `decidedWrong` は `why` と選んだ `text` も返す
+
+#### 空欄つきのなぞり書き（`blank-typing.js`、モード1・2）
+
+**責務**：TypingEngine（空欄の外）と ChoiceEngine（空欄の中）をつなぐ。空欄がなければ TypingEngine とまったく同じなので、モード1もこれで動かす（打つ決まりを1か所にする）
+
+```js
+/** 各空欄の正解が表示用SQLのどのスロットか（改行・字下げの違いは区切りどうしとして同じ、文字列の外は大文字・小文字を区別しない）。見つからない・重なるなら投げる */
+export function locateBlanks(target, blanks) {} // [{ start, end, blank }]（表示用SQLの中の順）
+export function createBlankTypingState(target, blanks, randomFn) {} // { typing, ranges, active, choice, filled, wrongChoices }
+/** @returns {{ state, result: 'ok'|'miss'|'ignored'|'decidedCorrect'|'decidedWrong', inBlank, clauseEnded?, done?, why?, text? }} */
+export function pressBlankKey(state, target, key, randomFn) {}
+```
+
+- 空欄の始まりに来たら、その空欄の選択肢を並べる（先頭が空欄なら最初から）
+- 空欄の中の ok・miss も、打った数・ミスの数（速さ・正確さ）に入れる。間違いの選択肢を打ち切ったキーも、打った文字としては正しいので ok に数え、選び間違えた回数（`wrongChoices`）は別に数える。選び間違いは正確さ・ランクに入れず、結果に回数だけを出す（本人の決定。2026-11-12。ランクは打つ速さと正確さの評価、選ぶ力は選び間違いの回数で見る）
+- 空欄の中の miss は、表示用SQLのスロットの「ミスした」印と苦手（記号・キーワード）には入れない（選び方の迷いと打ち間違いを分けられないため）。苦手の「打った回数」（`countTypedKeys`）からも空欄のスロットを外し、分母をそろえる
+- 正解を選ぶと位置を空欄の終わりへ進め、空欄の中で終わった句のうち最後のものを `clauseEnded` で知らせる（見える化C）。次がすぐ空欄なら続けて始める
 
 #### ClauseSplitter
 
@@ -694,8 +713,9 @@ export function isUnlocked(progress, chapters, problemId) {}
 | `HomeScreen` | 章と問題の一覧、星4つ、開いていない問題の表示、各問題のモード選択 |
 | `StoryPanel` | 会話を1行ずつ表示。Enter / クリックで送る。スキップ |
 | `PlayScreen` | 1問を遊ぶ画面。モードによって中身を切り替える |
-| `TypingArea` | モード1・2：薄い正解SQLの上に打った文字を重ねて表示。miss の赤い光り |
-| `ChoiceList` | モード2：空欄の下の選択肢。候補が光る。間違いの説明 |
+| `PlayMode12` | モード1・2（打つモード）：TypingArea・ChoiceList（モード2）・結果（TypingResult）・結果の表 ⇄ ステップ再生 |
+| `TypingArea` | モード1・2：薄い正解SQLの上に打った文字を重ねて表示。miss の赤い光り。モード2のまだ埋まっていない空欄は「？」の箱1つで描く（答えの文字数がわからないように） |
+| `ChoiceList` | モード2：今の空欄の選択肢。打った文字に合う候補は打った分を光らせ、合わなくなったものは薄く、選んだ間違いは打ち消し線。間違いを選んだら「なぜ違うか」を出す。空欄の中の miss で揺れる |
 | `PlayMode34` | モード3・4（書いて判定）：依頼の会話とテーブルの一覧、SqlEditor・HintPanel・JudgePanel／WriteResult、書いたSQLの結果の表 ⇄ ステップ再生 |
 | `SqlEditor` | モード3・4：複数行の入力欄（`textarea`）。Ctrl+Enter（⌘+Enter）で実行。Tab でスペース2つ（Shift+Tab などは入力欄の外へ移る）。日本語入力がオンなら知らせる |
 | `HintPanel` | モード3：ヒントを1つずつ開く（①使う句 ②句の順番 ③骨組み） |
@@ -971,7 +991,8 @@ data/
 
 ### ユニットテスト（Vitest、`tests/unit/`）
 - `TypingEngine`：大文字・小文字、区切りスロット（Space / Enter）、文字列の中の区別、miss で進まないこと、句の終わりの通知
-- `ChoiceEngine`：候補の絞り込み、打ち切ったときの確定、正解・間違いの確定、候補が0になる miss
+- `ChoiceEngine`：候補の絞り込み、打ち切ったときの確定、正解・間違いの確定、候補が0になる miss、選んだ間違いを外す、乱数での並び
+- 空欄つきのなぞり書き（`blank-typing.js`）：空欄の範囲の見つけ方、空欄がないときに TypingEngine と同じ、空欄の出入り、数の合計、空欄の中で終わる句、隣り合う空欄
 - `ClauseSplitter`：句の範囲と実行順。括弧・文字列の中のキーワードを数えないこと
 - `Scoring`：cpm・正確さ・ランクの境目の値
 - `ErrorTranslator`：表のすべてのコード、原文の形で出し分けるもの、2つ以上の文、未知のコード
@@ -985,6 +1006,7 @@ data/
   - Zod の形に合う
   - 正解SQLが実行でき、0行でない
   - 空欄の正解が display に1回だけある。選択肢が2〜4個で、どれも別の選択肢の先頭部分でない
+  - 空欄が表示用SQLのスロットの中に見つかり（画面と同じ `locateBlanks`）、空欄どうしが重ならない。空欄の始まり・終わりが語の途中でない。選択肢に打てない文字がない（`checkBlanksPlayable`）。間違いの選択肢の確かめ（`checkWrongChoices`）も、同じ範囲を置き換える
   - 間違いの選択肢を入れたSQLが、判定で正解にならず、`ruleViolation` にもならない（結果が正解と変わる。`checkWrongChoices`）
   - `keywords` がすべて用語辞典にある。ターニングポイントが章の最後に1つだけ
   - `ordered: true` の問題で、並び順が1つに決まる（`checkOrderDetermined`：ORDER BY の後ろに `ctid`（DISTINCT・GROUP BY のときは行全体）の昇順と降順を足して実行し、結果が同じか比べる。ORDER BY がなければ失敗。WITH・UNION などの形は確かめられないので失敗にする。既知の制限：同じ並びの値の行が前から読んでも後ろから読んでも同じ並びのときは見逃す）

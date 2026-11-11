@@ -75,7 +75,8 @@ sql-typing/
   - `local-date.js`：学習記録の日付（その人のタイムゾーンの `YYYY-MM-DD`）
   - `db-jobs.js`：DB を何回も使う仕事（問題の準備・正解の結果づくり・判定・ステップ再生の段階づくり）を1つずつ流す列 `runDbJob`（`tests/unit/ui/` で単体テスト）
 - `components/StepPlayer.jsx`・`StepTable.jsx`：見える化A（ステップ再生）の画面と、1段階の表
-- `components/PlayMode1.jsx`：モード1（なぞり書き）。`components/PlayMode34.jsx`：モード3・4（書いて判定）
+- `components/PlayMode12.jsx`：モード1・2（なぞり書き・打って選ぶ）。`components/PlayMode34.jsx`：モード3・4（書いて判定）
+- `components/TypingArea.jsx`・`ChoiceList.jsx`：打つSQL（モード2の空欄は「？」の箱で隠す）と、モード2の選択肢
 - `components/SqlEditor.jsx`・`HintPanel.jsx`・`JudgePanel.jsx`・`WriteResult.jsx`：書く画面の入力欄・ヒント・判定の結果・クリアの結果
 - `screens/ReplayDemoScreen.jsx`：ステップ再生の見本（`/?demo`）
 - `styles/`: `tokens.css`（色・余白などの CSS 変数。ライト／ダーク）、`global.css`
@@ -112,7 +113,8 @@ ui/
 
 **配置ファイル**:
 - `typing-engine.js`: TypingEngine
-- `choice-engine.js`: ChoiceEngine
+- `choice-engine.js`: ChoiceEngine（モード2の空欄で、選択肢を打って選ぶ）
+- `blank-typing.js`: 空欄つきのなぞり書き（空欄の外は TypingEngine、中は ChoiceEngine。空欄がなければ TypingEngine と同じなので、モード1もこれで動かす）
 - `clause-splitter.js`: ClauseSplitter
 - `judge.js`: Judge
 - `scoring.js`: Scoring（速さ・正確さ・ランク・苦手の集計）
@@ -136,6 +138,7 @@ ui/
 core/
 ├── typing-engine.js
 ├── choice-engine.js
+├── blank-typing.js
 ├── clause-splitter.js
 ├── judge.js
 ├── scoring.js
@@ -230,6 +233,7 @@ tests/unit/
 ├── core/
 │   ├── typing-engine.test.js
 │   ├── choice-engine.test.js
+│   ├── blank-typing.test.js
 │   ├── clause-splitter.test.js
 │   ├── scoring.test.js
 │   ├── judge-compare.test.js  # Judge の純粋な部分（値・表の比べ方、require・forbid の探し方）
@@ -316,6 +320,7 @@ tests/e2e/
 - `answer-checks.js` の `checkClausePrefixes`：見える化C のため、SELECT の問題の句の途中までのSQLを実行しても止まらないことを確かめる
 - `answer-checks.js` の `checkWrongChoices`：間違いの選択肢を入れたSQLが、判定（Judge）で正解にも `ruleViolation` にもならないことを確かめる
 - `answer-checks.js` の `checkOrderDetermined`：`ordered: true` の問題で、並び順が1つに決まることを確かめる
+- `answer-checks.js` の `checkBlanksPlayable`：モード2の空欄が表示用SQLの中に見つかり（画面と同じ `locateBlanks`）、選択肢がすべて打てることを確かめる
 
 ### docs/（ドキュメントディレクトリ）
 
@@ -448,7 +453,7 @@ src/core        src/data
 ### ファイルサイズの管理
 
 - 1ファイル 300行以下を目安にする。300〜500行で分割を考え、500行を超えたら分ける
-- `PlayScreen.jsx` はモードごとの中身が増えやすいので、最初から `PlayMode1.jsx` 〜 `PlayMode34.jsx` に分け、`PlayScreen.jsx` は切り替えだけにする
+- `PlayScreen.jsx` はモードごとの中身が増えやすいので、最初から `PlayMode12.jsx`（打つモード）と `PlayMode34.jsx`（書くモード）に分け、`PlayScreen.jsx` は切り替えだけにする
 
 ## 除外設定
 

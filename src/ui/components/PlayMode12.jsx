@@ -7,14 +7,23 @@ import { ResultTable } from './ResultTable.jsx';
 import { StepPlayer } from './StepPlayer.jsx';
 import { TypingArea } from './TypingArea.jsx';
 import { TypingResult } from './TypingResult.jsx';
-import styles from './PlayMode1.module.css';
+import { ChoiceList } from './ChoiceList.jsx';
+import styles from './PlayMode12.module.css';
+
+const MODE_NAMES = { 1: 'モード1 なぞり書き', 2: 'モード2 打って選ぶ' };
+const GUIDES = {
+  1: '表示されたSQLをそのまま打ちましょう（大文字・小文字はどちらでも）。Esc でもどる。',
+  2: '空欄の外はそのまま打ち、「？」の空欄は下の選択肢を打って選びましょう。Esc でもどる。',
+};
 
 /**
- * モード1（なぞり書き）。真ん中に打つSQL、すぐ下に結果の表（句を打ち終えるたびに変わる）。
+ * モード1（なぞり書き）・モード2（打って選ぶ）。真ん中に打つSQL、すぐ下に結果の表（句を打ち終えるたびに変わる）。
+ * モード2は空欄を「？」の箱で隠し、空欄に来たら選択肢を出す（判定は blank-typing.js）。
  * 打ち終えたら記録して結果を出す。結果で Enter を押すともう一度。
  * 結果の「ステップ再生を見る」で、表の欄がステップ再生（見える化A）に変わる。
  * @param {{
  *   problem: import('../../schema/problem-schema.js').Problem,
+ *   mode: '1' | '2',
  *   keywords: string[],
  *   runner: import('../../data/sql-runner/sql-runner.js').SqlRunner,
  *   replaySpeed: number,
@@ -25,8 +34,9 @@ import styles from './PlayMode1.module.css';
  *   saveFailed: boolean,
  * }} props
  */
-export function PlayMode1({
+export function PlayMode12({
   problem,
+  mode,
   keywords,
   runner,
   replaySpeed,
@@ -44,11 +54,13 @@ export function PlayMode1({
     keywords,
     runner,
     onExit,
-    onDone: ({ okCount, missCount, elapsedMs, mistakes, typed }) => {
+    // モード1は空欄なし（problem.blanks は毎回同じ配列なので、空欄の状態を作り直さない）
+    blanks: mode === '2' ? problem.blanks : undefined,
+    onDone: ({ okCount, missCount, elapsedMs, mistakes, typed, wrongChoices }) => {
       const stats = computeTypingStats({ okCount, missCount, elapsedMs });
       const progress = onRecord({
         problemId: problem.id,
-        mode: '1',
+        mode,
         cleared: true,
         date: localDate(new Date()),
         best: { timeMs: Math.round(elapsedMs), ...stats },
@@ -60,6 +72,7 @@ export function PlayMode1({
         elapsedMs,
         missCount,
         mistakes,
+        wrongChoices,
         weakPoints: topWeakPoints(progress.mistakes, progress.typed),
       });
     },
@@ -90,7 +103,7 @@ export function PlayMode1({
   return (
     <div className={styles.play}>
       <header className={styles.bar}>
-        <span className={styles.badge}>モード1 なぞり書き</span>
+        <span className={styles.badge}>{MODE_NAMES[mode]}</span>
         <span className={styles.problemTitle}>{problem.title}</span>
         <span className={styles.meter} data-testid="meter">
           {(session.elapsedMs / 1000).toFixed(1)}秒 ・ {live.cpm} 文字/分 ・ 正確さ {live.accuracy}%
@@ -98,15 +111,25 @@ export function PlayMode1({
       </header>
       {/* 打っている間に目が行く入力エリアを真ん中に大きく。表はすぐ下に置き、打った瞬間の変化が視線を少し下げるだけで見えるようにする */}
       <section className={styles.stage} aria-label="打つところ">
-        <p className={styles.guide}>
-          表示されたSQLをそのまま打ちましょう（大文字・小文字はどちらでも）。Esc でもどる。
-        </p>
+        <p className={styles.guide}>{GUIDES[mode]}</p>
         {session.imeWarning && (
           <p className={styles.warning} role="alert">
             日本語入力がオンになっています。半角英数に切り替えてください。
           </p>
         )}
-        <TypingArea target={session.target} typing={session.typing} missPulse={session.missPulse} />
+        <TypingArea
+          target={session.target}
+          typing={session.typing}
+          missPulse={session.missPulse}
+          blanks={mode === '2' ? session.blanks : undefined}
+        />
+        {mode === '2' && (
+          <ChoiceList
+            choice={session.blanks.choice}
+            lastWrong={session.lastWrong}
+            missPulse={session.choiceMissPulse}
+          />
+        )}
       </section>
       {summary && (
         <>
@@ -117,6 +140,7 @@ export function PlayMode1({
             thisTimeMistakes={summary.mistakes}
             weakPoints={summary.weakPoints}
             saveFailed={saveFailed}
+            wrongChoices={mode === '2' ? summary.wrongChoices : null}
           />
           {!showReplay && (
             <button

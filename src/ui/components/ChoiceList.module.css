@@ -1,0 +1,95 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  width: min(100%, 52rem);
+}
+
+.guide {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  padding: var(--space-2) var(--space-4);
+  font-family: var(--font-code);
+  font-size: 1.4rem;
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.item code {
+  font-family: inherit;
+  white-space: pre;
+}
+
+/* 打った文字に合う候補：光らせる */
+.candidate {
+  border-color: var(--color-active);
+}
+
+.candidate .typed {
+  color: var(--color-active);
+  font-weight: bold;
+}
+
+/* 打った文字に合わなくなった選択肢 */
+.out {
+  color: var(--color-pending);
+}
+
+/* 選んだ間違い */
+.rejected {
+  color: var(--color-miss);
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+.why {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-miss);
+  border-left-width: 6px;
+  border-radius: var(--radius);
+  color: var(--color-text);
+}
+
+.why code {
+  font-family: var(--font-code);
+  color: var(--color-miss);
+}
+
+.shake {
+  animation: shake 0.25s;
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  33% {
+    transform: translateX(-3px);
+  }
+  66% {
+    transform: translateX(3px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shake {
+    animation: none;
+  }
+}

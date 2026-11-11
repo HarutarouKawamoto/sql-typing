@@ -2,7 +2,7 @@ import { tokenize } from './sql-text.js';
 import { splitClauses } from './clause-splitter.js';
 
 /**
- * モード1（なぞり書き）とモード2の空欄以外の、タイピングの判定。
+ * モード1（なぞり書き）とモード2の空欄以外の、タイピングの判定（モード2の空欄は choice-engine.js、組み合わせは blank-typing.js）。
  * 決まり（docs/functional-design.md の TypingEngine、壁打ちの決定13）：
  * - 文字列 '...'・識別子 "..." の外の英字は大文字・小文字を区別しない。中は区別する
  * - 文字列の外の、連続する空白・改行は1つの「区切りスロット」。Space と Enter のどちらでも正解
@@ -81,11 +81,12 @@ export function createTypingState(_target) {
 }
 
 /**
+ * そのスロットに、そのキーが合うか（ChoiceEngine も同じ比べ方を使う）。
  * @param {Slot} slot
  * @param {string} key
  * @returns {boolean}
  */
-function matches(slot, key) {
+export function slotMatches(slot, key) {
   if (slot.kind === 'separator') return key === ' ' || key === 'Enter';
   if (key === 'Enter') return false;
   return slot.caseSensitive
@@ -105,7 +106,7 @@ export function pressKey(state, target, key) {
   if (!slot) return { state, result: 'ignored' }; // 打ち終えたあと
   if (key.length !== 1 && key !== 'Enter') return { state, result: 'ignored' };
 
-  if (!matches(slot, key)) {
+  if (!slotMatches(slot, key)) {
     const missedSlots = state.missedSlots.includes(state.position)
       ? state.missedSlots
       : [...state.missedSlots, state.position];

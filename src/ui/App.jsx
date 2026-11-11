@@ -18,7 +18,7 @@ function readDemoParams(search) {
 
 /**
  * アプリの入口のコンポーネント。
- * 今は仮の入口（1問目をなぞり書き・ヒントありで書く・ヒントなしで書く）と、遊ぶ画面・ステップ再生の見本の切り替えだけ。
+ * 今は仮の入口（1問目をなぞり書き・打って選ぶ・ヒントありで書く・ヒントなしで書く）と、遊ぶ画面・ステップ再生の見本の切り替えだけ。
  * 一覧画面・会話は後の作業で足す。
  */
 export function App() {
@@ -32,7 +32,7 @@ export function App() {
     saveFailed,
   } = useProgress();
   const [playing, setPlaying] = useState(
-    /** @type {{ problemId: string, mode: '1' | '3' | '4' } | null} */ (null),
+    /** @type {{ problemId: string, mode: '1' | '2' | '3' | '4' } | null} */ (null),
   );
   const exit = useCallback(() => setPlaying(null), []);
   const [demo, setDemo] = useState(() => readDemoParams(window.location.search));
@@ -103,6 +103,14 @@ export function App() {
           type="button"
           className="app-start"
           disabled={!ready}
+          onClick={() => setPlaying({ problemId: 'beginner-01', mode: '2' })}
+        >
+          1問目を打って選ぶ
+        </button>
+        <button
+          type="button"
+          className="app-start"
+          disabled={!ready}
           onClick={() => setPlaying({ problemId: 'beginner-01', mode: '3' })}
         >
           1問目をヒントありで書く
@@ -119,6 +127,12 @@ export function App() {
       {best && (
         <p className="app-best">
           これまでの最高：{best.cpm} 文字/分・正確さ {best.accuracy}%・ランク {best.rank}
+        </p>
+      )}
+      {modes['2']?.best && (
+        <p className="app-best" data-testid="best-mode2">
+          モード2の最高：{modes['2'].best.cpm} 文字/分・正確さ {modes['2'].best.accuracy}%・ランク{' '}
+          {modes['2'].best.rank}
         </p>
       )}
       {['3', '4'].map((mode) => {
