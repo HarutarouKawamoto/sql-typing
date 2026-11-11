@@ -1,0 +1,40 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-ui);
+  line-height: 1.6;
+}
+
+code,
+pre {
+  font-family: var(--font-code);
+}
+
+.app {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: var(--space-5) var(--space-3);
+}
+
+.app-title {
+  margin: 0;
+  font-family: var(--font-code);
+  font-size: 2.5rem;
+}
+
+.app-subtitle {
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-muted);
+}
+
+.app-status {
+  margin-top: var(--space-4);
+  color: var(--color-pending);
+}

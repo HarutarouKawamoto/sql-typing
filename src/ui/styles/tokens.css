@@ -1,0 +1,54 @@
+/*
+ * 色と余白の変数。部品の CSS には色の値を直接書かず、ここの変数を使う。
+ * 色の使い分けは docs/functional-design.md の「カラーコーディング」。
+ */
+:root {
+  --color-bg: #fafaf7;
+  --color-surface: #ffffff;
+  --color-text: #1f2328;
+  --color-text-muted: #6b7280;
+  --color-border: #d8dbe0;
+
+  --color-miss: #d1242f; /* 打ち間違い・WHERE で消える行・エラー */
+  --color-correct: #1a7f37; /* 正解・クリアした星 */
+  --color-active: #bf8700; /* 実行中の句・光っている候補 */
+  --color-focus-table: #0969da; /* DBの地図で触っているテーブル */
+  --color-pending: #9ca3af; /* まだ打っていない文字・開いていない問題・NULL */
+
+  /* 登場人物の名前の色（data/characters.yaml の color。検証テストで定義があるか確かめる） */
+  --color-character-player: #1f2328;
+  --color-character-tencho: #b35900;
+  --color-character-senpai: #6f42c1;
+  --color-character-eigyo: #0e7c86;
+
+  --font-ui: system-ui, -apple-system, 'Segoe UI', 'Hiragino Sans', 'Yu Gothic UI', sans-serif;
+  --font-code: ui-monospace, 'Cascadia Code', Consolas, 'BIZ UDGothic', monospace;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 16px;
+  --space-4: 24px;
+  --space-5: 40px;
+  --radius: 8px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #0f1115;
+    --color-surface: #171a21;
+    --color-text: #e6e8eb;
+    --color-text-muted: #9aa3ae;
+    --color-border: #2c313a;
+
+    --color-miss: #ff6b6b;
+    --color-correct: #4ac26b;
+    --color-active: #e3b341;
+    --color-focus-table: #58a6ff;
+    --color-pending: #6b7280;
+
+    --color-character-player: #e6e8eb;
+    --color-character-tencho: #f0a35e;
+    --color-character-senpai: #b392f0;
+    --color-character-eigyo: #4fc1c9;
+  }
+}

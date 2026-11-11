@@ -1,0 +1,9 @@
+dist/
+node_modules/
+coverage/
+test-results/
+playwright-report/
+.steering/
+docs/
+*.md
+package-lock.json

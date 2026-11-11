@@ -1,0 +1,48 @@
+{
+  "name": "sql-typing",
+  "private": true,
+  "version": "0.0.0",
+  "description": "打って、動きを見て、覚えるSQL（ストーリー付きのタイピング＆クイズ学習サイト）",
+  "type": "module",
+  "engines": {
+    "node": ">=26"
+  },
+  "scripts": {
+    "dev": "vite",
+    "prebuild": "npm run validate:data",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:unit": "vitest run --project unit",
+    "test:integration": "vitest run --project integration",
+    "validate:data": "vitest run --project integration tests/integration/data-validation",
+    "check": "npm run lint && npm run format:check && npm run test",
+    "format:check": "prettier --check .",
+    "test:e2e": "npm run build && playwright test",
+    "check:review": "node scripts/check-review-files.js",
+    "format": "prettier --write ."
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.16",
+    "@xyflow/react": "^12.12.1",
+    "motion": "^14.12.0",
+    "pgsql-ast-parser": "^12.0.2",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.65.0",
+    "@rollup/plugin-yaml": "^5.0.1",
+    "@vitejs/plugin-react": "^6.3.0",
+    "eslint": "^10.14.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.14.0",
+    "prettier": "^3.9.10",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.0",
+    "yaml": "^2.9.1"
+  }
+}

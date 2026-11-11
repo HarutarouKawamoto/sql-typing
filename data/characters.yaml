@@ -1,0 +1,18 @@
+# 登場人物。
+# 形：src/schema/character-schema.js
+- id: player
+  name: あなた
+  role: 新人データ担当
+  color: --color-character-player
+- id: tencho
+  name: 木村
+  role: 店長
+  color: --color-character-tencho
+- id: senpai
+  name: 吉永
+  role: 先輩
+  color: --color-character-senpai
+- id: eigyo
+  name: 長島
+  role: 営業
+  color: --color-character-eigyo

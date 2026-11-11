@@ -1,0 +1,10 @@
+# 全章の一覧と出題順。problemIds の最後がターニングポイント。
+# 形：src/schema/chapter-schema.js
+- id: beginner
+  level: 1
+  title: 初級 新人データ担当、着任
+  seed: beginner.sql
+  tables: [products]
+  newTables: [products]
+  # 問題は「初級1章の問題」の作業で足す
+  problemIds: []

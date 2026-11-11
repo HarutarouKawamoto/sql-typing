@@ -1,0 +1,22 @@
+# わざと決まりを破った問題（検証が失敗することを確かめるためのもの）
+# - id の形が違う / 会話が2行しかない / 正解SQLに日本語と ; / ヒントが2つ / keywords がない
+id: Beginner-3
+chapterId: beginner
+order: 3
+title: 壊れた問題
+kind: normal
+story:
+  before:
+    - { speaker: tencho, text: 一覧を見せて。 }
+    - { speaker: player, text: はい。 }
+  after:
+    - { speaker: senpai, text: 早い。 }
+answer: SELECT name FROM products WHERE name = 'マグカップ';
+blanks:
+  - answer: WHERE name = 'Mug'
+    wrong:
+      - { text: HAVING name = 'Mug', why: まとめていない。 }
+hints:
+  - 一つ目
+  - 二つ目
+judge: { ordered: false }
