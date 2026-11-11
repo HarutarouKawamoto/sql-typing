@@ -72,7 +72,7 @@
 | 必ず使う・使ってはいけない | `require` / `forbid` | 問題ごとの、使うべき・使ってはいけないキーワードの条件 | `ruleViolation` |
 | 順番を比べる | `ordered` | true の問題だけ、行の順番も判定で比べる | `ORDER BY` が必要な問題 |
 | 別解 | — | 正解SQLと書き方は違うが、結果が同じSQL。正解にする | 判定は実行結果で行う |
-| 初期状態 | `initial state`（`prepare` / `reset`） | 章の初期データ＋問題の `extraSql` を流した直後のDB。問題を始めるたび・実行するたびにここへ戻す | スナップショット |
+| 初期状態 | `initial state`（`prepare` / `reset`） | 章の初期データ＋問題の `extraSql` を流した直後のDB。問題を始めるたび・実行するたびにここへ戻す。戻すときはスキーマごと作り直して流し直す | 初期状態の作り直し |
 | エラーの和訳 | `TranslatedError` | PostgreSQL のエラー（SQLSTATE）を、日本語の題名とよくある原因にしたもの | `ErrorTranslator` |
 
 ### 見える化
@@ -156,4 +156,6 @@
 | 依存のルール | — | `ui → core / data → schema` の向きだけ許す。ESLint で止める | |
 | SqlRunner | `SqlRunner` | PGlite への窓口。初期状態の準備と戻し、実行待ちの列、5秒の打ち切り | Worker 版・Node 版 |
 | 打ち切り | `timeout` | 5秒で返事がないSQLを、Worker ごと作り直して止めること | |
-| スナップショット | `__snapshot_<テーブル名>` | 初期状態に戻すために、テーブルの中身をコピーしておく別テーブル | `reset` |
+| 初期状態の作り直し | `restore`（`reset` の中身） | `ROLLBACK`・`DISCARD ALL` のあと、スキーマを消して作り直し、初期データと `extraSql` を流し直すこと。学習者が `DROP TABLE`・`SET ROLE` などをしても戻る。ロール・データベースなどクラスタ全体に残るものは戻らない（問題として出さない） | 初期状態 |
+| バックエンド | `SqlBackend`（`createWorkerBackend` / `createNodeBackend`） | `SqlRunner` の中身。実際に PGlite を動かす部分。ブラウザは Worker 版、テストは Node 版 | SqlRunner |
+| 複数の文 | `multipleStatements` | `;` で区切った2つ以上の文。実行せずにエラーで返す（PGlite の `42601`） | PgError |

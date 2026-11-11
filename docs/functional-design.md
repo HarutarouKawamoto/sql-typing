@@ -88,6 +88,8 @@ CREATE TABLE products (
 
 **初期データの決まり**：
 - `products` は30行。全カテゴリに5行以上、`stock = 0` が3行以上、`supplier IS NULL` が3行以上、名前に `Mug` を含むものが3行以上
+- 値段と名前はすべて違う（`ORDER BY price` の並びが1つに決まり、名前で行を見分けられるように）
+- 決まりは `tests/integration/data-validation/problems.test.js` で確かめる
 - 初期データは章ごとに1つのSQLファイル（`data/seeds/beginner.sql`）。問題ごとに足したい行は、問題YAMLの `setup.extraSql` に書く
 
 ### ER図（中級までの完成形）
@@ -554,18 +556,45 @@ export class SqlRunner {
    * @returns {Promise<{ ok: true, result: QueryResult } | { ok: false, error: PgError } | { ok: false, timeout: true }>}
    */
   async run(sql, { timeoutMs = 5000 } = {}) {}
+  /** バックエンドを止める */
+  async close() {}
 }
 /**
+ * @typedef {string|number|boolean|null} SqlValue
  * @typedef {Object} QueryResult
  * @property {string[]} columns
- * @property {Array<Array<string|number|null>>} rows
- * @property {number} [affectedRows]   - 書き換え系
+ * @property {SqlValue[][]} rows
+ * @property {number} affectedRows     - 書き換え系で書き換えた行数（SELECT は 0）
+ *
+ * @typedef {Object} PgError
+ * @property {string} code             - SQLSTATE（例 '42P01'）
+ * @property {string} message          - PostgreSQL の英語のメッセージ
+ * @property {number} [position]       - エラーの位置（SQLの何文字目か。1から）
+ * @property {boolean} multipleStatements - 2つ以上の文を実行しようとした
  */
 ```
 
-**初期状態の戻し方**：`prepare` で初期データを流したあと、使うテーブルの中身を `__snapshot_<テーブル名>` という別テーブルにコピーしておく。`reset` は各テーブルを `TRUNCATE` してスナップショットから戻し、`SERIAL` の番号も戻す。打ち切ったときは Worker を作り直して `prepare` からやり直す。
+**中身（バックエンド）**：`SqlRunner` は「バックエンドを作る関数」を受け取る。ブラウザでは自前の Web Worker（`pglite.worker.js`）の中で PGlite を動かす Worker 版、テストでは同じプロセスで動かす Node 版を渡す。PGlite 付属の `PGliteWorker`（複数タブで1つのDBを共有する仕組み）は使わない。打ち切りのときに `worker.terminate()` で確実に止めて作り直したいので、タブごとに別のDBを持つ。
 
-**1つの文だけ実行する**：書いたSQLに `;` で区切られた複数の文があるときは実行せず、「1回に実行できるSQLは1つです」と返す（MVP）。
+**実行待ちの列**：`ready`・`prepare`・`reset`・`run`・`close` は1本の列に並び、前が終わってから次が動く。
+
+**初期状態の戻し方**：スキーマごと作り直して、初期データを流し直す。手順は `ROLLBACK`（閉じていないトランザクションを閉じる）→ `DISCARD ALL`（設定・`SET ROLE`・`SET SESSION AUTHORIZATION`・`PREPARE`・カーソル・`LISTEN`・一時テーブル・アドバイザリーロックを片付ける。トランザクションの中では実行できないので `ROLLBACK` と別に流す）→ `public` と学習者が作ったスキーマを `DROP SCHEMA ... CASCADE` → `CREATE SCHEMA public` → 初期データ → `extraSql`。テーブルの中身をコピーしておく方式にしなかったのは、学習者の `DROP TABLE`・`ALTER TABLE`・`CREATE INDEX` で戻せなくなるため（流し直しは PGlite で数ms）。
+
+**戻らないもの（問題として出さない）**：クラスタ全体に残るもの（`CREATE ROLE`・`CREATE DATABASE`・ラージオブジェクト・`CREATE FOREIGN DATA WRAPPER`）と、`information_schema` や拡張 `plpgsql` を消す操作。権限やデータベースの管理はスコープ外（PRD）なので、これらを使う問題は作らない。もし必要になったら、`reset` のたびにバックエンドごと作り直す（ブラウザでは WebAssembly の読み直しで重い）か、PGlite の `dumpDataDir` で初期状態を保存する方式を検討する。
+
+**作り直したあと**：打ち切り・`close()`・PG 以外のエラー（Worker が落ちた など）でバックエンドを捨てたら、次に使う前に必ず初期状態を流し直す（空のDBで実行しない）。打ち切り後の作り直しに失敗しても `timeout` は返し、次の操作でもう一度作り直す。`prepare()` が失敗したら、前の初期状態のまま（次に使うときに流し直す）。`prepare()` の前の `run()`・`reset()` は例外。
+
+**上限時間**：1回の起動は30秒、初期状態の流し直しは15秒まで待つ（WebAssembly の読み込みが止まったときに「準備中」のまま止まらないように）。起動は3回まで試す。
+
+**値の型**：DATE は `'YYYY-MM-DD'`、TIMESTAMP は文字列のまま（タイムゾーンでずれないように）。NUMERIC と BIGINT（`count(*)` など）は数値（判定で `1000` と `1000.0` を同じにするため。安全に扱えない大きな値だけ文字列）。真偽値は boolean。型ごとの変換は `value-parsers.js` で、Worker 版と Node 版で同じものを使う。
+
+**1つの文だけ実行する**：PGlite の `query()` は2つ以上の文を受け付けず、SQLSTATE `42601`（`cannot insert multiple commands into a prepared statement`）を返す。`SqlRunner` はこれを見て `multipleStatements: true` を付けて返す（`;` を自分で数えない）。画面は「1回に実行できるSQLは1つです」と出す。末尾の `;` が1つあるだけのSQLは実行できる。
+
+**エラーの扱い**：PG のエラー（`code` がある）は `{ ok: false, error }` で返す。PG のエラーでないもの（Worker が落ちた、起動に3回失敗した）は例外にする。
+
+**Node 版の制約**：同じプロセスの WebAssembly が動いている間は Node のイベントループも止まるので、打ち切りの時計が動かない（`pg_sleep(2)` は `timeoutMs: 500` でも2秒後に ok で返る）。打ち切りの動きは作り物のバックエンドで単体テストする。終わらない正解SQLがあると、問題データの検証（と `npm run build` の `prebuild`）自体が止まる。
+
+**PG のエラーの見分け方**：`code` が SQLSTATE の形（数字と大文字の5文字）のものだけを PG のエラーとする（Node の `ENOENT` などを学習者のエラーと取り違えないため）。
 
 #### ProblemLoader
 
@@ -824,7 +853,7 @@ data/
 | 8 | 扱っているカテゴリ | `SELECT DISTINCT category FROM products ORDER BY category` | ordered: true |
 | TP | セール前夜のリスト | `SELECT name AS item, category, price FROM products WHERE stock > 0 AND supplier IS NOT NULL AND category IN ('kitchen', 'interior') AND price BETWEEN 1000 AND 5000 ORDER BY price DESC LIMIT 10` | ordered: true, checkColumnNames: true |
 
-※ 7 は同じ値段の商品があると順番が1つに決まらないため、初期データで上位6つの値段が重ならないようにする（データ検証で確かめる）。
+※ 7 は同じ値段の商品があると順番が1つに決まらないため、初期データの値段はすべて違うものにする（`data/seeds/beginner.sql`。データ検証で確かめる）。
 
 ## パフォーマンス最適化
 

@@ -20,7 +20,7 @@
 | React | ^19.3 | 画面 | Next.js で経験がある。状態に応じて画面を作り直す書き方が、モード切り替え・ステップ再生に向く |
 | Vite | ^8.3 | 開発サーバー・ビルド | サーバー機能のいらない SPA を最も少ない設定で作れる。Web Worker と WebAssembly の読み込みに標準で対応している |
 | @vitejs/plugin-react | ^6.3 | Vite で React を使う | 公式のプラグイン |
-| @electric-sql/pglite | ^0.5 | ブラウザの中の PostgreSQL | 本物の PostgreSQL を WebAssembly で動かす。`EXPLAIN ANALYZE` が使える（上級で必要）。Worker 版（`PGliteWorker`）がある |
+| @electric-sql/pglite | ^0.5 | ブラウザの中の PostgreSQL | 本物の PostgreSQL を WebAssembly で動かす。`EXPLAIN ANALYZE` が使える（上級で必要）。自前の Web Worker の中で動かす（付属の `PGliteWorker` は使わない。下の「実行のしくみ」） |
 | pgsql-ast-parser | ^12.0 | SQLの構文解析 | PostgreSQL の書き方を JS の構文木にし、SQLに戻せる（`toSql`）。Stepper で句を組み直すのに使う |
 | motion | ^14.12 | アニメーション | `layout` アニメーションで、行の並び替え・消える動きを少ないコードで書ける |
 | @xyflow/react | ^12.12 | DBの地図 | テーブルの箱と線の図。拡大・移動もそのまま使える |
@@ -100,8 +100,12 @@ graph LR
     PG -- 結果 --> Runner
 ```
 
-- PGlite は `PGliteWorker` で Worker の中に置く。重いSQLでもキー入力と描画は止まらない（PRD：キー入力の反応 16ms 以内）
-- **打ち切り（5秒）**：`SqlRunner.run` がタイマーを持ち、5秒で返事がなければ Worker を `terminate()` して作り直し、`prepare` をやり直す。PGlite の中の `statement_timeout` には頼らない（WebAssembly の中で1本の処理になっているため、確実に止まる保証がない）
+- PGlite は自前の Worker（`src/data/sql-runner/pglite.worker.js`）の中に置く。重いSQLでもキー入力と描画は止まらない（PRD：キー入力の反応 16ms 以内）
+- 付属の `PGliteWorker` を使わない理由：`PGliteWorker` は複数タブで1つのDBを共有する仕組み（リーダーの選出など）を持っていて、打ち切りで止めて作り直す動きが読みにくい。このアプリはタブごとに別のDBでよく、`worker.terminate()` で確実に止められる自前の Worker の方が単純
+- やりとりは `{ id, type: 'ready' | 'exec' | 'query', sql }` → `{ id, ok, result | error }`。エラーは `{ code, message, position }` だけを送る
+- **打ち切り（5秒）**：`SqlRunner.run` がタイマーを持ち、5秒で返事がなければ Worker を `terminate()` して作り直し、初期状態を流し直す。PGlite の中の `statement_timeout` には頼らない（WebAssembly の中で1本の処理になっているため、確実に止まる保証がない）
+- **打ち切りが効くのは Worker 版だけ**：テスト用の Node 版は同じプロセスで WebAssembly を動かすので、実行中はタイマーも動かない。打ち切りの動きは作り物のバックエンドで単体テストする
+- **起動と流し直しの上限**：起動は1回30秒・3回まで、初期状態の流し直しは15秒まで。Worker が落ちた（`error`・`messageerror`）ら、その Worker は捨てて次の操作で作り直す
 - **実行は1つずつ**：`SqlRunner` は実行待ちの列を持ち、前の実行が終わってから次を流す。見える化C は「待っている間に来た新しい要求は最新の1つだけ残す」
 
 ## データ永続化戦略
@@ -139,7 +143,7 @@ graph LR
 
 | リソース | 上限 | 理由 |
 |---------|------|------|
-| 配る量（gzip後） | 初回 5MB 以内（PGlite の WebAssembly とデータ約3MB＋アプリ） | 初回表示 3秒の目標のため。問題データは章ごとに分ける |
+| 配る量（brotli 後） | 初回 5MB 以内（公開先の Cloudflare Pages は brotli で配るため、brotli で測る。2026-11-11 に本人が gzip から変更） | 初回表示 3秒の目標のため。問題データは章ごとに分ける。**実測（2026-11-11、DBが動く作業の時点）：brotli 3.71MB（gzip 5.49MB）**。ほぼ PGlite 本体（`.wasm`・`.data`）。画面の表示に必要な JS は gzip 69KB で、PGlite は裏で読むので一覧の表示は待たせない |
 | メモリ（タブ全体） | 300MB 以内 | PGlite（初級〜中級のデータ）＋ React。上級の5万行のデータは、その問題を開いたときだけ作る |
 | localStorage | 100KB 以内 | 学習記録は問題数 × モード数の記録だけ。ブラウザの上限（約5MB）に十分余裕がある |
 
@@ -150,6 +154,7 @@ graph LR
 - **暗号化**：しない。保存するのは学習記録だけで、個人情報を持たない
 - **外部への送信**：アプリのコードに `fetch`・`XMLHttpRequest`・`WebSocket` で外に送る処理を書かない（`src/` の中では ESLint のエラーにする。どうしても使うときは `eslint-disable-next-line` と理由のコメントを書く）
 - **Content Security Policy**（公開時、P1）：`default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src 'self'`。外部のスクリプト・接続を許さない
+- **配信の圧縮（brotli）**：圧縮は Cloudflare Pages、伸張はブラウザが行い、アプリは brotli のライブラリを持たない。配るのは誰にでも同じ静的ファイルだけで、秘密の値（クッキー・トークン）も利用者ごとに変わるレスポンスもないため、圧縮を使った盗み見（BREACH・CRIME）は当てはまらない（2026-11-11 判断）。ログインや利用者ごとのページを足すときは見直す
 
 ### 入力検証
 

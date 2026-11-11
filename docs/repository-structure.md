@@ -61,7 +61,7 @@ sql-typing/
 - `screens/*.jsx`: 1つの画面（`HomeScreen.jsx`、`PlayScreen.jsx`、`DictionaryScreen.jsx`、`SettingsScreen.jsx`）
 - `components/*.jsx`: 画面の部品（`TypingArea.jsx`、`ChoiceList.jsx`、`SqlEditor.jsx`、`StepPlayer.jsx`、`ResultTable.jsx`、`SchemaMap.jsx` など）
 - `components/*.module.css`: 部品と同じ名前の CSS Modules
-- `state/*.js`: Context・reducer・独自フック（`use-play-session.js` など）
+- `state/*.js`: Context・reducer・独自フック（`use-play-session.js` など）。`database.js`：アプリに1つだけの SqlRunner と、起動の状態を返す `useDatabaseStatus`
 - `styles/`: `tokens.css`（色・余白などの CSS 変数。ライト／ダーク）、`global.css`
 
 **命名規則**:
@@ -137,9 +137,12 @@ core/
 
 **配置ファイル**:
 - `sql-runner/sql-runner.js`: `SqlRunner`（打ち切り・実行待ちの列・初期状態への戻し方。中身の PGlite とのやりとりは下の2つに任せる）
-- `sql-runner/worker-backend.js`: ブラウザ用（`PGliteWorker` を使う）
-- `sql-runner/pglite.worker.js`: Worker の中で動くファイル
-- `sql-runner/node-backend.js`: テスト用（Node で PGlite を直接使う）
+- `sql-runner/worker-backend.js`: ブラウザ用。自前の Worker（`pglite.worker.js`）とやりとりする
+- `sql-runner/pglite.worker.js`: Worker の中で PGlite を動かすファイル
+- `sql-runner/node-backend.js`: テスト用（Node で PGlite を直接使う）。`index.js` からは export しない（画面のビルドに入れない）
+- `sql-runner/value-parsers.js`: 型ごとの値の変換（Worker 版と Node 版で共有）
+- `sql-runner/index.js`: 画面から使うものをまとめて export
+- `seed-loader.js`: `data/seeds/*.sql` を `import.meta.glob` の `?raw` で文字列として読む
 - `problem-loader.js`: ProblemLoader（`import.meta.glob` で章ごとに読み込み、`src/schema/` で検証）
 - `progress-store.js`: ProgressStore（localStorage、記録の形の移し替え）
 
@@ -214,7 +217,9 @@ tests/unit/
 │   ├── scoring.test.js
 │   └── error-translator.test.js
 ├── data/
-│   └── progress-store.test.js
+│   ├── progress-store.test.js
+│   ├── sql-runner.test.js     # 作り物のバックエンドで、実行待ちの列・打ち切り・起動の再試行
+│   └── value-parsers.test.js
 ├── schema/
 │   ├── cross-checks.test.js
 │   └── schemas.test.js        # Zod スキーマの決まり（会話の行数・進捗の形など）
@@ -235,8 +240,11 @@ tests/integration/
 │   └── judge.test.js
 ├── stepper/
 │   └── beginner-steps.test.js
+├── sql-runner/
+│   └── node-runner.test.js    # Node 版の PGlite で、結果の形・値の型・エラー・初期状態への戻し方
 ├── data-validation/
-│   └── problems.test.js       # 問題データの検証（安全柵）
+│   ├── problems.test.js       # 問題データの検証（安全柵）。初期データの決まり・正解SQLの実行も
+│   └── answer-checks.test.js  # 「正解SQLが実行でき0行でない」の検証そのものが働くこと
 └── scripts/
     └── check-review-files.test.js   # 一時フォルダの本物の git で差分の集め方を確かめる
 ```
@@ -270,7 +278,9 @@ tests/e2e/
 - `load-data.js`：`data/` の YAML を Node から読む（検証テスト用）。Zod の失敗を1行ずつの説明にする
 - `problem-factory.js`：決まりをすべて満たした問題・章・用語・登場人物を作る（一部だけ上書きして違反を作る）
 - `fixtures/`：テスト用の小さなデータ（`broken-problem.yaml`：わざと決まりを破った問題）
-- 後で足すもの：`memory-storage.js`（localStorage の作り物）、`make-runner.js`（Node 版の SqlRunner を作る）
+- `make-runner.js`：Node 版の SqlRunner を作る。`data/seeds/` の初期データを読む
+- `answer-checks.js`：PGlite を使う問題データの検証（正解SQLが実行でき0行でない）
+- 後で足すもの：`memory-storage.js`（localStorage の作り物）
 
 ### docs/（ドキュメントディレクトリ）
 
