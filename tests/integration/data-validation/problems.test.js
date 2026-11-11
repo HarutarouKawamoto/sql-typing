@@ -11,7 +11,13 @@ import {
 } from '../../../src/schema/index.js';
 import { loadDataDir, describeZodError } from '../../helpers/load-data.js';
 import { makeNodeRunner, readSeed } from '../../helpers/make-runner.js';
-import { checkAnswersRun, checkClausePrefixes, checkTypable } from '../../helpers/answer-checks.js';
+import {
+  checkAnswersRun,
+  checkClausePrefixes,
+  checkTypable,
+  checkWrongChoices,
+  checkOrderDetermined,
+} from '../../helpers/answer-checks.js';
 
 /*
  * 問題データの検証（安全柵）。1つでも失敗したら prebuild で build が止まる。
@@ -124,6 +130,26 @@ describe('PGlite で確かめる決まり', () => {
 
   it('SELECT の問題は句に分けられ、句の途中までのSQLを実行しても止まらない（見える化C）', async () => {
     const issues = await checkClausePrefixes({
+      runner,
+      chapters: chapters.value ?? [],
+      entries: problems.filter((p) => p.value).map((p) => ({ file: p.file, problem: p.value })),
+      readSeed,
+    });
+    expect(issues).toEqual([]);
+  });
+
+  it('モード2の間違いの選択肢を入れたSQLが、判定で正解にならない', async () => {
+    const issues = await checkWrongChoices({
+      runner,
+      chapters: chapters.value ?? [],
+      entries: problems.filter((p) => p.value).map((p) => ({ file: p.file, problem: p.value })),
+      readSeed,
+    });
+    expect(issues).toEqual([]);
+  });
+
+  it('ordered: true の問題は、行の並びが1つに決まる', async () => {
+    const issues = await checkOrderDetermined({
       runner,
       chapters: chapters.value ?? [],
       entries: problems.filter((p) => p.value).map((p) => ({ file: p.file, problem: p.value })),

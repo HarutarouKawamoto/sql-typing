@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { checkAnswersRun, checkClausePrefixes, checkTypable } from '../../helpers/answer-checks.js';
+import {
+  checkAnswersRun,
+  checkClausePrefixes,
+  checkTypable,
+  checkWrongChoices,
+  checkOrderDetermined,
+} from '../../helpers/answer-checks.js';
 import { makeNodeRunner } from '../../helpers/make-runner.js';
 import { makeProblem, makeChapter } from '../../helpers/problem-factory.js';
 
@@ -135,9 +141,157 @@ describe('checkAnswersRun', () => {
     expect(issues).toEqual([expect.stringContaining('打ちながら実行できません')]);
   });
 
+  it('間違いの選択肢：判定で正解になってしまう選択肢を見つけ、本当に違う選択肢は0件', async () => {
+    const run = (problem) =>
+      checkWrongChoices({
+        runner,
+        chapters: [makeChapter()],
+        entries: [{ file: 'beginner/x.yaml', problem }],
+        readSeed,
+      });
+    // テスト用の初期データ（Mug 1200・Pen 300）では、price > 300 と price >= 1000 は同じ結果
+    const sameResult = makeProblem({
+      answer: 'SELECT name FROM products WHERE price >= 1000',
+      blanks: [
+        {
+          answer: 'price >= 1000',
+          wrong: [
+            { text: 'price > 300', why: '-' },
+            { text: 'price < 1000', why: '-' },
+          ],
+        },
+      ],
+    });
+    expect(await run(sameResult)).toEqual([
+      expect.stringContaining('「price > 300」を入れても正解'),
+    ]);
+    expect(await run(makeProblem())).toEqual([]);
+  });
+
+  it('間違いの選択肢：空欄の正解が表示用SQLにそのままの文字でないと見つける', async () => {
+    const issues = await checkWrongChoices({
+      runner,
+      chapters: [makeChapter()],
+      entries: [
+        {
+          file: 'beginner/x.yaml',
+          problem: makeProblem({
+            blanks: [
+              { answer: 'where price >= 1000', wrong: [{ text: 'ORDER BY price', why: '-' }] },
+            ],
+          }),
+        },
+      ],
+      readSeed,
+    });
+    expect(issues).toEqual([expect.stringContaining('そのままの文字で見つかりません')]);
+  });
+
+  it('並び：ordered で同じ値の行があると見つけ、1つに決まる問題は0件', async () => {
+    const run = (answer) =>
+      checkOrderDetermined({
+        runner,
+        chapters: [makeChapter()],
+        entries: [
+          {
+            file: 'beginner/x.yaml',
+            problem: makeProblem({
+              answer,
+              judge: { ordered: true, checkColumnNames: false, require: [], forbid: [] },
+            }),
+          },
+        ],
+        readSeed,
+      });
+    expect(await run('SELECT name, price FROM products ORDER BY price DESC')).toEqual([]);
+    // 同じ値（price が同じ）の行を足すと、並びが決まらない
+    const tied = await checkOrderDetermined({
+      runner,
+      chapters: [makeChapter()],
+      entries: [
+        {
+          file: 'beginner/x.yaml',
+          problem: makeProblem({
+            answer: 'SELECT name FROM products ORDER BY price',
+            judge: { ordered: true, checkColumnNames: false, require: [], forbid: [] },
+          }),
+        },
+      ],
+      readSeed: () => `${SEED}\nINSERT INTO products (name, price) VALUES ('Cup', 300);`,
+    });
+    expect(tied).toEqual([expect.stringContaining('並びが1つに決まりません')]);
+    expect(await run('SELECT name FROM products')).toEqual([
+      expect.stringContaining('ORDER BY がありません'),
+    ]);
+  });
+
+  it('並び：DISTINCT の問題でも確かめられる', async () => {
+    const issues = await checkOrderDetermined({
+      runner,
+      chapters: [makeChapter()],
+      entries: [
+        {
+          file: 'beginner/x.yaml',
+          problem: makeProblem({
+            answer: 'SELECT DISTINCT name FROM products ORDER BY name',
+            judge: { ordered: true, checkColumnNames: false, require: [], forbid: [] },
+          }),
+        },
+      ],
+      readSeed,
+    });
+    expect(issues).toEqual([]);
+  });
+
   it('書き換え系の正解SQLが行を書き換えれば問題0件', async () => {
     expect(
       await check([makeProblem({ answer: 'UPDATE products SET price = 0 WHERE id = 1' })]),
     ).toEqual([]);
+  });
+});
+
+describe('検証で見つかった見逃し', () => {
+  it('間違いの選択肢：結果は同じで条件だけ違う（ruleViolation）選択肢も見つける', async () => {
+    const problem = makeProblem({
+      answer: 'SELECT name FROM products WHERE price BETWEEN 300 AND 1200',
+      blanks: [
+        {
+          answer: 'BETWEEN 300 AND 1200',
+          wrong: [{ text: '>= 300 AND price <= 1200', why: '-' }],
+        },
+      ],
+      judge: { ordered: false, checkColumnNames: false, require: ['BETWEEN'], forbid: [] },
+    });
+    const issues = await checkWrongChoices({
+      runner,
+      chapters: [makeChapter()],
+      entries: [{ file: 'beginner/x.yaml', problem }],
+      readSeed,
+    });
+    expect(issues).toEqual([expect.stringContaining('条件だけが違う')]);
+  });
+
+  it('並び：GROUP BY の問題でも確かめられ、WITH は確かめられない形として知らせる', async () => {
+    const run = (answer) =>
+      checkOrderDetermined({
+        runner,
+        chapters: [makeChapter()],
+        entries: [
+          {
+            file: 'beginner/x.yaml',
+            problem: makeProblem({
+              answer,
+              judge: { ordered: true, checkColumnNames: false, require: [], forbid: [] },
+            }),
+          },
+        ],
+        readSeed,
+      });
+    expect(await run('SELECT name, count(*) FROM products GROUP BY name ORDER BY name')).toEqual(
+      [],
+    );
+    expect(
+      await run('WITH t AS (SELECT name FROM products) SELECT name FROM t ORDER BY name'),
+    ).toEqual([expect.stringContaining('確かめられない形')]);
   });
 });

@@ -198,6 +198,7 @@ erDiagram
  * @property {string[]} [require]         - 必ず使うキーワード（例 ['BETWEEN']）
  * @property {string[]} [forbid]          - 使ってはいけないキーワード
  * @property {string} [compareTable]      - 書き換え系（P1）：実行後にこのテーブルの中身を比べる
+ * @property {string[]} [ignoreColumns]   - 書き換え系で比べない列（SERIAL の id など、正しい書き方でも値が変わる列）
  */
 ```
 
@@ -472,33 +473,47 @@ export async function buildSteps(sql, runner) {}
 
 **インターフェース**:
 ```js
+/** 正解の結果を作る（問題を開いたときに1回）。前とあとに DB を初期状態に戻す */
+export async function computeExpected({ problem, runner }) {} // { ok: true, table } | { ok: false, message }
 /**
- * @param {{ sql: string, problem: Problem, runner: SqlRunner }} args
+ * @param {{ sql: string, problem: Problem, runner: SqlRunner, expected?: Expected }} args
+ *   expected を省くとその場で computeExpected する。正解SQLが動かないとき（問題データの間違い）は例外
  * @returns {Promise<JudgeResult>}
  *
  * @typedef {Object} JudgeResult
  * @property {'correct'|'wrong'|'ruleViolation'|'error'|'timeout'} status
- * @property {string} [reason]       - 'rowCount' / 'columnCount' / 'columnNames' / 'values' / 'order'
+ * @property {string} [reason]       - 'empty' / 'columnCount' / 'columnNames' / 'columnOrder' / 'rowCount' / 'values' / 'order' / 'tableMissing'
  * @property {string} [message]      - 日本語の説明（例：'行の数が違います（あなた：12行／正解：8行）'）
  * @property {QueryResult} [mine]
  * @property {QueryResult} [expected]
  * @property {TranslatedError} [error]
  */
 export async function judge(args) {}
+// 純粋な関数（単体テストする）：cellsEqual・normalizeCell・compareTables・findRuleViolation
 ```
 
 **判定の順番**:
-1. DBを問題の初期状態に戻し、書いたSQLを実行する。エラーなら `error`（ErrorTranslator で和訳）、5秒を超えたら `timeout`
-2. DBをもう一度初期状態に戻し、正解SQLを実行する（正解の結果は問題を開いたときに一度だけ作ってとっておく）
-3. 列の数を比べる → 違えば `wrong / columnCount`
-4. `checkColumnNames` が true なら列名を比べる → `wrong / columnNames`
-5. 行の数を比べる → `wrong / rowCount`
-6. 値を比べる。`ordered` が false なら、両方の行を同じ決まりで並べ直してから比べる → `wrong / values`
-7. `ordered` が true なら、そのままの順番で比べる → `wrong / order`
-8. `require` と `forbid` を確かめる（文字列リテラルとコメントを除いたトークンで照合）→ 合わなければ `ruleViolation`（結果は正しいことも伝える）
-9. すべて通れば `correct`
+1. SQLが空（空白・コメントだけ）なら `wrong / empty`
+2. DBを問題の初期状態に戻し、書いたSQLを実行する。エラーなら `error`（ErrorTranslator で和訳）、5秒を超えたら `timeout`。書き換え系（`compareTable`）は実行後のテーブルの中身を読み、テーブルがなくなっていれば `wrong / tableMissing`
+3. 正解の結果と比べる（正解の結果は問題を開いたときに `computeExpected` で一度だけ作ってとっておく）
+4. 列の数を比べる → 違えば `wrong / columnCount`
+5. `checkColumnNames` が true なら列名を比べる（大文字・小文字は無視）→ `wrong / columnNames`
+6. 行の数を比べる → `wrong / rowCount`
+7. 値を比べる（同じ行が2つあれば2つとも要る）。`ordered` が false なら並びは無視。列の名前が同じで並び順だけが違い、並べ直すと合うなら `wrong / columnOrder`、そうでなければ `wrong / values`（違う行の例を出す）
+8. `ordered` が true なら、そのままの順番で比べる → `wrong / order`
+9. `require` と `forbid` を確かめる → 合わなければ `ruleViolation`（結果は正しいことも伝える）
+10. すべて通れば `correct`
+11. 最後に DB を初期状態に戻す（例外・打ち切りのときも）。judge は reset → 実行 → reset を順に行うので、画面からは1つずつ呼ぶ（2つを同時に呼ぶと、片方の実行の間にもう片方の reset が入る）。最後の reset が失敗すると、その例外が判定の結果に代わって投げられる
 
-**値の比べ方**：数値は数値として比べる（`1000` と `1000.0` は同じ）。`NULL` は `NULL` どうしだけ同じ。日付は `YYYY-MM-DD` の文字列にそろえる。
+**値の比べ方**：
+- 数値は許容誤差（相対 1e-9）で比べる（`1000` と `1000.0`、`0.1 + 0.2` と `0.3` は同じ）。丸めて比べると目盛りの境目で同じ値が分かれるため、丸めない
+- NaN・±Infinity は NaN どうし・同じ向きの Infinity どうしだけ同じ（NULL とは違う）
+- 数値と文字列（`1` と `'1'`）、`NULL` と文字列 `'NULL'` は違う。`NULL` は `NULL` どうしだけ同じ
+- 日付は `YYYY-MM-DD` の文字列（SqlRunner がそろえる）
+- 書き換え系は並びと列の名前を比べない。`ignoreColumns`（例 `['id']`）の列は比べない（SERIAL の id は、`VALUES` の行の順番を変えた正しい別解でも値が変わるため）
+- 既知の制限：17桁を超える NUMERIC は数値にすると丸まる（初級・中級には出ない）。`checkColumnNames` は大文字・小文字を区別しない（`AS "Total"` と `AS total` は同じ）
+
+**条件（require・forbid）の探し方**：空白・コメント・文字列・`"…"` の識別子を除いたトークンで、記号を残したまま並びを探す（`ORDER, BY` は ORDER BY ではない）。`t.in` のように直前が `.` の単語は列名なので数えない。`COUNT`・`SUM` などの関数名は、次が `(` のときだけ数える（`SELECT 30 AS count` で COUNT を使ったことにしない）。既知の制限：サブクエリの中だけに出てくる語も数える、`NOT BETWEEN` も BETWEEN を使ったことになる。
 
 #### ErrorTranslator
 
@@ -525,9 +540,21 @@ export function translateError(pgError) {}
 | 22012 | division_by_zero | 0で割っています | 割る数が0の行がある |
 | 42P10 | invalid_column_reference | ORDER BY の指定が正しくありません | `SELECT DISTINCT` で、選んでいない列で並べている |
 | 23502 | not_null_violation | 空にできない列を空にしようとしています | （中級）`INSERT` で必要な列を書いていない |
+| 22007 | invalid_datetime_format | 日付・時刻の書き方が正しくありません | 日付を `'年-月-日'` の形で書いていない |
+| 22008 | datetime_field_overflow | ありえない日付・時刻です | 13月や32日のような日付 |
+| 2201W | invalid_row_count_in_limit_clause | LIMIT の数が正しくありません | LIMIT に負の数 |
 | 23505 | unique_violation | 同じ値がすでにあります | （中級）`id` が重なっている |
 
-当てはまらないコードは「エラーが起きました」＋英語の原文を出す。英語の原文は、どのエラーでも折りたたんで見られるようにする。
+同じコードでも原因が違うものは、英語の原文の形で見分けて題名・原因を変える：
+
+| コード | 原文の形 | 題名 |
+|---|---|---|
+| 42P01 | `invalid reference to FROM-clause entry` | 別名を付けたテーブルを、元の名前で書いています |
+| 42803 | `aggregate functions are not allowed in WHERE` | WHERE の中では集計関数を使えません（HAVING を勧める） |
+| 22P02 | `type boolean` | 条件のところに、条件ではない値を書いています |
+| 42601 | `at end of input` | 題名は 42601 のまま、原因の先頭に「SQLが途中で終わっています」を足す |
+
+2つ以上の文（SqlRunner の `multipleStatements`）は「1回に実行できるSQLは1つです」。当てはまらないコードは「エラーが起きました」＋英語の原文を出す（原因は空）。英語の原文は、どのエラーでも折りたたんで見られるようにする。
 
 #### Scoring
 
@@ -938,19 +965,20 @@ data/
 - `ChoiceEngine`：候補の絞り込み、打ち切ったときの確定、正解・間違いの確定、候補が0になる miss
 - `ClauseSplitter`：句の範囲と実行順。括弧・文字列の中のキーワードを数えないこと
 - `Scoring`：cpm・正確さ・ランクの境目の値
-- `ErrorTranslator`：表のすべてのコード、未知のコード
+- `ErrorTranslator`：表のすべてのコード、原文の形で出し分けるもの、2つ以上の文、未知のコード
+- `Judge` の純粋な部分：値の比べ方（許容誤差・NaN・Infinity・NULL）、表の比べ方（各 `reason`）、`require`・`forbid` の探し方（ドット付きの語・記号をはさむ語・関数名）
 - `ProgressStore`：壊れたデータからの復帰、`isUnlocked`（ターニングポイントはモード3・4だけで次の章が開く）
 
 ### 統合テスト（Vitest + PGlite（Node 版）、`tests/integration/`）
-- `Judge`：正解・別解（`IN` と `OR` の書き換え）・行数違い・順番違い・列名違い・`require` 違反・エラー・タイムアウト
+- `Judge`：正解・別解（`IN` と `OR` の書き換え）・行数違い・順番違い・列名違い・列の並び順違い・`require` 違反・エラー・2つ以上の文・タイムアウト（作り物の SqlRunner）・判定のあと DB が初期状態に戻ること・書き換え系（`compareTable`・`ignoreColumns`・テーブルを消したとき）・空のSQL
 - `Stepper`：初級9問の正解SQLすべてで、最後の段階が元のSQLの結果と一致すること。WHERE で消えた行・DISTINCT でまとまった行が正しいこと
 - **問題データの検証（安全柵、PRD の開発プロセス要件）**：`data/` の全ファイルについて
   - Zod の形に合う
   - 正解SQLが実行でき、0行でない
   - 空欄の正解が display に1回だけある。選択肢が2〜4個で、どれも別の選択肢の先頭部分でない
-  - 間違いの選択肢を入れたSQLが、判定で正解にならない
+  - 間違いの選択肢を入れたSQLが、判定で正解にならず、`ruleViolation` にもならない（結果が正解と変わる。`checkWrongChoices`）
   - `keywords` がすべて用語辞典にある。ターニングポイントが章の最後に1つだけ
-  - `ordered: true` の問題で、並び順が1つに決まる（同じ並びの値の行がない）
+  - `ordered: true` の問題で、並び順が1つに決まる（`checkOrderDetermined`：ORDER BY の後ろに `ctid`（DISTINCT・GROUP BY のときは行全体）の昇順と降順を足して実行し、結果が同じか比べる。ORDER BY がなければ失敗。WITH・UNION などの形は確かめられないので失敗にする。既知の制限：同じ並びの値の行が前から読んでも後ろから読んでも同じ並びのときは見逃す）
 
 ### E2Eテスト（Playwright、`tests/e2e/`）
 - 初級1問目を、モード1〜4のそれぞれで最後まで遊んでクリアできる
