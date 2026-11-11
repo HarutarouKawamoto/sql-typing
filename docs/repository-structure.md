@@ -224,6 +224,7 @@ tests/unit/
 │   ├── choice-engine.test.js
 │   ├── clause-splitter.test.js
 │   ├── scoring.test.js
+│   ├── judge-compare.test.js  # Judge の純粋な部分（値・表の比べ方、require・forbid の探し方）
 │   └── error-translator.test.js
 ├── data/
 │   ├── progress-store.test.js
@@ -250,7 +251,7 @@ tests/unit/
 ```
 tests/integration/
 ├── judge/
-│   └── judge.test.js
+│   └── judge.test.js          # 本物の PGlite で判定（正解・別解・間違いの種類・エラー・書き換え系・DB の戻し方）
 ├── stepper/
 │   └── beginner-steps.test.js # 初級9問の形のステップ再生が、元のSQLの結果と一致する
 ├── sql-runner/
@@ -298,6 +299,8 @@ tests/e2e/
 - `answer-checks.js`：PGlite を使う問題データの検証（正解SQLが実行でき0行でない）
 - `memory-storage.js`：localStorage の作り物（`failOnSet` で書けない環境の真似もできる）
 - `answer-checks.js` の `checkClausePrefixes`：見える化C のため、SELECT の問題の句の途中までのSQLを実行しても止まらないことを確かめる
+- `answer-checks.js` の `checkWrongChoices`：間違いの選択肢を入れたSQLが、判定（Judge）で正解にも `ruleViolation` にもならないことを確かめる
+- `answer-checks.js` の `checkOrderDetermined`：`ordered: true` の問題で、並び順が1つに決まることを確かめる
 
 ### docs/（ドキュメントディレクトリ）
 

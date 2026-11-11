@@ -72,6 +72,9 @@
 | 必ず使う・使ってはいけない | `require` / `forbid` | 問題ごとの、使うべき・使ってはいけないキーワードの条件 | `ruleViolation` |
 | 順番を比べる | `ordered` | true の問題だけ、行の順番も判定で比べる | `ORDER BY` が必要な問題 |
 | 別解 | — | 正解SQLと書き方は違うが、結果が同じSQL。正解にする | 判定は実行結果で行う |
+| 不正解の理由 | `reason` | `wrong` のときの、どこが違ったか。`empty`・`columnCount`・`columnNames`・`columnOrder`・`rowCount`・`values`・`order`・`tableMissing` | `JudgeResult.reason` |
+| 正解の結果 | `expected`（`computeExpected`） | 正解SQLを初期状態で実行した結果。問題を開いたときに1回だけ作り、判定のたびに使う | 書き換え系は実行後のテーブルの中身 |
+| 比べない列 | `ignoreColumns` | 書き換え系で、正しい書き方でも値が変わる列（SERIAL の `id` など）。判定で比べない | `INSERT` の問題 |
 | 初期状態 | `initial state`（`prepare` / `reset`） | 章の初期データ＋問題の `extraSql` を流した直後のDB。問題を始めるたび・実行するたびにここへ戻す。戻すときはスキーマごと作り直して流し直す | 初期状態の作り直し |
 | エラーの和訳 | `TranslatedError` | PostgreSQL のエラー（SQLSTATE）を、日本語の題名とよくある原因にしたもの | `ErrorTranslator` |
 

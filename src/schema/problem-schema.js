@@ -56,6 +56,8 @@ export const JudgeRuleSchema = z
     require: z.array(z.string().min(1)).default([]),
     forbid: z.array(z.string().min(1)).default([]),
     compareTable: z.string().min(1).optional(),
+    // 書き換え系で比べない列（SERIAL の id など、正しい書き方でも値が変わる列）
+    ignoreColumns: z.array(z.string().min(1)).optional(),
   })
   .strict();
 

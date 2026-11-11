@@ -1,14 +1,136 @@
 /**
  * PGlite を使う問題データの検証。
- * 今は「正解SQLが、その章の初期データ＋extraSql の上で実行でき、結果が空でない」を確かめる。
- * 「間違いの選択肢が判定で不正解になる」「順番が1つに決まる」は Judge を作る作業で足す。
+ * - 正解SQLが、その章の初期データ＋extraSql の上で実行でき、結果が空でない（checkAnswersRun）
+ * - 句の途中までのSQLを実行しても止まらない（checkClausePrefixes）
+ * - モード2の間違いの選択肢を入れたSQLが、判定で正解にならない（checkWrongChoices）
+ * - ordered の問題の並びが1つに決まる（checkOrderDetermined）
  *
  * 注意：Node 版の PGlite では打ち切りの時計が動かない（node-backend.js）。
  * 終わらない正解SQLがあると、この検証（と npm run build の prebuild）自体が止まる。
  */
 import { splitClauses, canRunWhileTyping } from '../../src/core/clause-splitter.js';
+import { judge, computeExpected } from '../../src/core/judge.js';
 import { tokenize } from '../../src/core/sql-text.js';
+import { splitSelectList } from '../../src/core/stepper/select-list.js';
 import { buildTarget, untypableSlots } from '../../src/core/typing-engine.js';
+
+/**
+ * 問題ごとに、章の初期データ＋extraSql の状態にしてから fn を呼ぶ（章・初期データがない問題は飛ばす。別の検証で報告する）
+ * @param {Parameters<typeof checkAnswersRun>[0]} args
+ * @param {(entry: { file: string, problem: import('../../src/schema/problem-schema.js').Problem }) => Promise<string[]>} fn
+ */
+async function forEachPrepared({ runner, chapters, entries, readSeed }, fn) {
+  const seedOf = new Map(chapters.map((chapter) => [chapter.id, chapter.seed]));
+  const issues = [];
+  for (const entry of entries) {
+    const seedFile = seedOf.get(entry.problem.chapterId);
+    if (!seedFile) continue;
+    try {
+      await runner.prepare({ seedSql: readSeed(seedFile), extraSql: entry.problem.setup.extraSql });
+    } catch {
+      continue; // 初期データ・extraSql の問題は checkAnswersRun が報告する
+    }
+    issues.push(...(await fn(entry)));
+  }
+  return issues;
+}
+
+/**
+ * モード2の間違いの選択肢を空欄に入れたSQLが、判定で正解にならないか。
+ * （例：ちょうど1000円の商品がないと、price >= 1000 の問題の「price > 1000」は正解になってしまう）
+ * @param {Parameters<typeof checkAnswersRun>[0]} args
+ * @returns {Promise<string[]>}
+ */
+export async function checkWrongChoices(args) {
+  return forEachPrepared(args, async ({ file, problem }) => {
+    const issues = [];
+    const expected = await computeExpected({ problem, runner: args.runner });
+    if (!expected.ok) return issues; // 正解SQLの問題は checkAnswersRun が報告する
+    const shown = problem.display ?? problem.answer;
+    for (const [index, blank] of problem.blanks.entries()) {
+      const at = shown.indexOf(blank.answer);
+      if (at === -1) {
+        issues.push(
+          `${file}: 空欄${index + 1}の正解「${blank.answer}」が、表示用SQLにそのままの文字で見つかりません（置き換えて確かめられない）`,
+        );
+        continue;
+      }
+      for (const wrong of blank.wrong) {
+        const sql = shown.slice(0, at) + wrong.text + shown.slice(at + blank.answer.length);
+        const result = await judge({ sql, problem, runner: args.runner, expected });
+        if (result.status === 'correct') {
+          issues.push(
+            `${file}: 空欄${index + 1}の間違いの選択肢「${wrong.text}」を入れても正解になります（初期データでは結果が同じ）`,
+          );
+        } else if (result.status === 'ruleViolation') {
+          // 結果が同じで、条件（require・forbid）だけが違う。モード2では「間違いなのに結果が同じ」に見える
+          issues.push(
+            `${file}: 空欄${index + 1}の間違いの選択肢「${wrong.text}」を入れても結果は同じです（条件だけが違う。結果が変わる選択肢にする）`,
+          );
+        }
+      }
+    }
+    return issues;
+  });
+}
+
+/**
+ * ordered: true の問題で、行の並びが1つに決まるか。
+ * 同じ並びの値の行があると、同じ値どうしの並べ方（ctid や行全体の向き）を変えたときに並び（と LIMIT で残る行）が変わる。
+ * - 単一のテーブルで DISTINCT・GROUP BY のない形：`… ORDER BY o, ctid ASC` と `DESC` を比べる
+ * - それ以外（DISTINCT・GROUP BY・HAVING・JOIN・サブクエリ）：ORDER BY と LIMIT を外したSQLを
+ *   `SELECT * FROM (…) AS __t ORDER BY o, __t::text ASC` と `DESC` にして比べる（ctid が使えないため）
+ * 既知の制限：同じ値の行が3つ以上で、並びが a, b, a のように前後対称だと見逃す
+ * @param {Parameters<typeof checkAnswersRun>[0]} args
+ * @returns {Promise<string[]>}
+ */
+export async function checkOrderDetermined(args) {
+  const ordered = args.entries.filter(({ problem }) => problem.judge.ordered);
+  return forEachPrepared({ ...args, entries: ordered }, async ({ file, problem }) => {
+    const sql = problem.answer;
+    const { ok, clauses } = splitClauses(sql);
+    if (!ok) {
+      return [`${file}: 並びが1つに決まるか確かめられない形のSQLです（WITH・UNION など）`];
+    }
+    const byKind = Object.fromEntries(clauses.map((c) => [c.kind, c]));
+    if (!byKind['ORDER BY']) {
+      return [`${file}: ordered: true なのに ORDER BY がありません（並びが決まらない）`];
+    }
+    const text = (kind) => (byKind[kind] ? sql.slice(byKind[kind].start, byKind[kind].end) : '');
+    const { distinct, items } = splitSelectList(text('SELECT'));
+    const list = items.map((item) => item.text).join(', ');
+    const rest = [text('FROM'), text('WHERE'), text('GROUP BY'), text('HAVING')].join(' ');
+    const fromTokens = tokenize(text('FROM')).filter((t) => t.type !== 'space');
+    const simple =
+      !distinct &&
+      !byKind['GROUP BY'] &&
+      !byKind.HAVING &&
+      !fromTokens.some((t) => t.text === ',' || t.text === '(' || /^join$/i.test(t.text));
+    const twoWays = simple
+      ? ['ASC', 'DESC'].map(
+          (dir) => `SELECT ${list} ${rest} ${text('ORDER BY')}, ctid ${dir} ${text('LIMIT')}`,
+        )
+      : ['ASC', 'DESC'].map(
+          (dir) =>
+            `SELECT * FROM (SELECT ${distinct ? 'DISTINCT ' : ''}${list} ${rest}) AS __t ${text('ORDER BY')}, __t::text ${dir} ${text('LIMIT')}`,
+        );
+    const results = [];
+    for (const query of twoWays) {
+      const outcome = await args.runner.run(query);
+      if (!outcome.ok) {
+        return [
+          `${file}: 並びが1つに決まるか確かめられません（${'error' in outcome ? outcome.error.message : '打ち切り'}）`,
+        ];
+      }
+      results.push(JSON.stringify(outcome.result.rows));
+    }
+    return results[0] === results[1]
+      ? []
+      : [
+          `${file}: 並びが1つに決まりません（ORDER BY の値が同じ行がある。並べる列を足すか初期データを変える）`,
+        ];
+  });
+}
 
 /**
  * モード1・2で打つSQL（display、なければ answer）に、キーボードから1回のキーで打てない文字がないか。
