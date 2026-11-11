@@ -37,6 +37,39 @@ export function isInteractiveTarget(target) {
 }
 
 /**
+ * 結果を出しているときの「もう一度」の Enter か。修飾キーつき（実行の Ctrl+Enter を続けて押したときなど）・
+ * 長押しの繰り返し・日本語入力の確定は数えない（結果を見る前にやり直しにならないように）。
+ * @param {{ key: string, repeat?: boolean, isComposing?: boolean, ctrlKey?: boolean, metaKey?: boolean, altKey?: boolean, shiftKey?: boolean }} event
+ * @returns {boolean}
+ */
+export function isPlainEnter(event) {
+  return (
+    event.key === 'Enter' &&
+    !event.repeat &&
+    !event.isComposing &&
+    !event.ctrlKey &&
+    !event.metaKey &&
+    !event.altKey &&
+    !event.shiftKey
+  );
+}
+
+/**
+ * キーを押したとき、文字を入れる欄（textarea・input・contenteditable）にフォーカスがあるか。
+ * あるなら矢印・Space・Home などはその欄のカーソル移動・入力なので、画面全体の操作にしない。
+ * @param {unknown} target - KeyboardEvent.target
+ * @returns {boolean}
+ */
+export function isTextEntryTarget(target) {
+  const element = /** @type {{ closest?: (selector: string) => unknown } | null} */ (target);
+  return Boolean(
+    element &&
+    typeof element.closest === 'function' &&
+    element.closest('input, textarea, [contenteditable="true"]'),
+  );
+}
+
+/**
  * 「前の実行が終わっていなければ、最新の1つだけを予約する」実行の間引き。
  * dispose() のあとは結果を知らせず、予約も実行しない（画面を離れたあとの setState を防ぐ）。
  * @template T

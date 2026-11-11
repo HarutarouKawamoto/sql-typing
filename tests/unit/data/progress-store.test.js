@@ -186,6 +186,43 @@ describe('recordPlay', () => {
     expect(progress.problems['beginner-01'].modes[1].best.rank).toBe('S');
   });
 
+  it('モード3：開いたヒントが少ない回を先に比べる。速くてもヒントの多い回は上書きしない（本人の決定）', () => {
+    const write = (best) => play({ mode: '3', best });
+    let progress = recordPlay(
+      createEmptyProgress(),
+      write({ timeMs: 60000, runs: 3, hintsOpened: 0 }),
+    );
+    progress = recordPlay(progress, write({ timeMs: 10000, runs: 1, hintsOpened: 3 }));
+    expect(progress.problems['beginner-01'].modes[3].best).toMatchObject({
+      timeMs: 60000,
+      hintsOpened: 0,
+    });
+    // 同じヒントの数なら速い方
+    progress = recordPlay(progress, write({ timeMs: 40000, runs: 5, hintsOpened: 0 }));
+    expect(progress.problems['beginner-01'].modes[3].best.timeMs).toBe(40000);
+  });
+
+  it('モード3：ヒントが少なければ、遅くても最高記録になる', () => {
+    let progress = recordPlay(
+      createEmptyProgress(),
+      play({ mode: '3', best: { timeMs: 10000, runs: 1, hintsOpened: 2 } }),
+    );
+    progress = recordPlay(
+      progress,
+      play({ mode: '3', best: { timeMs: 90000, runs: 4, hintsOpened: 1 } }),
+    );
+    expect(progress.problems['beginner-01'].modes[3].best.hintsOpened).toBe(1);
+  });
+
+  it('モード4（ヒントがない）は時間が短い回', () => {
+    let progress = recordPlay(
+      createEmptyProgress(),
+      play({ mode: '4', best: { timeMs: 30000, runs: 2 } }),
+    );
+    progress = recordPlay(progress, play({ mode: '4', best: { timeMs: 20000, runs: 6 } }));
+    expect(progress.problems['beginner-01'].modes[4].best.timeMs).toBe(20000);
+  });
+
   it('一度クリアしたら、あとでクリアしなかった回があってもクリアのまま', () => {
     let progress = recordPlay(createEmptyProgress(), play());
     progress = recordPlay(progress, play({ cleared: false, best: undefined }));

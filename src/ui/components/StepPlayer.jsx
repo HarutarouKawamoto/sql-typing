@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { splitClauses } from '../../core/clause-splitter.js';
 import { buildSteps } from '../../core/stepper/index.js';
-import { isInteractiveTarget } from '../state/typing-keys.js';
+import { runDbJob } from '../state/db-jobs.js';
+import { isInteractiveTarget, isTextEntryTarget } from '../state/typing-keys.js';
 import { useStepReplay } from '../state/use-step-replay.js';
 import { StepTable } from './StepTable.jsx';
 import styles from './StepPlayer.module.css';
@@ -33,7 +34,8 @@ export function StepPlayer({ sql, runner, speed, onFinished }) {
 
   useEffect(() => {
     let active = true;
-    buildSteps(sql, runner).then(
+    // 段階づくりは何回も実行するので、判定の reset などと入り混じらないように1つの仕事として流す
+    runDbJob(() => buildSteps(sql, runner)).then(
       (result) => active && setBuilt(result),
       (error) => {
         console.error(error);
@@ -70,6 +72,8 @@ function StepPlayerView({ sql, steps, speed, onFinished }) {
   useEffect(() => {
     const onKeyDown = (event) => {
       if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
+      // 書く画面（モード3・4）の入力欄では、矢印・Home はカーソル移動、Space は空白
+      if (isTextEntryTarget(event.target)) return;
       // ボタンにフォーカスがあるときの Space は、そのボタンに任せる（二重に動かさない）
       if (event.key === ' ' && isInteractiveTarget(event.target)) return;
       const actions = { ArrowRight: next, ArrowLeft: back, Home: first, ' ': togglePlay };

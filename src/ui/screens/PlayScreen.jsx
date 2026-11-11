@@ -2,13 +2,15 @@ import { useCallback, useEffect, useState } from 'react';
 import { loadChapters, loadKeywords, loadProblem } from '../../data/problem-loader.js';
 import { loadSeed } from '../../data/seed-loader.js';
 import { PlayMode1 } from '../components/PlayMode1.jsx';
+import { PlayMode34 } from '../components/PlayMode34.jsx';
+import { runDbJob } from '../state/db-jobs.js';
 
 /**
  * 1問を遊ぶ画面。問題を読み、DBをその問題の初期状態にしてから、モードの中身を出す。
- * 今はモード1（なぞり書き）だけ。
+ * 今はモード1（なぞり書き）と、モード3・4（書いて判定）。モード2は後の作業。
  * @param {{
  *   problemId: string,
- *   mode: '1',
+ *   mode: '1' | '2' | '3' | '4',
  *   runner: import('../../data/sql-runner/sql-runner.js').SqlRunner,
  *   replaySpeed: number,
  *   onRecord: (play: object) => import('../../schema/progress-schema.js').Progress,
@@ -40,10 +42,9 @@ export function PlayScreen({
     (async () => {
       const problem = await loadProblem(problemId);
       const chapter = loadChapters().find((c) => c.id === problem.chapterId);
-      await runner.prepare({
-        seedSql: await loadSeed(chapter.seed),
-        extraSql: problem.setup.extraSql,
-      });
+      const seedSql = await loadSeed(chapter.seed);
+      // 前の画面に残った判定などが終わってから、この問題の初期状態を作る
+      await runDbJob(() => runner.prepare({ seedSql, extraSql: problem.setup.extraSql }));
       return problem;
     })().then(
       (problem) => active && setLoaded({ problem }),
@@ -70,6 +71,23 @@ export function PlayScreen({
   if (!loaded) return <p role="status">問題を準備しています…</p>;
   if ('error' in loaded) {
     return <p role="alert">問題を開けませんでした（{loaded.error}）。Esc でもどります。</p>;
+  }
+  if (mode === '3' || mode === '4') {
+    return (
+      <PlayMode34
+        // 問題・モード・やり直しが変わったら、書いたSQL・時計・判定を引き継がないように作り直す
+        key={`${loaded.problem.id}:${mode}:${attempt}`}
+        problem={loaded.problem}
+        mode={mode}
+        runner={runner}
+        replaySpeed={replaySpeed}
+        onRecord={onRecord}
+        onReplayFinished={onReplayFinished}
+        onRestart={restart}
+        onExit={onExit}
+        saveFailed={saveFailed}
+      />
+    );
   }
   if (mode !== '1') return <p role="alert">このモードはまだありません。</p>;
   return (

@@ -1,0 +1,144 @@
+.play {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.badge {
+  padding: 2px var(--space-2);
+  border: 1px solid var(--color-active);
+  border-radius: var(--radius);
+  color: var(--color-active);
+  font-size: 0.85rem;
+}
+
+.problemTitle {
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+.meter {
+  margin-left: auto;
+  font-family: var(--font-code);
+  color: var(--color-text-muted);
+}
+
+/* 依頼の会話とテーブルの一覧（会話を1行ずつ送る StoryPanel・DBの地図ができるまでの仮） */
+.request {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.story {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.speaker {
+  display: inline-block;
+  min-width: 4em;
+  margin-right: var(--space-2);
+  font-weight: bold;
+}
+
+.tables {
+  margin: 0;
+  padding-top: var(--space-2);
+  border-top: 1px dashed var(--color-border);
+  color: var(--color-text-muted);
+}
+
+.table + .table::before {
+  content: ' ／ ';
+}
+
+.table code {
+  font-family: var(--font-code);
+  color: var(--color-text);
+}
+
+/* 入力欄を画面の真ん中に大きく出す舞台（なぞり書きと同じ置き方） */
+.stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+}
+
+.guide {
+  margin: 0;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.confirm {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-active);
+  border-radius: var(--radius);
+  color: var(--color-active);
+}
+
+.problemError {
+  margin: 0;
+  color: var(--color-miss);
+}
+
+.runButton,
+.replayButton {
+  padding: var(--space-2) var(--space-4);
+  font: inherit;
+  font-weight: bold;
+  color: var(--color-bg);
+  background: var(--color-active);
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.replayButton {
+  align-self: center;
+}
+
+.runButton:disabled {
+  color: var(--color-text-muted);
+  background: var(--color-border);
+  cursor: default;
+}
+
+.runButton:focus-visible,
+.replayButton:focus-visible {
+  outline: 3px solid var(--color-text);
+  outline-offset: 2px;
+}
+
+.results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.heading {
+  margin: 0;
+  font-size: 1rem;
+}
