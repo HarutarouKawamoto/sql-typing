@@ -36,8 +36,3 @@
 .warning {
   color: var(--color-miss);
 }
-
-.keys {
-  margin: var(--space-3) 0 0;
-  color: var(--color-text-muted);
-}

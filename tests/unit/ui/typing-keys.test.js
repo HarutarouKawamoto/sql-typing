@@ -3,6 +3,7 @@ import {
   classifyKeyEvent,
   createLatestOnlyRunner,
   isInteractiveTarget,
+  classifyResultKey,
   isPlainEnter,
   isTextEntryTarget,
 } from '../../../src/ui/state/typing-keys.js';
@@ -32,6 +33,47 @@ describe('isPlainEnter', () => {
   it('Ctrl・⌘・Alt・Shift つき、長押しの繰り返し、日本語入力の確定は false', () => {
     for (const modifier of ['ctrlKey', 'metaKey', 'altKey', 'shiftKey', 'repeat', 'isComposing']) {
       expect(isPlainEnter(enter({ [modifier]: true }))).toBe(false);
+    }
+  });
+});
+
+describe('classifyResultKey（本人の決定：Enter・J で次の問題へ、R でもう一度）', () => {
+  const page = { closest: () => null };
+  const button = { closest: (selector) => (selector.includes('button') ? {} : null) };
+  const textarea = { closest: () => ({}) };
+  const key = (k, overrides = {}) => ({
+    key: k,
+    repeat: false,
+    isComposing: false,
+    target: page,
+    ...overrides,
+  });
+
+  it('Enter・J は次の問題へ、R はもう一度（大文字・小文字どちらも）', () => {
+    expect(classifyResultKey(key('Enter'))).toBe('next');
+    expect(classifyResultKey(key('j'))).toBe('next');
+    expect(classifyResultKey(key('J'))).toBe('next');
+    expect(classifyResultKey(key('r'))).toBe('restart');
+    expect(classifyResultKey(key('R'))).toBe('restart');
+    expect(classifyResultKey(key('x'))).toBeNull();
+  });
+
+  it('修飾キーつき（Ctrl+R の読み込み直し、実行の Ctrl+Enter を続けて押したとき）・長押し・変換中は何もしない', () => {
+    for (const modifier of ['ctrlKey', 'metaKey', 'altKey', 'repeat', 'isComposing']) {
+      expect(classifyResultKey(key('r', { [modifier]: true }))).toBeNull();
+      expect(classifyResultKey(key('Enter', { [modifier]: true }))).toBeNull();
+    }
+  });
+
+  it('ボタンにフォーカスがあるときの Enter はボタンに任せる。J・R は効く', () => {
+    expect(classifyResultKey(key('Enter', { target: button }))).toBeNull();
+    expect(classifyResultKey(key('j', { target: button }))).toBe('next');
+    expect(classifyResultKey(key('r', { target: button }))).toBe('restart');
+  });
+
+  it('入力欄の中では何もしない（文字として打つ）', () => {
+    for (const k of ['Enter', 'j', 'r']) {
+      expect(classifyResultKey(key(k, { target: textarea }))).toBeNull();
     }
   });
 });

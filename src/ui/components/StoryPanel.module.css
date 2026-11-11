@@ -1,0 +1,54 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: min(100%, 44rem);
+  margin: 0 auto;
+}
+
+.log {
+  min-height: 12rem;
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  font-size: 1.1rem;
+  line-height: 1.8;
+}
+
+.clickable {
+  cursor: pointer;
+}
+
+.controls {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.next,
+.skip {
+  padding: var(--space-2) var(--space-4);
+  font: inherit;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.next {
+  font-weight: bold;
+  color: var(--color-bg);
+  background: var(--color-active);
+  border: none;
+}
+
+.skip {
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 1px solid var(--color-border);
+}
+
+.next:focus-visible,
+.skip:focus-visible {
+  outline: 3px solid var(--color-text);
+  outline-offset: 2px;
+}

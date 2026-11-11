@@ -1,8 +1,16 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useReducer, useState } from 'react';
+import { loadChapters } from '../data/problem-loader.js';
+import { isUnlocked, nextProblemId } from '../data/progress-store.js';
 import { getSqlRunner, useDatabaseStatus } from './state/database.js';
+import { HOME, navigationReducer } from './state/navigation.js';
 import { useProgress } from './state/progress.js';
+import { useNarrowScreen } from './state/use-narrow-screen.js';
+import { useProblems } from './state/use-problems.js';
+import { HomeScreen } from './screens/HomeScreen.jsx';
+import { ModeSelect } from './screens/ModeSelect.jsx';
 import { PlayScreen } from './screens/PlayScreen.jsx';
 import { ReplayDemoScreen } from './screens/ReplayDemoScreen.jsx';
+import { StoryScreen } from './screens/StoryScreen.jsx';
 
 /**
  * `?demo`（ステップ再生の見本）と `speed`（再生の速さ）を読む。
@@ -17,9 +25,8 @@ function readDemoParams(search) {
 }
 
 /**
- * アプリの入口のコンポーネント。
- * 今は仮の入口（1問目をなぞり書き・打って選ぶ・ヒントありで書く・ヒントなしで書く）と、遊ぶ画面・ステップ再生の見本の切り替えだけ。
- * 一覧画面・会話は後の作業で足す。
+ * アプリの入口のコンポーネント。画面の切り替え（navigation.js）と、学習記録・データベースの状態を配る。
+ * 一覧 → モード選択 → 依頼の会話 → 遊ぶ（クリア後の会話から次の問題・一覧へ）。`/?demo` はステップ再生の見本。
  */
 export function App() {
   const database = useDatabaseStatus();
@@ -31,10 +38,11 @@ export function App() {
     dismissRecoveredNotice,
     saveFailed,
   } = useProgress();
-  const [playing, setPlaying] = useState(
-    /** @type {{ problemId: string, mode: '1' | '2' | '3' | '4' } | null} */ (null),
-  );
-  const exit = useCallback(() => setPlaying(null), []);
+  const [chapters] = useState(() => loadChapters());
+  const { problems, turningPointIds, error: loadError } = useProblems(chapters);
+  const [navigation, dispatch] = useReducer(navigationReducer, HOME);
+  const narrow = useNarrowScreen();
+  const goHome = useCallback(() => dispatch({ type: 'home' }), []);
   const [demo, setDemo] = useState(() => readDemoParams(window.location.search));
   const exitDemo = useCallback(() => {
     setDemo(null);
@@ -49,102 +57,88 @@ export function App() {
     );
   }
 
-  if (playing) {
+  if (navigation.screen === 'play') {
+    const { problemId, mode } = navigation;
+    const nextId = nextProblemId(chapters, problemId);
     return (
       <main className="app app-wide">
         <PlayScreen
-          // 別の問題を開いたら、前の問題の読み込み結果を残さないように作り直す
-          key={`${playing.problemId}:${playing.mode}`}
-          problemId={playing.problemId}
-          mode={playing.mode}
+          // 別の問題・モードを開いたら、前の読み込み結果を残さないように作り直す
+          key={`${problemId}:${mode}`}
+          problemId={problemId}
+          mode={mode}
           runner={getSqlRunner()}
           replaySpeed={progress.settings.replaySpeed}
           onRecord={record}
           onReplayFinished={markReplayFinished}
-          onExit={exit}
+          onExit={goHome}
           saveFailed={saveFailed}
+          next={
+            nextId === null
+              ? null
+              : {
+                  problemId: nextId,
+                  unlocked: isUnlocked(progress, chapters, nextId, turningPointIds),
+                }
+          }
+          turningPoint={turningPointIds.has(problemId)}
+          onNext={() => dispatch({ type: 'next', problemId: nextId })}
         />
       </main>
     );
   }
 
-  const modes = progress.problems['beginner-01']?.modes ?? {};
-  const best = modes['1']?.best;
-  const ready = database.status === 'ready';
+  if (navigation.screen === 'story') {
+    return (
+      <main className="app">
+        <StoryScreen
+          key={`${navigation.problemId}:${navigation.mode}`}
+          problemId={navigation.problemId}
+          mode={navigation.mode}
+          // 会話のあいだに幅が狭くなっていたら、遊ぶ画面へ進まずモード選択（遊べないことを知らせる）へ
+          onDone={() =>
+            dispatch(
+              narrow && navigation.mode !== null ? { type: 'modeSelect' } : { type: 'storyDone' },
+            )
+          }
+          onHome={goHome}
+        />
+      </main>
+    );
+  }
+
+  if (navigation.screen === 'mode') {
+    return (
+      <main className="app">
+        <ModeSelect
+          key={navigation.problemId}
+          problemId={navigation.problemId}
+          title={problems?.get(navigation.problemId)?.title ?? navigation.problemId}
+          progress={progress}
+          turningPoint={turningPointIds.has(navigation.problemId)}
+          databaseStatus={database.status}
+          narrow={narrow}
+          onChoose={(mode) => dispatch({ type: 'chooseMode', mode })}
+          onRead={() => dispatch({ type: 'readStory' })}
+          onHome={goHome}
+        />
+      </main>
+    );
+  }
+
   return (
     <main className="app">
-      <h1 className="app-title">SQL Typing</h1>
-      <p className="app-subtitle">打って、動きを見て、覚えるSQL</p>
-      {recoveredNotice && (
-        <p className="app-notice" role="alert">
-          学習記録を読み込めなかったため、最初からになりました。{' '}
-          <button type="button" onClick={dismissRecoveredNotice}>
-            閉じる
-          </button>
-        </p>
-      )}
-      <p className="app-status" role="status">
-        {database.status === 'starting' && 'データベース：準備中…'}
-        {database.status === 'ready' &&
-          `データベース：準備完了（products ${database.productCount}行）`}
-        {database.status === 'error' &&
-          'データベースを起動できませんでした。ページを読み込み直してください'}
-      </p>
-      <div className="app-starts">
-        <button
-          type="button"
-          className="app-start"
-          disabled={!ready}
-          onClick={() => setPlaying({ problemId: 'beginner-01', mode: '1' })}
-        >
-          1問目をなぞり書きで遊ぶ
-        </button>
-        <button
-          type="button"
-          className="app-start"
-          disabled={!ready}
-          onClick={() => setPlaying({ problemId: 'beginner-01', mode: '2' })}
-        >
-          1問目を打って選ぶ
-        </button>
-        <button
-          type="button"
-          className="app-start"
-          disabled={!ready}
-          onClick={() => setPlaying({ problemId: 'beginner-01', mode: '3' })}
-        >
-          1問目をヒントありで書く
-        </button>
-        <button
-          type="button"
-          className="app-start"
-          disabled={!ready}
-          onClick={() => setPlaying({ problemId: 'beginner-01', mode: '4' })}
-        >
-          1問目をヒントなしで書く
-        </button>
-      </div>
-      {best && (
-        <p className="app-best">
-          これまでの最高：{best.cpm} 文字/分・正確さ {best.accuracy}%・ランク {best.rank}
-        </p>
-      )}
-      {modes['2']?.best && (
-        <p className="app-best" data-testid="best-mode2">
-          モード2の最高：{modes['2'].best.cpm} 文字/分・正確さ {modes['2'].best.accuracy}%・ランク{' '}
-          {modes['2'].best.rank}
-        </p>
-      )}
-      {['3', '4'].map((mode) => {
-        const record = modes[mode]?.best;
-        if (!record) return null;
-        return (
-          <p key={mode} className="app-best" data-testid={`best-mode${mode}`}>
-            モード{mode}の最高：{(record.timeMs / 1000).toFixed(1)} 秒・実行 {record.runs ?? '-'} 回
-            {mode === '3' && `・ヒント ${record.hintsOpened ?? 0} 個`}
-          </p>
-        );
-      })}
+      <HomeScreen
+        chapters={chapters}
+        progress={progress}
+        problems={problems}
+        turningPointIds={turningPointIds}
+        loadError={loadError}
+        databaseStatus={database}
+        recoveredNotice={recoveredNotice}
+        onDismissRecovered={dismissRecoveredNotice}
+        onOpen={(problemId) => dispatch({ type: 'openProblem', problemId })}
+      />
     </main>
   );
 }

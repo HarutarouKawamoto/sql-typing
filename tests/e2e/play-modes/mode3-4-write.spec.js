@@ -1,15 +1,13 @@
 import { test, expect } from '@playwright/test';
+import { homeProblem, openModeSelect, openPlay } from '../helpers/open-play.js';
 
 /**
- * 入口を開き、データベースの準備ができたら1問目を書くモードで始める。
+ * 一覧から1問目を書くモードで始める。
  * @param {import('@playwright/test').Page} page
  * @param {'ヒントありで書く' | 'ヒントなしで書く'} name
  */
 async function startWrite(page, name) {
-  await page.goto('/');
-  const start = page.getByRole('button', { name: `1問目を${name}` });
-  await expect(start).toBeEnabled({ timeout: 30_000 });
-  await start.click();
+  await openPlay(page, name === 'ヒントありで書く' ? '3' : '4');
   const editor = page.getByTestId('sql-editor');
   await expect(editor).toBeFocused();
   // 正解の結果ができるまで実行ボタンは押せない
@@ -47,8 +45,11 @@ test('モード3：ヒントを開き、間違えてから正解するとクリ�
   await expect(page.getByTestId('sql-editor')).toHaveAttribute('readonly', '');
 
   await page.keyboard.press('Escape');
+  await expect(page.getByTestId('star-beginner-01-3')).toHaveAttribute('data-cleared', 'true');
+  await openModeSelect(page);
   await expect(page.getByTestId('best-mode3')).toContainText('実行 2 回・ヒント 1 個');
   await page.reload();
+  await openModeSelect(page);
   await expect(page.getByTestId('best-mode3')).toContainText('実行 2 回');
   expect(errors).toEqual([]);
 });
@@ -148,13 +149,13 @@ test('書きかけがあるときの Esc は確かめる。ほかのキーで続
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('exit-confirm')).toBeVisible();
   await page.keyboard.press('Escape');
-  await expect(page.getByRole('button', { name: '1問目をヒントなしで書く' })).toBeVisible();
+  await expect(homeProblem(page)).toBeVisible();
 });
 
 test('書きかけがなければ、Esc ですぐもどる', async ({ page }) => {
   await startWrite(page, 'ヒントなしで書く');
   await page.keyboard.press('Escape');
-  await expect(page.getByRole('button', { name: '1問目をヒントなしで書く' })).toBeVisible();
+  await expect(homeProblem(page)).toBeVisible();
 });
 
 test('クリアの直後に Ctrl+Enter をもう一度押しても、やり直しにならない', async ({ page }) => {
@@ -166,11 +167,11 @@ test('クリアの直後に Ctrl+Enter をもう一度押しても、やり直�
   await expect(page.getByTestId('sql-editor')).toHaveValue('SELECT * FROM products');
 });
 
-test('クリアのあとの Enter でもう一度（書いたSQLも時計も最初から）', async ({ page }) => {
+test('クリアのあとの R でもう一度（書いたSQLも時計も最初から）', async ({ page }) => {
   await startWrite(page, 'ヒントなしで書く');
   await write(page, 'SELECT * FROM products');
   await expect(page.getByRole('heading', { name: 'クリア！' })).toBeFocused();
-  await page.keyboard.press('Enter');
+  await page.keyboard.press('r');
   const editor = page.getByTestId('sql-editor');
   await expect(editor).toHaveValue('');
   await expect(editor).toBeFocused();

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { homeProblem } from '../helpers/open-play.js';
 
 /*
  * ステップ再生の印（消える行・消える列・まとまる行）を、見本のページ（/?demo）で確かめる。
@@ -60,6 +61,6 @@ test('LIMIT：上位5行のあとの25行に印が付く', async ({ page }) => {
 test('入口へもどると、見本のページを抜ける', async ({ page }) => {
   await openSample(page, /^WHERE：/);
   await page.getByRole('button', { name: '入口へもどる' }).click();
-  await expect(page.getByRole('button', { name: '1問目をなぞり書きで遊ぶ' })).toBeVisible();
+  await expect(homeProblem(page)).toBeVisible();
   await expect(page).not.toHaveURL(/demo/);
 });

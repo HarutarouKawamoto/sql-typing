@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
-import { loadCharacters } from '../../data/problem-loader.js';
-import { isInteractiveTarget, isPlainEnter } from '../state/typing-keys.js';
 import { useWriteSession } from '../state/use-write-session.js';
 import { escapeAction } from '../state/write-session-machine.js';
 import { HintPanel } from './HintPanel.jsx';
 import { JudgePanel } from './JudgePanel.jsx';
 import { ResultTable } from './ResultTable.jsx';
 import { SqlEditor } from './SqlEditor.jsx';
+import { StoryLines } from './StoryLines.jsx';
 import { StepPlayer } from './StepPlayer.jsx';
 import { WriteResult } from './WriteResult.jsx';
 import styles from './PlayMode34.module.css';
@@ -18,7 +17,7 @@ const MODIFIER_KEYS = new Set(['Shift', 'Control', 'Alt', 'Meta', 'AltGraph', 'C
  * モード3（ヒントありで書く）・モード4（ヒントなしで書く）。
  * 依頼とテーブルの一覧を見て、白紙からSQLを書き、Ctrl+Enter で判定する。
  * 実行のたびに、書いたSQLの結果の表と、ステップ再生（見える化A）に切り替えるボタンを出す。
- * 正解でクリア。クリアのあとは入力欄の外の Enter でもう一度、Esc でもどる。
+ * 正解でクリア。クリアのあとのキー（次の問題へ・もう一度）は afterClear（AfterStory）が受け、Esc で一覧へ。
  * 書きかけのSQLがあるときの Esc は、1回目は確かめを出し、もう一度 Esc でもどる。
  * @param {{
  *   problem: import('../../schema/problem-schema.js').Problem,
@@ -27,9 +26,9 @@ const MODIFIER_KEYS = new Set(['Shift', 'Control', 'Alt', 'Meta', 'AltGraph', 'C
  *   replaySpeed: number,
  *   onRecord: (play: object) => unknown,
  *   onReplayFinished: (problemId: string) => void,
- *   onRestart: () => void,
  *   onExit: () => void,
  *   saveFailed: boolean,
+ *   afterClear?: import('react').ReactNode,
  * }} props
  */
 export function PlayMode34({
@@ -39,21 +38,20 @@ export function PlayMode34({
   replaySpeed,
   onRecord,
   onReplayFinished,
-  onRestart,
   onExit,
   saveFailed,
+  afterClear = null,
 }) {
   const session = useWriteSession({ problem, mode, runner, onRecord });
   const { state, prepared } = session;
   const [sql, setSql] = useState('');
   // ステップ再生を開いた実行の番号。実行し直したら表に戻す（前のSQLの再生を新しい結果と並べない）
   const [replayRun, setReplayRun] = useState(/** @type {number | null} */ (null));
-  const [characters] = useState(() => new Map(loadCharacters().map((c) => [c.id, c])));
 
   // 書きかけがあるときの1回目の Esc で出す確かめ（もう一度 Esc でもどる、ほかのキーで続ける）
   const [confirmExit, setConfirmExit] = useState(false);
 
-  // Esc でもどる（変換中の Esc は変換の取り消しなので抜けない）。クリアのあとは入力欄の外の Enter でもう一度
+  // Esc でもどる（変換中の Esc は変換の取り消しなので抜けない）
   useEffect(() => {
     const onKeyDown = (event) => {
       if (event.isComposing) return;
@@ -64,15 +62,10 @@ export function PlayMode34({
       }
       // Shift などを押しただけでは確かめを閉じない
       if (!MODIFIER_KEYS.has(event.key)) setConfirmExit(false);
-      // 実行の Ctrl+Enter を続けて押しても、結果を見る前にやり直しにならないように修飾キーつきは数えない
-      if (state.cleared && isPlainEnter(event) && !isInteractiveTarget(event.target)) {
-        event.preventDefault();
-        onRestart();
-      }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [state, sql, confirmExit, onExit, onRestart]);
+  }, [state, sql, confirmExit, onExit]);
 
   const ready = prepared !== null && 'expected' in prepared && prepared.expected.ok;
   const last = state.last;
@@ -97,22 +90,7 @@ export function PlayMode34({
       </header>
 
       <section className={styles.request} aria-label="依頼">
-        <ul className={styles.story}>
-          {problem.story.before.map((line, index) => {
-            const character = characters.get(line.speaker);
-            return (
-              <li key={index}>
-                <span
-                  className={styles.speaker}
-                  style={character ? { color: `var(${character.color})` } : undefined}
-                >
-                  {character?.name ?? line.speaker}
-                </span>
-                {line.text}
-              </li>
-            );
-          })}
-        </ul>
+        <StoryLines lines={problem.story.before} />
         {prepared && 'tables' in prepared && (
           <p className={styles.tables} data-testid="table-list">
             使えるテーブル：
@@ -175,12 +153,15 @@ export function PlayMode34({
       </section>
 
       {state.cleared ? (
-        <WriteResult
-          elapsedMs={session.elapsedMs}
-          runs={state.runs}
-          hintsOpened={mode === '3' ? state.hintsOpened : null}
-          saveFailed={saveFailed}
-        />
+        <>
+          <WriteResult
+            elapsedMs={session.elapsedMs}
+            runs={state.runs}
+            hintsOpened={mode === '3' ? state.hintsOpened : null}
+            saveFailed={saveFailed}
+          />
+          {afterClear}
+        </>
       ) : (
         <JudgePanel result={last?.result ?? null} judging={state.judging} run={last?.run ?? 0} />
       )}

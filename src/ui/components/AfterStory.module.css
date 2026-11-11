@@ -1,0 +1,53 @@
+.after {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  line-height: 1.8;
+}
+
+.note {
+  margin: 0;
+  color: var(--color-active);
+}
+
+.controls {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.next,
+.home {
+  padding: var(--space-2) var(--space-4);
+  font: inherit;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.next {
+  font-weight: bold;
+  color: var(--color-bg);
+  background: var(--color-correct);
+  border: none;
+}
+
+.next:disabled {
+  color: var(--color-text-muted);
+  background: var(--color-border);
+  cursor: default;
+}
+
+.home {
+  color: var(--color-text);
+  background: transparent;
+  border: 1px solid var(--color-border);
+}
+
+.next:focus-visible,
+.home:focus-visible {
+  outline: 3px solid var(--color-text);
+  outline-offset: 2px;
+}

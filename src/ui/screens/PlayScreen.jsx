@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { loadChapters, loadKeywords, loadProblem } from '../../data/problem-loader.js';
 import { loadSeed } from '../../data/seed-loader.js';
+import { AfterStory } from '../components/AfterStory.jsx';
 import { PlayMode12 } from '../components/PlayMode12.jsx';
 import { PlayMode34 } from '../components/PlayMode34.jsx';
 import { runDbJob } from '../state/db-jobs.js';
@@ -17,7 +18,11 @@ import { runDbJob } from '../state/db-jobs.js';
  *   onReplayFinished: (problemId: string) => void,
  *   onExit: () => void,
  *   saveFailed: boolean,
+ *   next: { problemId: string, unlocked: boolean } | null,
+ *   turningPoint: boolean,
+ *   onNext: () => void,
  * }} props
+ *   next：次の問題（クリア後の会話の「次の問題へ」）。turningPoint：この問題がターニングポイントか
  */
 export function PlayScreen({
   problemId,
@@ -28,6 +33,9 @@ export function PlayScreen({
   onReplayFinished,
   onExit,
   saveFailed,
+  next,
+  turningPoint,
+  onNext,
 }) {
   const [loaded, setLoaded] = useState(
     /** @type {{ problem: import('../../schema/problem-schema.js').Problem } | { error: string } | null} */ (
@@ -72,6 +80,22 @@ export function PlayScreen({
   if ('error' in loaded) {
     return <p role="alert">問題を開けませんでした（{loaded.error}）。Esc でもどります。</p>;
   }
+  // クリアの結果の下に出す、反応の会話と次への道
+  const afterClear = (
+    <AfterStory
+      lines={loaded.problem.story.after}
+      next={next}
+      note={
+        // 次の章がまだ開いていないときだけ（モード3・4で一度クリアしていれば、もう開いている）
+        turningPoint && (mode === '1' || mode === '2') && next !== null && !next.unlocked
+          ? 'ターニングポイントは、モード3・4でクリアすると次の章が開きます。'
+          : null
+      }
+      onNext={onNext}
+      onRestart={restart}
+      onHome={onExit}
+    />
+  );
   if (mode === '3' || mode === '4') {
     return (
       <PlayMode34
@@ -83,9 +107,9 @@ export function PlayScreen({
         replaySpeed={replaySpeed}
         onRecord={onRecord}
         onReplayFinished={onReplayFinished}
-        onRestart={restart}
         onExit={onExit}
         saveFailed={saveFailed}
+        afterClear={afterClear}
       />
     );
   }
@@ -100,9 +124,9 @@ export function PlayScreen({
       replaySpeed={replaySpeed}
       onRecord={onRecord}
       onReplayFinished={onReplayFinished}
-      onRestart={restart}
       onExit={onExit}
       saveFailed={saveFailed}
+      afterClear={afterClear}
     />
   );
 }

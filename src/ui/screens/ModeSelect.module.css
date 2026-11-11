@@ -1,0 +1,128 @@
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: min(100%, 44rem);
+  margin: 0 auto;
+}
+
+.header {
+  text-align: center;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.6rem;
+}
+
+.sub {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-muted);
+}
+
+.turning {
+  margin: var(--space-2) 0 0;
+  color: var(--color-active);
+}
+
+.notice {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-active);
+  border-radius: var(--radius);
+  color: var(--color-active);
+}
+
+.modes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mode {
+  display: grid;
+  grid-template-columns: 2rem 1fr auto;
+  grid-template-areas:
+    'key name star'
+    'key best best';
+  align-items: baseline;
+  gap: 0 var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  font: inherit;
+  text-align: left;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.mode:hover:not(:disabled) {
+  border-color: var(--color-active);
+}
+
+.mode:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.mode:focus-visible {
+  outline: 3px solid var(--color-active);
+  outline-offset: 2px;
+}
+
+.key {
+  grid-area: key;
+  font-family: var(--font-code);
+  font-size: 1.4rem;
+  color: var(--color-active);
+}
+
+.name {
+  grid-area: name;
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+.starOn,
+.starOff {
+  grid-area: star;
+}
+
+.starOn {
+  color: var(--color-correct);
+}
+
+.starOff {
+  color: var(--color-pending);
+}
+
+.best {
+  grid-area: best;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+}
+
+.link {
+  padding: var(--space-1) var(--space-2);
+  font: inherit;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: none;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.link:focus-visible {
+  outline: 3px solid var(--color-active);
+  outline-offset: 2px;
+}

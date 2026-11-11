@@ -182,3 +182,52 @@ export function recordPlay(progress, { problemId, mode, cleared, date, best, mis
     },
   };
 }
+
+/**
+ * @typedef {{ id: string, problemIds: string[] }} ChapterOrder - 章の出題順（Chapter のうち使うところだけ）
+ */
+
+/**
+ * 全章を出題順につないだ問題IDの列。
+ * @param {ChapterOrder[]} chapters
+ * @returns {string[]}
+ */
+function allProblemIds(chapters) {
+  return chapters.flatMap((chapter) => chapter.problemIds);
+}
+
+/**
+ * 次の問題（章の終わりなら次の章の最初）。最後の問題・知らない問題は null。
+ * @param {ChapterOrder[]} chapters
+ * @param {string} problemId
+ * @returns {string | null}
+ */
+export function nextProblemId(chapters, problemId) {
+  const ids = allProblemIds(chapters);
+  const index = ids.indexOf(problemId);
+  return index === -1 ? null : (ids[index + 1] ?? null);
+}
+
+/**
+ * 問題が開いているか（保存せず、毎回クリア状況から計算する。決定7）。
+ * - 最初の章の最初の問題は、いつも開いている
+ * - 前の問題がターニングポイントなら、モード3か4でクリアしたら開く（次の章が開く）
+ * - それ以外は、前の問題をどれかのモードでクリアしたら開く（ターニングポイントがまだない、作っている途中の章も）
+ * ターニングポイントかどうかは問題の kind で決まる（章の最後に1問まで。cross-checks.js）ので、呼ぶ側が渡す。
+ * @param {Progress} progress
+ * @param {ChapterOrder[]} chapters
+ * @param {string} problemId
+ * @param {Set<string>} turningPointIds - kind が turningPoint の問題ID
+ * @returns {boolean}
+ */
+export function isUnlocked(progress, chapters, problemId, turningPointIds) {
+  const ids = allProblemIds(chapters);
+  const index = ids.indexOf(problemId);
+  if (index === -1) return false;
+  if (index === 0) return true;
+  const previous = ids[index - 1];
+  const modes = progress.problems[previous]?.modes ?? {};
+  // ターニングポイントはモード3・4でクリアしたときだけ、章のクリアになる
+  const counted = turningPointIds.has(previous) ? ['3', '4'] : ['1', '2', '3', '4'];
+  return counted.some((mode) => modes[mode]?.cleared === true);
+}

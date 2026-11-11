@@ -3,7 +3,7 @@ import styles from './WriteResult.module.css';
 
 /**
  * モード3・4のクリアの結果：かかった時間・実行した回数・（モード3）開いたヒントの数。
- * 出たら見出しにフォーカスを移す（入力欄から外れ、Enter でもう一度にできるように）。
+ * 出たら見出しにフォーカスを移す（入力欄から外れ、結果のキー（Enter・J で次の問題へ、R でもう一度）が効くように）。
  * @param {{ elapsedMs: number, runs: number, hintsOpened: number | null, saveFailed: boolean }} props
  *   hintsOpened：モード4は null（ヒントがない）
  */
@@ -35,7 +35,6 @@ export function WriteResult({ elapsedMs, runs, hintsOpened, saveFailed }) {
         )}
       </dl>
       {saveFailed && <p className={styles.warning}>この環境では記録が保存されません。</p>}
-      <p className={styles.keys}>Enter：もう一度 ／ Esc：もどる</p>
     </section>
   );
 }

@@ -58,14 +58,14 @@ sql-typing/
 **役割**: 画面の表示、キー入力・クリックの受付、アニメーション、画面の状態の管理
 
 **配置ファイル**:
-- `screens/*.jsx`: 1つの画面（`HomeScreen.jsx`、`PlayScreen.jsx`、`DictionaryScreen.jsx`、`SettingsScreen.jsx`）
+- `screens/*.jsx`: 1つの画面（`HomeScreen.jsx`、`ModeSelect.jsx`、`StoryScreen.jsx`、`PlayScreen.jsx`、`ReplayDemoScreen.jsx`。あとで `DictionaryScreen.jsx`、`SettingsScreen.jsx`）
 - `components/*.jsx`: 画面の部品（`TypingArea.jsx`、`ChoiceList.jsx`、`SqlEditor.jsx`、`StepPlayer.jsx`、`ResultTable.jsx`、`SchemaMap.jsx` など）
 - `components/*.module.css`: 部品と同じ名前の CSS Modules
 - `state/*.js`: Context・reducer・独自フック。
   - `database.js`：アプリに1つだけの SqlRunner と、起動の状態を返す `useDatabaseStatus`
   - `progress.js`：学習記録を読み、遊んだ結果を記録して保存する `useProgress`
   - `use-typing-session.js`：なぞり書きの1回分（keydown を1か所で受ける・時計・打ちながらの実行）
-  - `typing-keys.js`：React に依存しない部品（キーの判定 `classifyKeyEvent`、もう一度の Enter `isPlainEnter`、ボタン・入力欄の中か `isInteractiveTarget`・`isTextEntryTarget`、最新の1つだけ実行する `createLatestOnlyRunner`）。`tests/unit/ui/` で単体テストする
+  - `typing-keys.js`：React に依存しない部品（キーの判定 `classifyKeyEvent`、修飾キーのない Enter `isPlainEnter`、クリアの結果のキー `classifyResultKey`、ボタン・入力欄の中か `isInteractiveTarget`・`isTextEntryTarget`、最新の1つだけ実行する `createLatestOnlyRunner`）。`tests/unit/ui/` で単体テストする
   - `use-step-replay.js`：ステップ再生の進み方をタイマーと React につなぐ
   - `step-replay-machine.js`：ステップ再生の進み方の決まり（React に依存しない reducer。`tests/unit/ui/` で単体テスト）
   - `step-replay-timing.js`：段階ごとの長さと速さの掛け算（React に依存しない。`tests/unit/ui/` で単体テスト）
@@ -73,11 +73,16 @@ sql-typing/
   - `write-session-machine.js`：書く画面の決まり（時計・実行の回数・判定中は次を受けない・ヒントの数・クリア。React に依存しない reducer。`tests/unit/ui/` で単体テスト）
   - `editor-keys.js`：入力欄のキーの判定（Ctrl+Enter・Tab）とスペース2つの入れ方（React に依存しない。`tests/unit/ui/` で単体テスト）
   - `local-date.js`：学習記録の日付（その人のタイムゾーンの `YYYY-MM-DD`）
+  - `navigation.js`：画面の切り替え（一覧・モード選択・会話・遊ぶ）の reducer（React に依存しない。`tests/unit/ui/` で単体テスト）
+  - `use-problems.js`：全章の問題を1回だけ読み、ターニングポイントの ID の集合を返す
+  - `use-narrow-screen.js`：画面の幅が 768px 未満か
+  - `best-text.js`：モードの名前と最高記録の文（`tests/unit/ui/` で単体テスト）
   - `db-jobs.js`：DB を何回も使う仕事（問題の準備・正解の結果づくり・判定・ステップ再生の段階づくり）を1つずつ流す列 `runDbJob`（`tests/unit/ui/` で単体テスト）
 - `components/StepPlayer.jsx`・`StepTable.jsx`：見える化A（ステップ再生）の画面と、1段階の表
 - `components/PlayMode12.jsx`：モード1・2（なぞり書き・打って選ぶ）。`components/PlayMode34.jsx`：モード3・4（書いて判定）
 - `components/TypingArea.jsx`・`ChoiceList.jsx`：打つSQL（モード2の空欄は「？」の箱で隠す）と、モード2の選択肢
 - `components/SqlEditor.jsx`・`HintPanel.jsx`・`JudgePanel.jsx`・`WriteResult.jsx`：書く画面の入力欄・ヒント・判定の結果・クリアの結果
+- `components/StoryPanel.jsx`・`StoryLines.jsx`・`AfterStory.jsx`：会話を1行ずつ送る部品、会話の行の描き方、クリア後の会話と次への道
 - `screens/ReplayDemoScreen.jsx`：ステップ再生の見本（`/?demo`）
 - `styles/`: `tokens.css`（色・余白などの CSS 変数。ライト／ダーク）、`global.css`
 
@@ -253,7 +258,9 @@ tests/unit/
 │   ├── editor-keys.test.js
 │   ├── write-session-machine.test.js
 │   ├── db-jobs.test.js
-│   └── local-date.test.js
+│   ├── local-date.test.js
+│   ├── navigation.test.js
+│   └── best-text.test.js
 └── scripts/
     └── check-review-files.test.js
 ```
@@ -301,9 +308,12 @@ tests/e2e/
 │   ├── step-replay.spec.js    # 見える化A（ステップ再生）
 │   └── step-replay-marks.spec.js # 見本のページで、印（消える行・列、まとまる行）の数を確かめる
 ├── progression/
-│   └── turning-point.spec.js
-└── device/
-    └── narrow-screen.spec.js
+│   ├── home-story.spec.js     # 一覧・モード選択・依頼の会話・クリア後の会話・星
+│   └── turning-point.spec.js  # ターニングポイントの問題データを足す作業で
+├── device/
+│   └── narrow-screen.spec.js  # 幅375pxでは遊べず、会話は読める
+└── helpers/
+    └── open-play.js           # 一覧から1問目のモードを選び、会話を飛ばして遊ぶ画面を開く
 ```
 
 **命名規則**: `<シナリオ>.spec.js`（Vitest のテストと見分けるため `.spec.js` にする）
