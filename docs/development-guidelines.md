@@ -136,6 +136,7 @@ export function press(s, k) { s.pos++; return s; }
 - キー入力は `keydown` を1か所（遊ぶ画面のフック）で受け、コアレイヤーの `pressKey` に渡す。部品ごとに `keydown` を付けない（二重に反応するのを防ぐ）
 - `dangerouslySetInnerHTML` は使わない（ESLint で禁止）
 - 色・余白は `src/ui/styles/tokens.css` の CSS 変数を使う。部品の CSS に色の値を直接書かない
+- 大きさ（文字・余白・幅・角）は `rem` で書く。`px` は線の太さ（`1px`・`2px`）だけ。サイト全体の大きさはルートの文字（`html { font-size: 125% }`）で決めているので、`px` で書くとそこだけ大きくならない
 
 ### コードフォーマット
 
@@ -194,6 +195,8 @@ try { await runner.run(sql); } catch (e) {}
 問題YAMLの形は [機能設計書](functional-design.md) の Problem と、`src/schema/problem-schema.js` に従う。形のほかに、次の中身のルールを守る。
 
 - **値は英語と数字だけ**：SQL・テーブル・列・データの値に日本語を入れない。日本語は `title`・`story`・`hints`・`why` だけ
+- **打てるSQLにする**：`answer`・`display` の文字列・識別子の中に改行やタブを入れない（区切りでないところの Enter・Tab は画面で打てず、先に進めなくなる。`checkTypable` で止まる）。コメント（`--`・`/* */`）も1文字ずつ打つことになるので書かない
+- **打ちながら実行できる SELECT にする**：`SELECT ... INTO` は書かない（途中で実行すると表ができてしまう。`canRunWhileTyping` で止まる）
 - **会話**：`before` は3〜8行（ターニングポイントは10行程度）、`after` は1〜4行。1行は全角40文字以内。主人公がSQLであっさり片付け、周りが驚く「俺つええ」の味付けにする。依頼の中に、そのSQLが現実のどの操作の裏で動くかが伝わる一言を入れる
 - **モード2の選択肢**：正解と「似ているが意味が違う」ものにする（`WHERE` と `HAVING`、`>` と `>=`、`AND` と `OR`）。でたらめな選択肢は置かない。`why` は「なぜ違うか」を1文で
 - **ヒント3段階**：①使う句 ②句の順番 ③骨組み（値や条件だけを `???` にしたSQL）
@@ -367,7 +370,7 @@ npm run dev
 | `npm run dev` | 開発サーバー（Vite） |
 | `npm run build` | ビルド（前に `validate:data`） |
 | `npm run preview` | ビルドしたものを手元で開く |
-| `npm run check` | ESLint ＋ 単体 ＋ 統合 ＋ 問題データの検証 |
+| `npm run check` | ESLint ＋ Prettier の確認 ＋ 単体 ＋ 統合 ＋ 問題データの検証 ＋ `src/core/` の行カバレッジ 90%（`vitest run --coverage`） |
 | `npm run validate:data` | 問題データの検証だけ |
 | `npm run test:e2e` | ビルド ＋ Playwright |
 | `npm run test:unit` / `npm run test:integration` | 単体だけ／統合だけ |

@@ -61,7 +61,11 @@ sql-typing/
 - `screens/*.jsx`: 1つの画面（`HomeScreen.jsx`、`PlayScreen.jsx`、`DictionaryScreen.jsx`、`SettingsScreen.jsx`）
 - `components/*.jsx`: 画面の部品（`TypingArea.jsx`、`ChoiceList.jsx`、`SqlEditor.jsx`、`StepPlayer.jsx`、`ResultTable.jsx`、`SchemaMap.jsx` など）
 - `components/*.module.css`: 部品と同じ名前の CSS Modules
-- `state/*.js`: Context・reducer・独自フック（`use-play-session.js` など）。`database.js`：アプリに1つだけの SqlRunner と、起動の状態を返す `useDatabaseStatus`
+- `state/*.js`: Context・reducer・独自フック。
+  - `database.js`：アプリに1つだけの SqlRunner と、起動の状態を返す `useDatabaseStatus`
+  - `progress.js`：学習記録を読み、遊んだ結果を記録して保存する `useProgress`
+  - `use-typing-session.js`：なぞり書きの1回分（keydown を1か所で受ける・時計・打ちながらの実行）
+  - `typing-keys.js`：React に依存しない部品（キーの判定 `classifyKeyEvent`、最新の1つだけ実行する `createLatestOnlyRunner`）。`tests/unit/ui/` で単体テストする
 - `styles/`: `tokens.css`（色・余白などの CSS 変数。ライト／ダーク）、`global.css`
 
 **命名規則**:
@@ -223,6 +227,8 @@ tests/unit/
 ├── schema/
 │   ├── cross-checks.test.js
 │   └── schemas.test.js        # Zod スキーマの決まり（会話の行数・進捗の形など）
+├── ui/
+│   └── typing-keys.test.js    # 画面の、React に依存しない部品
 └── scripts/
     └── check-review-files.test.js
 ```
@@ -280,7 +286,8 @@ tests/e2e/
 - `fixtures/`：テスト用の小さなデータ（`broken-problem.yaml`：わざと決まりを破った問題）
 - `make-runner.js`：Node 版の SqlRunner を作る。`data/seeds/` の初期データを読む
 - `answer-checks.js`：PGlite を使う問題データの検証（正解SQLが実行でき0行でない）
-- 後で足すもの：`memory-storage.js`（localStorage の作り物）
+- `memory-storage.js`：localStorage の作り物（`failOnSet` で書けない環境の真似もできる）
+- `answer-checks.js` の `checkClausePrefixes`：見える化C のため、SELECT の問題の句の途中までのSQLを実行しても止まらないことを確かめる
 
 ### docs/（ドキュメントディレクトリ）
 

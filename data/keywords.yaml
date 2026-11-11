@@ -1,3 +1,12 @@
 # 用語辞典。問題で初めて使うキーワードを、その問題と同じ作業で足す。
 # 形：src/schema/keyword-schema.js
-[]
+- word: SELECT
+  english: 選ぶ・選び出す
+  meaning: 結果に出す列を選ぶ（* は全部の列）
+  example: SELECT name, price
+  level: 1
+- word: FROM
+  english: 〜から
+  meaning: どのテーブルから読むかを決める。実行は FROM から始まる
+  example: FROM products
+  level: 1

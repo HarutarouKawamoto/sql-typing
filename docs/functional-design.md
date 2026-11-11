@@ -333,17 +333,25 @@ localStorage のキー `sql-typing:progress` に JSON で1つだけ保存する�
 
 **インターフェース**:
 ```js
-/** @returns {TypingTarget} */
+/** @returns {TypingTarget} { text, slots, clauseEnds } */
 export function buildTarget(displaySql) {}
-/** @returns {TypingState} 先頭から打ち始める状態 */
+/** @returns {TypingState} 先頭から打ち始める状態 { position, okCount, missCount, missedSlots, lastMissAt } */
 export function createTypingState(target) {}
 /**
  * @param {TypingState} state
+ * @param {TypingTarget} target
  * @param {string} key  - KeyboardEvent.key（'a' / 'A' / ' ' / 'Enter' / '(' など）
- * @returns {{ state: TypingState, result: 'ok'|'miss'|'ignored', clauseEnded?: number }}
+ * @returns {{ state: TypingState, result: 'ok'|'miss'|'ignored', clauseEnded?: number, done?: boolean }}
  */
-export function pressKey(state, key) {}
+export function pressKey(state, target, key) {}
+/**
+ * @typedef {{ kind: 'char', expected: string, caseSensitive: boolean, start: number }
+ *         | { kind: 'separator', start: number, end: number }} Slot
+ *   start・end は表示用SQLの中の位置。画面はこれで元の改行・字下げのまま描く
+ */
 ```
+
+`pressKey` に `target` を引数で渡すのは、状態に target を持たせると1キーごとに大きな target をコピーし直すことになるため（状態は小さな値だけにする）。
 
 **スロットの作り方（決定13のルール）**:
 1. `display` を先頭から読み、文字列リテラル `'...'` の中かどうかを記録する
@@ -351,7 +359,9 @@ export function pressKey(state, key) {}
 3. 文字列の外の英字は、大文字・小文字を区別しない
 4. 文字列の中の文字は、そのまま一致したときだけ正解
 5. 正しくないキーは `miss`。位置は進めず、そのスロットを赤くする印を付ける
-6. Shift・Ctrl などの単独のキー、Backspace は `ignored`（止まる方式なので消す必要がない）
+6. Shift・Ctrl などの単独のキー、Backspace は `ignored`（止まる方式なので消す必要がない）。`Enter` は区切りスロットでは正解、それ以外では `miss`
+7. 識別子 `"..."` の中も大文字・小文字を区別する（PostgreSQL で区別されるため）
+8. 前後の空白はスロットにしない。打ち終えたあとのキーは `ignored`
 
 **句の切れ目**：`ClauseSplitter` が返す各句の終わりの位置を持っておき、その位置のスロットを打ち終えたときに `clauseEnded`（何番目の句か）を返す。
 
@@ -533,6 +543,12 @@ export function translateError(pgError) {}
 
 **苦手の記録**：miss が起きたスロットについて、そのスロットが記号なら記号1文字、英字ならそのスロットを含むキーワード（`keywords.yaml` にある単語）を `mistakes` に足す。打ち終えたスロットは同じ決まりで `typed` に足す。結果画面の「苦手」は、`typed` が20回以上のものの中から `mistakes ÷ typed` が大きい順に3つ。
 
+- 2語のキーワード（`ORDER BY`・`IS NULL`）は、隣の単語とつないで用語辞典にあれば2語で数える（1語より優先）
+- `typed` はキーワードを1語（2語のものは2語で1つ）につき1回、記号は1文字につき1回数える（キーワードの文字数で割合がゆがまないように）
+- 列名・テーブル名・数・文字列の中の英数字・区切りは数えない。文字列の中の記号（`'`・`%` など）は数える
+
+**インターフェース**：`computeTypingStats({ okCount, missCount, elapsedMs })`・`rankFor(cpm, accuracy)`・`weakPointKey(target, slotIndex, keywords)`・`countTypedKeys(target, keywords)`・`topWeakPoints(mistakes, typed, { minTyped, limit })`。cpm は小数を切り捨て、時間0のときは0。正確さは打っていなければ100。
+
 ### データレイヤー（`src/data/`）
 
 #### SqlRunner
@@ -604,10 +620,11 @@ export class SqlRunner {
 
 **インターフェース**:
 ```js
-export async function loadChapters() {}            // Chapter[]
-export async function loadProblems(chapterId) {}   // Problem[]（章の順番どおり）
-export async function loadCharacters() {}          // Character[]
-export async function loadKeywords() {}            // Keyword[]
+export function loadChapters() {}                  // Chapter[]（ビルドに同梱。同期で読める）
+export async function loadProblems(chapterId) {}   // Problem[]（章の順番どおり。章ごとに読み込む）
+export async function loadProblem(problemId) {}    // Problem
+export function loadCharacters() {}                // Character[]
+export function loadKeywords() {}                  // Keyword[]
 ```
 形が合わないデータは、開発中は画面に赤いエラーで出す。本番のビルドでは、同じ Zod の決まりをテストで先に確かめて、ビルドを止める（壊れたデータは配らない）。
 
@@ -620,15 +637,21 @@ export async function loadKeywords() {}            // Keyword[]
 
 **インターフェース**:
 ```js
+/** localStorage（使えなければそのページの間だけ覚える作り物）。localStorage に触るのはここだけ */
+export function getBrowserStorage() {} // { storage, persistent }
+export function createEmptyProgress() {}
 /** @returns {{ progress: Progress, recovered: boolean }} recovered=true は壊れていて初期化したとき */
-export function loadProgress() {}
-export function saveProgress(progress) {}
-export function clearProgress() {}
-/** クリアの結果を記録に入れた新しい Progress を返す（元は変えない） */
-export function recordPlay(progress, { problemId, mode, cleared, stats, date }) {}
+export function loadProgress(storage, now) {}
+/** @returns {{ ok: boolean }} 書けなくても例外にしない */
+export function saveProgress(storage, progress) {}
+export function clearProgress(storage) {} // P1（設定画面）で作る
+/** 遊んだ結果を記録に入れた新しい Progress を返す（元は変えない） */
+export function recordPlay(progress, { problemId, mode, cleared, date, best, mistakes, typed }) {}
 /** 問題が開いているか：前の問題がどれかのモードでクリア済みなら開く。章の最初の問題は前の章のターニングポイントがモード3・4でクリア済みなら開く */
 export function isUnlocked(progress, chapters, problemId) {}
 ```
+
+**最高記録の選び方**（本人の決定。2026-11-11）：モード1・2は、ランクが高い回 → 同じランクなら正確さが高い回 → 同じ正確さなら速い回。速いだけで正確さの低い回が、正確な回の記録を上書きしないようにするため。モード3・4は時間が短い回。一度クリアしたモードは、あとでクリアしなかった回があってもクリアのまま。
 
 ### 画面レイヤー（`src/ui/`）
 
@@ -773,14 +796,19 @@ stateDiagram-v2
 
 ### 遊ぶ画面（PlayScreen）の配置
 
-幅1280px以上を前提にした2列の配置。
+幅1280px以上を前提にした、上から下へ1列の配置（2026-11-11、本人の希望で2列から変更）。打っている間に目が行く入力エリアを画面の真ん中に大きく置き、結果の表はそのすぐ下に置く（打った瞬間の表の変化が、視線を少し下げるだけで見える。表の列も横いっぱいに使える）。
 
-| 場所 | 中身 |
+| 場所（上から） | 中身 |
 |---|---|
 | 上の帯 | 章名・問題名・モード・経過時間・（モード1・2）今の速さと正確さ |
-| 左の列（55%） | 依頼の要点（会話の最後の1行）／TypingArea または SqlEditor／ChoiceList（モード2）／HintPanel（モード3） |
-| 右の列（45%） | ResultTable・StepPlayer（切り替え）。下に JudgePanel |
+| 真ん中（舞台） | 案内の1行・日本語入力の知らせ／TypingArea（文字は2.4rem、中は左寄せのまま横の真ん中に置く）または SqlEditor／ChoiceList（モード2）／HintPanel（モード3） |
+| 舞台の下 | クリアしたときの結果（TypingResult）・JudgePanel |
+| その下（横いっぱい） | ResultTable・StepPlayer（切り替え） |
 | 右下の小窓 | SchemaMap（小さく表示。クリックで大きくする） |
+
+**サイト全体の大きさ**：ルートの文字を125%（ブラウザの既定16pxなら20px）にする（本人の希望。ブラウザで125%表示にしたときの大きさ）。文字・余白・角・幅はすべて rem で書き、`src/ui/styles/global.css` の `html { font-size }` を変えるだけで全体が同じ割合で変わるようにする。
+
+画面全体の見た目（色・フォント・一覧画面などの配置）は、一覧画面を作る作業であらためて決める。
 
 ### 結果の表（ResultTable）
 

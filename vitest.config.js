@@ -2,6 +2,14 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
+    // src/core/ は学習のルールそのものなので、行カバレッジ 90% を下回ったら npm run check を失敗させる
+    // （docs/architecture.md のテスト戦略）
+    coverage: {
+      provider: 'v8',
+      include: ['src/core/**/*.js'],
+      reporter: ['text-summary'],
+      thresholds: { lines: 90 },
+    },
     projects: [
       {
         test: {

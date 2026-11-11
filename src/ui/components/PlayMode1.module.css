@@ -1,0 +1,68 @@
+.play {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.badge {
+  padding: 2px var(--space-2);
+  border: 1px solid var(--color-active);
+  border-radius: var(--radius);
+  color: var(--color-active);
+  font-size: 0.85rem;
+}
+
+.problemTitle {
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+.meter {
+  margin-left: auto;
+  font-family: var(--font-code);
+  color: var(--color-text-muted);
+}
+
+/* 入力エリアを画面の真ん中に大きく出す舞台 */
+.stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-5) 0 var(--space-4);
+}
+
+.guide {
+  margin: 0;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.warning {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-miss);
+  border-radius: var(--radius);
+  color: var(--color-miss);
+}
+
+.results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.heading {
+  margin: 0;
+  font-size: 1rem;
+}

@@ -6,6 +6,25 @@
  * 注意：Node 版の PGlite では打ち切りの時計が動かない（node-backend.js）。
  * 終わらない正解SQLがあると、この検証（と npm run build の prebuild）自体が止まる。
  */
+import { splitClauses, canRunWhileTyping } from '../../src/core/clause-splitter.js';
+import { tokenize } from '../../src/core/sql-text.js';
+import { buildTarget, untypableSlots } from '../../src/core/typing-engine.js';
+
+/**
+ * モード1・2で打つSQL（display、なければ answer）に、キーボードから1回のキーで打てない文字がないか。
+ * 文字列・コメントの中の改行やタブ、全角文字があると、画面では先に進めなくなる。
+ * @param {{ file: string, problem: import('../../src/schema/problem-schema.js').Problem }[]} entries
+ * @returns {string[]}
+ */
+export function checkTypable(entries) {
+  return entries.flatMap(({ file, problem }) => {
+    const shown = problem.display ?? problem.answer;
+    return untypableSlots(buildTarget(shown)).map(
+      ({ char, start }) =>
+        `${file}: 表示用SQLの ${start + 1} 文字目に打てない文字 ${JSON.stringify(char)} があります（文字列・コメントの中に改行やタブを入れない）`,
+    );
+  });
+}
 
 /**
  * @param {{
@@ -69,6 +88,51 @@ export async function checkAnswersRun({ runner, chapters, entries, readSeed }) {
       issues.push(
         `${file}: 正解SQL（書き換え系）が1行も書き換えません（判定の意味がなくなるので、行が変わる問題にする）`,
       );
+    }
+  }
+  return issues;
+}
+
+/**
+ * 見える化C（打ちながら変化）のための検証。SELECT で始まる問題について：
+ * - 表示用SQL（display、なければ answer）を ClauseSplitter で句に分けられる
+ * - 各句の終わりまでの途中のSQLを実行しても、打ち切りや例外にならない（エラーになるのはよい）
+ * - 最後の句までのSQL（＝全体）はエラーにならない
+ * @param {Parameters<typeof checkAnswersRun>[0]} args
+ * @returns {Promise<string[]>}
+ */
+export async function checkClausePrefixes({ runner, chapters, entries, readSeed }) {
+  const issues = [];
+  const seedOf = new Map(chapters.map((chapter) => [chapter.id, chapter.seed]));
+  for (const { file, problem } of entries) {
+    const shown = problem.display ?? problem.answer;
+    const firstWord = tokenize(shown).find((t) => t.type !== 'space' && t.type !== 'comment');
+    if (firstWord?.text.toUpperCase() !== 'SELECT') continue; // 書き換え系は打ちながら実行しない
+    // 画面（use-typing-session）と同じ判定を使う
+    if (!canRunWhileTyping(shown)) {
+      issues.push(
+        `${file}: 表示用SQLを打ちながら実行できません（句の重なり・順番、または SELECT ... INTO を確かめる）`,
+      );
+      continue;
+    }
+    const { clauses } = splitClauses(shown);
+    const seedFile = seedOf.get(problem.chapterId);
+    if (!seedFile) continue; // 章がない問題は checkAnswersRun が報告する
+    await runner.prepare({ seedSql: readSeed(seedFile), extraSql: problem.setup.extraSql });
+    for (const [index, clause] of clauses.entries()) {
+      const prefix = shown.slice(0, clause.end);
+      let outcome;
+      try {
+        outcome = await runner.run(prefix);
+      } catch (error) {
+        issues.push(`${file}: 途中までのSQL「${prefix}」で例外になりました（${error.message}）`);
+        continue;
+      }
+      if (!outcome.ok && 'timeout' in outcome) {
+        issues.push(`${file}: 途中までのSQL「${prefix}」が時間内に終わりません`);
+      } else if (index === clauses.length - 1 && !outcome.ok) {
+        issues.push(`${file}: 表示用SQLの全体がエラーになります（${outcome.error.code}）`);
+      }
     }
   }
   return issues;

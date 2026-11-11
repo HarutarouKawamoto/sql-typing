@@ -1,0 +1,32 @@
+# 初級1問目：テーブルの中身を全部見る
+# 形：src/schema/problem-schema.js ／ 書き方：docs/development-guidelines.md の「問題データの書き方」
+id: beginner-01
+chapterId: beginner
+order: 1
+title: 在庫表を見せて
+kind: normal
+story:
+  before:
+    - { speaker: tencho, text: ようこそ！ 今日からデータ担当、よろしくね。 }
+    - { speaker: tencho, text: さっそくだけど、商品の一覧を全部見せてくれる？ }
+    - { speaker: senpai, text: いつもは管理画面を30ページめくって写してるやつだな。 }
+    - { speaker: senpai, text: 新人には半日仕事だぞ。 }
+    - { speaker: player, text: 商品の表を丸ごと出せばいいんですね。少しお待ちを。 }
+  after:
+    - { speaker: senpai, text: ……え、もう全部出たの？ }
+    - { speaker: tencho, text: 30商品ぜんぶそろってる。頼もしい新人が来たわね！ }
+answer: SELECT * FROM products
+blanks:
+  - answer: FROM products
+    wrong:
+      - {
+          text: INTO products,
+          why: INTO は INSERT で行を入れる先を書くときに使う。表を読むときは FROM。,
+        }
+      - { text: JOIN products, why: JOIN は2つ目の表をつなぐときに使う。最初の表は FROM で書く。 }
+hints:
+  - 使う句は SELECT と FROM の2つ。
+  - 書く順は SELECT → FROM。全部の列は * で表す。
+  - SELECT ??? FROM ???
+judge: { ordered: false }
+keywords: [SELECT, FROM]

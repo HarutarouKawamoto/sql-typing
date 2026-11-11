@@ -6,5 +6,5 @@
   seed: beginner.sql
   tables: [products]
   newTables: [products]
-  # 問題は「初級1章の問題」の作業で足す
-  problemIds: []
+  # 2〜9問目は「初級1章の問題」の作業で足す
+  problemIds: [beginner-01]

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { checkAnswersRun } from '../../helpers/answer-checks.js';
+import { checkAnswersRun, checkClausePrefixes, checkTypable } from '../../helpers/answer-checks.js';
 import { makeNodeRunner } from '../../helpers/make-runner.js';
 import { makeProblem, makeChapter } from '../../helpers/problem-factory.js';
 
@@ -92,6 +92,47 @@ describe('checkAnswersRun', () => {
       makeProblem({ answer: 'UPDATE products SET price = 0 WHERE id = 999' }),
     ]);
     expect(issues).toEqual([expect.stringContaining('1行も書き換えません')]);
+  });
+
+  it('句の途中までのSQL：分けられる問題は0件、句の順番が違う表示用SQLは見つける', async () => {
+    const run = (problem) =>
+      checkClausePrefixes({
+        runner,
+        chapters: [makeChapter()],
+        entries: [{ file: 'beginner/x.yaml', problem }],
+        readSeed,
+      });
+    expect(await run(makeProblem())).toEqual([]);
+    expect(
+      await run(makeProblem({ answer: 'SELECT name FROM products ORDER BY name WHERE price > 1' })),
+    ).toEqual([expect.stringContaining('打ちながら実行できません')]);
+    // 書き換え系は確かめない
+    expect(await run(makeProblem({ answer: 'UPDATE products SET price = 0' }))).toEqual([]);
+  });
+
+  it('打てない文字：文字列の中の改行を見つけ、普通の問題は0件', () => {
+    const entry = (problem) => ({ file: 'beginner/x.yaml', problem });
+    expect(checkTypable([entry(makeProblem())])).toEqual([]);
+    expect(
+      checkTypable([
+        entry(makeProblem({ answer: "SELECT name FROM products WHERE name = 'a\nb'" })),
+      ]),
+    ).toEqual([expect.stringContaining('打てない文字 "\\n"')]);
+  });
+
+  it('句の途中までのSQL：SELECT ... INTO は打ちながら実行できないと見つける', async () => {
+    const issues = await checkClausePrefixes({
+      runner,
+      chapters: [makeChapter()],
+      entries: [
+        {
+          file: 'beginner/x.yaml',
+          problem: makeProblem({ answer: 'SELECT name INTO copy FROM products' }),
+        },
+      ],
+      readSeed,
+    });
+    expect(issues).toEqual([expect.stringContaining('打ちながら実行できません')]);
   });
 
   it('書き換え系の正解SQLが行を書き換えれば問題0件', async () => {

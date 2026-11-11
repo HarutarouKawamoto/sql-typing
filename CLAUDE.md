@@ -63,7 +63,7 @@ src/ui → src/core / src/data → src/schema
 | コマンド | 内容 |
 |---|---|
 | `npm run dev` | 開発サーバー |
-| `npm run check` | ESLint ＋ Vitest（単体・統合・問題データの検証） |
+| `npm run check` | ESLint ＋ Prettier の確認 ＋ Vitest（単体・統合・問題データの検証）＋ `src/core/` の行カバレッジ 90% |
 | `npm run validate:data` | 問題データの検証だけ |
 | `npm run test:e2e` | ビルド ＋ Playwright |
 | `npm run build` | ビルド（前に `validate:data` が走る） |

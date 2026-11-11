@@ -33,6 +33,7 @@
 |------|-----------|------|----------|
 | @rollup/plugin-yaml | ^5.0 | YAML を Vite でそのまま `import` する | 問題データをビルドに同梱できる。実行時に YAML を解析しなくて済む |
 | vitest | ^5.1 | 単体テスト・統合テスト | Vite と同じ設定で動く。Node で PGlite を動かして統合テストができる |
+| @vitest/coverage-v8 | ^5.1 | カバレッジ | `src/core/` の行カバレッジ 90% を `npm run check`（`vitest run --coverage`）で確かめる。下回ると失敗する |
 | @playwright/test | ^1.65 | 画面のテスト（E2E） | 実際のブラウザでキー入力を送れる。タイピングのテストに必要 |
 | eslint | ^10.14 | 書き方のチェック | レイヤーをまたぐ `import` の禁止（下の「依存のルール」）を機械的に確かめる |
 | @eslint/js・globals | ^10.0・^17.14 | ESLint 10 のフラット設定 | 推奨ルールと、ブラウザ／Node のグローバル変数の定義 |
