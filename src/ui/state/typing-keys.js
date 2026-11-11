@@ -22,6 +22,21 @@ export function classifyKeyEvent(event) {
 }
 
 /**
+ * キーを押したとき、ボタンや入力欄にフォーカスがあるか。あるなら Enter・Space はその部品に任せる
+ * （画面全体の Enter＝もう一度 などとぶつけない。キーボードだけでボタンを押せるように）。
+ * @param {unknown} target - KeyboardEvent.target
+ * @returns {boolean}
+ */
+export function isInteractiveTarget(target) {
+  const element = /** @type {{ closest?: (selector: string) => unknown } | null} */ (target);
+  return Boolean(
+    element &&
+    typeof element.closest === 'function' &&
+    element.closest('button, a[href], input, select, textarea, [contenteditable="true"]'),
+  );
+}
+
+/**
  * 「前の実行が終わっていなければ、最新の1つだけを予約する」実行の間引き。
  * dispose() のあとは結果を知らせず、予約も実行しない（画面を離れたあとの setState を防ぐ）。
  * @template T

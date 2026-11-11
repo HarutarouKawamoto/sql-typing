@@ -418,16 +418,17 @@ export function splitClauses(sql) {}
 /**
  * @param {string} sql
  * @param {SqlRunner} runner
- * @returns {Promise<{ ok: true, steps: Step[] } | { ok: false, reason: 'unsupported'|'error', message: string }>}
+ * @returns {Promise<{ ok: true, steps: Step[] } | { ok: false, reason: 'unsupported'|'error'|'mismatch', message: string }>}
  */
 export async function buildSteps(sql, runner) {}
 
 /**
  * @typedef {Object} Step
  * @property {string} label            - 'FROM' / 'WHERE' / 'SELECT' / 'DISTINCT' / 'ORDER BY' / 'LIMIT'
- * @property {[number, number]} range  - SQLの中で光らせる文字の範囲
- * @property {string[]} columns
+ * @property {[number, number]} range  - SQLの中で光らせる文字の範囲（DISTINCT は SELECT 句の範囲）
+ * @property {string[]} columns        - `__rid` は含めない
  * @property {StepRow[]} rows
+ * @property {number|null} rowCountBefore - 1つ前の段階の行数（「30行 → 21行」の表示用。最初の段階は null）
  * @property {StepDiff} diff           - 1つ前の段階からの変化
  *
  * @typedef {Object} StepRow
@@ -451,12 +452,17 @@ export async function buildSteps(sql, runner) {}
 | WHERE | `SELECT ctid::text AS __rid, * FROM t WHERE w` | FROM にあって WHERE にない `__rid` が消えた行 |
 | SELECT | `SELECT ctid::text AS __rid, p FROM t WHERE w` | 消えた列・名前の変わった列を、列名の比較で出す |
 | DISTINCT | SELECT の結果を、`__rid` 以外の値が同じ行どうしでまとめる（JSで計算） | まとまった行の組 |
-| ORDER BY | `SELECT ctid::text AS __rid, p FROM t WHERE w ORDER BY o`（DISTINCT があるときは、最終結果の並びに値を合わせて並べる） | 並び順の違い |
-| LIMIT | 並べた結果の先頭 n 行 | 後ろの消えた行 |
+| ORDER BY | `SELECT ctid::text AS __rid, p FROM t WHERE w ORDER BY o`（DISTINCT があるときは `SELECT DISTINCT p FROM t WHERE w ORDER BY o` を実行し、値で前の段階の行に対応づける） | 並び順の違い |
+| LIMIT | DISTINCT なし：`SELECT p, ctid::text AS __rid FROM t WHERE w ORDER BY o LIMIT …`。DISTINCT あり：元のSQLの結果の値で前の段階の行に対応づける（DISTINCT のあとは値が重ならない） | 前後の消えた行 |
 
-- 句を組み立て直すときは `pgsql-ast-parser` で構文木にしてから、必要な句だけ残してSQLに戻す
-- 最後の段階の表が、元のSQLをそのまま実行した結果と一致することを確かめる。一致しなければ `ok: false`（間違った見える化を見せない）
-- 構文解析できないSQL・まだ対応していない形（中級以降の `GROUP BY` / `JOIN` など、MVPの範囲外）は `unsupported` を返し、画面は「この形のステップ再生はまだありません」と出して最終結果だけ表示する
+- 段階のSQLは、ClauseSplitter の句の範囲（文字の位置）で、元のSQLの句の文字をそのまま切り貼りして作る（`pgsql-ast-parser` は使わない。初級の単一テーブルなら切り貼りで足り、構文木を経由すると書き方が変わる心配が増えるため。中級で必要になったら使う）。SELECT の項目は `src/core/stepper/select-list.js` で、括弧・文字列の外のカンマで分ける
+- 対応する形：句に分けられ、`GROUP BY`・`HAVING` がなく、FROM 句がテーブル名1つ（別名可）で、SELECT の項目に集計関数（`string_agg` なども）・ウィンドウ関数がなく、`DISTINCT ON`・`SELECT ALL`・`SELECT ... INTO` でなく、括弧の外に `OFFSET`（LIMIT 句の中は可）・`FETCH`・`FOR`・`WINDOW`・`UNION` などがないもの。ClauseSplitter が句として数えない語が、直前の句の文字に混ざって別の段階で行が減るのを防ぐため
+- 行の目印 `ctid::text AS __rid` は項目の**末尾**に足す（先頭に足すと `ORDER BY 2` のような列番号がずれる）
+- 最初に元のSQLを実行する。エラーなら `error`（PostgreSQL のメッセージ付き。学習者のSQLの間違い）。元のSQLが成功したあとに段階のSQLだけが失敗したら `unsupported`（学習者が書いていないSQLのエラーは見せない）
+- SELECT の段階の消えた列・名前の変わった列は、項目の「元の列」から決める（結果の列名との一致では決めない）。元の列は FROM の段階に実在するものだけ（`TRUE`・`CURRENT_DATE` を列と取り違えない）、引用符なしの名前は小文字で比べる、同じ列を2回以上使うときは名前の変わった表示をしない、`*` があればどの列も消えない
+- LIMIT の段階は、DISTINCT がなければ元の ORDER BY と LIMIT をそのまま付けて行の目印つきで実行し、残る行を決める（同じ値の行を取り違えない）。残る行が ORDER BY の段階の並びの中で続いていなければ `mismatch`
+- 最後の段階の表が、元のSQLをそのまま実行した結果と一致することを確かめる（ORDER BY・LIMIT があれば並びも）。一致しなければ `mismatch`（間違った見える化を見せない）
+- まだ対応していない形（中級以降の `GROUP BY` / `JOIN` など、MVPの範囲外）は `unsupported` を返し、画面は「この形のステップ再生はまだありません」と出す
 - 中級（P1）では、`GROUP BY`（各行のグループの値を `SELECT __rid, (グループ式) ...` で求めて色分け）と `JOIN`（左右のテーブルの ctid を両方持たせる）の段階をここに足す
 
 #### Judge
@@ -666,7 +672,9 @@ export function isUnlocked(progress, chapters, problemId) {}
 | `SqlEditor` | モード3・4：複数行の入力欄（`textarea`）。Ctrl+Enter で実行。Tab でスペース2つ |
 | `HintPanel` | モード3：ヒントを1つずつ開く |
 | `ResultTable` | 結果の表。行の追加・削除・並び替えを Motion の `layout` で動かす |
-| `StepPlayer` | 見える化A：段階の切り替え、再生・一時停止・進む・戻る、SQLの今の句を光らせる、行数の変化 |
+| `StepPlayer` | 見える化A：buildSteps を呼ぶ、SQLの句に実行順の番号を付けて今の句を光らせる、再生・一時停止・進む・戻る・最初から、段階の一言の説明 |
+| `StepTable` | 見える化A の1段階の表：印の場面（消える行・まとまる行・消える列）と変化の場面、行数の変化、AS の「元 → 新」 |
+| `ReplayDemoScreen` | ステップ再生の見本（`/?demo`）。初級の形のSQLを選んでステップ再生を見る |
 | `ReorderIntro` | 見える化B：句のチップが書いた順から実行順へ入れ替わる（1.5秒） |
 | `JudgePanel` | 判定の結果、和訳したエラー、違いの説明 |
 | `ResultScreen` | クリア後の記録（速さ・正確さ・ランク／時間・実行回数・ヒント数）、苦手の上位3つ、ステップ再生へのボタン、次の問題へ |
@@ -832,16 +840,24 @@ stateDiagram-v2
 
 ### ステップ再生（StepPlayer）の動き
 
-| 段階 | 動き（Motion） | 長さ |
+| 段階 | 動き（Motion） | 長さ（印 → 変化） |
 |---|---|---|
-| FROM | 全行が上から順に現れる | 0.6秒 |
-| WHERE | 消える行が赤くなる（0.4秒）→ 横にずれて消える → 残った行が詰まる | 1.2秒 |
-| SELECT | 消える列が灰色になって幅が0になる。AS の列は名前が入れ替わる | 0.8秒 |
-| DISTINCT | 同じ値の行が同じ色になり、1行に重なる | 1.0秒 |
-| ORDER BY | 行が新しい位置へ動く（layout アニメーション） | 0.8秒 |
-| LIMIT | 指定した行数の下に線が引かれ、下の行が消える | 0.6秒 |
+| FROM | 全行が現れる | 0 → 0.6秒 |
+| WHERE | 消える行が赤くなり打ち消し線が付く → 横にずれて消える → 残った行が詰まる | 1.8 → 0.8秒 |
+| SELECT | 消える列が灰色の打ち消し線になる → 消える。AS の列は見出しが「元 → 新」 | 1.5 → 0.5秒 |
+| DISTINCT | まとまる組ごとに違う色になり、残る行は太字、まとまって消える行は文字が薄く打ち消し線 → 1行に重なる | 1.8 → 0.6秒 |
+| ORDER BY | 行が新しい位置へ動く（行の目印を key にした layout アニメーション） | 0 → 0.8秒 |
+| LIMIT | 消える行が赤くなる → 消える | 1.5 → 0.3秒 |
 
-自動再生では段階の間に1秒止まる。`replaySpeed` で全体の速さを変えられる。
+- 行が消える・列が消える・行がまとまる段階は、「印の場面（前の段階の表に印を付ける）」→「変化の場面（この段階の表）」の2つに分ける。1ステップ進めたとき（止めているとき）も印の場面から始まり、少し待って変化の場面になる
+- 自動再生では段階の間に1秒止まり、最後の段階で止まる。`replaySpeed`（0.5 / 1 / 2）で全体の速さを変えられる（長さは `src/ui/state/step-replay-timing.js`）
+- 操作：→ 次へ、← 戻る、Space 再生／一時停止、Home 最初から（ボタンもある）。Enter（もう一度）・Esc（もどる）はなぞり書きの画面のまま。ボタンにフォーカスがあるときの Enter・Space はそのボタンが受ける（Tab でボタンに移って押せるように）
+- 進み方の決まり（印 → 変化 → 次へ、最後で止まる、手で動かすと自動再生は止まる、最後で止まっているときの再生は最初から）は `src/ui/state/step-replay-machine.js` の reducer にまとめる
+- 最後の段階の変化を見せたら、学習記録の `stepReplayFinished` を true にする（KPI「見える化の利用」）
+- 入口：モード1のクリアの結果の「ステップ再生を見る」。押すと結果の表の欄がステップ再生に変わる（モード3・4からの入口は判定の作業で足す）
+- **見本のページ**（`/?demo`、入口からはリンクしない）：初級の形のSQL（WHERE・AS・DISTINCT と ORDER BY・ORDER BY と LIMIT・AND）を選んでステップ再生を見られる。`&speed=0.05` のように速さも変えられる。印の見た目を目と E2E で確かめるため（1問目には消える行・まとまる行がない）
+- 印の付いた行・列には `data-mark`（`removing`・`merging`・`merging-keep`・`removing-column`）を付け、E2E で数える
+- 表示用の行は50行まで（結果の表と同じ）。OS の「動きを減らす」設定では動きを付けない
 
 ## ファイル構造（データ）
 

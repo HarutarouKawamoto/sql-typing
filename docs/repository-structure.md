@@ -66,6 +66,11 @@ sql-typing/
   - `progress.js`：学習記録を読み、遊んだ結果を記録して保存する `useProgress`
   - `use-typing-session.js`：なぞり書きの1回分（keydown を1か所で受ける・時計・打ちながらの実行）
   - `typing-keys.js`：React に依存しない部品（キーの判定 `classifyKeyEvent`、最新の1つだけ実行する `createLatestOnlyRunner`）。`tests/unit/ui/` で単体テストする
+  - `use-step-replay.js`：ステップ再生の進み方をタイマーと React につなぐ
+  - `step-replay-machine.js`：ステップ再生の進み方の決まり（React に依存しない reducer。`tests/unit/ui/` で単体テスト）
+  - `step-replay-timing.js`：段階ごとの長さと速さの掛け算（React に依存しない。`tests/unit/ui/` で単体テスト）
+- `components/StepPlayer.jsx`・`StepTable.jsx`：見える化A（ステップ再生）の画面と、1段階の表
+- `screens/ReplayDemoScreen.jsx`：ステップ再生の見本（`/?demo`）
 - `styles/`: `tokens.css`（色・余白などの CSS 変数。ライト／ダーク）、`global.css`
 
 **命名規則**:
@@ -106,8 +111,9 @@ ui/
 - `scoring.js`: Scoring（速さ・正確さ・ランク・苦手の集計）
 - `error-translator.js`: ErrorTranslator
 - `error-messages.js`: SQLSTATE ごとの和訳の表（データだけ）
-- `stepper/index.js`: `buildSteps`（段階の関数を表で呼び分ける）
-- `stepper/from-step.js`、`where-step.js`、`select-step.js`、`distinct-step.js`、`order-by-step.js`、`limit-step.js`: 句ごとの段階づくり
+- `stepper/index.js`: `buildSteps`（初級の単一テーブルの段階を、句の範囲で元のSQLを切り貼りして作る）
+- `stepper/select-list.js`: SELECT 句を項目に分け、元の列と別名を見分ける `splitSelectList`
+- 中級の `GROUP BY`・`JOIN` の段階を足すときは、`stepper/` に段階ごとのファイル（`group-by-step.js` など）を分ける
 - `sql-text.js`: 文字列リテラル・コメントを見分ける小さな字句解析（TypingEngine・ClauseSplitter・Judge の `require`/`forbid` で共有）
 
 **命名規則**:
@@ -131,8 +137,7 @@ core/
 ├── sql-text.js
 └── stepper/
     ├── index.js
-    ├── from-step.js
-    └── where-step.js
+    └── select-list.js
 ```
 
 ### src/data/（データレイヤー）
@@ -228,7 +233,9 @@ tests/unit/
 │   ├── cross-checks.test.js
 │   └── schemas.test.js        # Zod スキーマの決まり（会話の行数・進捗の形など）
 ├── ui/
-│   └── typing-keys.test.js    # 画面の、React に依存しない部品
+│   ├── typing-keys.test.js    # 画面の、React に依存しない部品
+│   ├── step-replay-timing.test.js
+│   └── step-replay-machine.test.js
 └── scripts/
     └── check-review-files.test.js
 ```
@@ -245,7 +252,7 @@ tests/integration/
 ├── judge/
 │   └── judge.test.js
 ├── stepper/
-│   └── beginner-steps.test.js
+│   └── beginner-steps.test.js # 初級9問の形のステップ再生が、元のSQLの結果と一致する
 ├── sql-runner/
 │   └── node-runner.test.js    # Node 版の PGlite で、結果の形・値の型・エラー・初期状態への戻し方
 ├── data-validation/
@@ -270,6 +277,9 @@ tests/e2e/
 │   ├── mode1-trace.spec.js
 │   ├── mode2-choice.spec.js
 │   └── mode3-4-write.spec.js
+├── visualization/
+│   ├── step-replay.spec.js    # 見える化A（ステップ再生）
+│   └── step-replay-marks.spec.js # 見本のページで、印（消える行・列、まとまる行）の数を確かめる
 ├── progression/
 │   └── turning-point.spec.js
 └── device/
@@ -414,7 +424,7 @@ src/core        src/data
 
 1. **新しい問題**：`data/problems/<章id>/` に YAML を1つ追加し、`chapters.yaml` に足す。コードは変えない
 2. **新しい章**：`chapters.yaml` に章、`data/seeds/` に初期データ、`data/problems/<章id>/` を作る
-3. **ステップ再生の新しい句**（中級の `GROUP BY`・`JOIN`）：`src/core/stepper/` に `<句>-step.js` を足し、`stepper/index.js` の表に登録する
+3. **ステップ再生の新しい句**（中級の `GROUP BY`・`JOIN`）：`src/core/stepper/` に `<句>-step.js` を足し、`stepper/index.js` から呼ぶ（今の `index.js` は初級の段階を1ファイルで作っているので、そのときに段階ごとに分ける）
 4. **上級の専用の見える化**：`src/ui/components/viz/` を作り、`IndexRace.jsx`・`PlanTree.jsx`・`TxTimeline.jsx` を置く。計算部分は `src/core/viz/` に置く
 
 ### ファイルサイズの管理

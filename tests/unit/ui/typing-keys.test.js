@@ -1,5 +1,28 @@
 import { describe, it, expect, vi } from 'vitest';
-import { classifyKeyEvent, createLatestOnlyRunner } from '../../../src/ui/state/typing-keys.js';
+import {
+  classifyKeyEvent,
+  createLatestOnlyRunner,
+  isInteractiveTarget,
+} from '../../../src/ui/state/typing-keys.js';
+
+describe('isInteractiveTarget', () => {
+  const element = (matches) => ({ closest: (selector) => (matches(selector) ? {} : null) });
+
+  it('ボタンなどの中にあるときは true', () => {
+    expect(isInteractiveTarget(element(() => true))).toBe(true);
+  });
+
+  it('ページ全体（body など）や、closest のないものは false', () => {
+    expect(isInteractiveTarget(element(() => false))).toBe(false);
+    expect(isInteractiveTarget(window_like())).toBe(false);
+    expect(isInteractiveTarget(null)).toBe(false);
+  });
+});
+
+/** window には closest がない */
+function window_like() {
+  return {};
+}
 
 const keyEvent = (overrides) => ({
   key: 'a',

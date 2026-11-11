@@ -1,0 +1,49 @@
+.demo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.title {
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+.samples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bar button,
+.samples button {
+  padding: var(--space-1) var(--space-3);
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.samples .selected {
+  border-color: var(--color-active);
+  background: color-mix(in srgb, var(--color-active) 20%, transparent);
+}
+
+.bar button:focus-visible,
+.samples button:focus-visible {
+  outline: 3px solid var(--color-active);
+  outline-offset: 2px;
+}

@@ -1,0 +1,107 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.count {
+  margin: 0;
+  font-weight: bold;
+}
+
+.scroll {
+  overflow: auto;
+  max-height: 60vh;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-code);
+  font-size: 0.9rem;
+}
+
+.table th,
+.table td {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  white-space: nowrap;
+  transition:
+    background-color 0.2s,
+    color 0.2s;
+}
+
+.table th {
+  position: sticky;
+  top: 0;
+  background: var(--color-surface);
+}
+
+/* 消える行（WHERE・LIMIT） */
+.removing td {
+  color: var(--color-miss);
+  background: color-mix(in srgb, var(--color-miss) 18%, transparent);
+  text-decoration: line-through;
+}
+
+/*
+ * まとまる行（DISTINCT）。組ごとに色を分け、まとまって消える行は薄く打ち消し線、残る行は太字にする。
+ * 色は tokens.css の色を借りる（新しい色の値を書かない）
+ */
+.group0 td {
+  background: color-mix(in srgb, var(--color-focus-table) 45%, transparent);
+}
+.group1 td {
+  background: color-mix(in srgb, var(--color-correct) 45%, transparent);
+}
+.group2 td {
+  background: color-mix(in srgb, var(--color-active) 45%, transparent);
+}
+.group3 td {
+  background: color-mix(in srgb, var(--color-character-senpai) 50%, transparent);
+}
+.group4 td {
+  background: color-mix(in srgb, var(--color-character-eigyo) 50%, transparent);
+}
+.group5 td {
+  background: color-mix(in srgb, var(--color-character-tencho) 50%, transparent);
+}
+
+.mergingAway td {
+  color: var(--color-text-muted);
+  text-decoration: line-through;
+}
+
+.mergingKeep td {
+  font-weight: bold;
+}
+
+/* 消える列（SELECT） */
+.removingColumn {
+  color: var(--color-pending) !important;
+  text-decoration: line-through;
+}
+
+.renamedFrom {
+  color: var(--color-pending);
+  text-decoration: line-through;
+}
+
+.number {
+  text-align: right !important;
+}
+
+.null {
+  color: var(--color-pending);
+  font-style: italic;
+}
+
+.more {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}

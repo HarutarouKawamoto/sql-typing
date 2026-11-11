@@ -5,6 +5,7 @@ import {
   loadProgress,
   saveProgress,
   recordPlay,
+  markStepReplayFinished,
 } from '../../../src/data/progress-store.js';
 import { createMemoryStorage } from '../../helpers/memory-storage.js';
 
@@ -83,6 +84,27 @@ describe('saveProgress', () => {
     expect(saveProgress(createMemoryStorage({ failOnSet: true }), createEmptyProgress())).toEqual({
       ok: false,
     });
+  });
+});
+
+describe('markStepReplayFinished', () => {
+  it('問題の stepReplayFinished を true にした新しい記録を返す（元は変えない）', () => {
+    const empty = createEmptyProgress();
+    const next = markStepReplayFinished(empty, 'beginner-01');
+    expect(next.problems['beginner-01']).toEqual({ modes: {}, stepReplayFinished: true });
+    expect(empty.problems).toEqual({});
+  });
+
+  it('遊んだ記録は残す', () => {
+    const played = recordPlay(createEmptyProgress(), {
+      problemId: 'beginner-01',
+      mode: '1',
+      cleared: true,
+      date: '2026-11-11',
+    });
+    const next = markStepReplayFinished(played, 'beginner-01');
+    expect(next.problems['beginner-01'].modes[1].cleared).toBe(true);
+    expect(next.problems['beginner-01'].stepReplayFinished).toBe(true);
   });
 });
 

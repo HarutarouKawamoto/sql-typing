@@ -116,6 +116,20 @@ function isBetter(candidate, current) {
   return candidate.timeMs < current.timeMs;
 }
 
+/**
+ * ステップ再生を最後の段階まで見たことを記録した、新しい記録を返す（KPI「見える化の利用」）。
+ * @param {Progress} progress
+ * @param {string} problemId
+ * @returns {Progress}
+ */
+export function markStepReplayFinished(progress, problemId) {
+  const problem = progress.problems[problemId] ?? { modes: {}, stepReplayFinished: false };
+  return {
+    ...progress,
+    problems: { ...progress.problems, [problemId]: { ...problem, stepReplayFinished: true } },
+  };
+}
+
 /** @param {Record<string, number>} base @param {Record<string, number>} [add] */
 function addCounts(base, add = {}) {
   const result = { ...base };

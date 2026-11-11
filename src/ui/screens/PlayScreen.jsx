@@ -10,12 +10,23 @@ import { PlayMode1 } from '../components/PlayMode1.jsx';
  *   problemId: string,
  *   mode: '1',
  *   runner: import('../../data/sql-runner/sql-runner.js').SqlRunner,
+ *   replaySpeed: number,
  *   onRecord: (play: object) => import('../../schema/progress-schema.js').Progress,
+ *   onReplayFinished: (problemId: string) => void,
  *   onExit: () => void,
  *   saveFailed: boolean,
  * }} props
  */
-export function PlayScreen({ problemId, mode, runner, onRecord, onExit, saveFailed }) {
+export function PlayScreen({
+  problemId,
+  mode,
+  runner,
+  replaySpeed,
+  onRecord,
+  onReplayFinished,
+  onExit,
+  saveFailed,
+}) {
   const [loaded, setLoaded] = useState(
     /** @type {{ problem: import('../../schema/problem-schema.js').Problem } | { error: string } | null} */ (
       null
@@ -68,7 +79,9 @@ export function PlayScreen({ problemId, mode, runner, onRecord, onExit, saveFail
       problem={loaded.problem}
       keywords={keywords}
       runner={runner}
+      replaySpeed={replaySpeed}
       onRecord={onRecord}
+      onReplayFinished={onReplayFinished}
       onRestart={restart}
       onExit={onExit}
       saveFailed={saveFailed}

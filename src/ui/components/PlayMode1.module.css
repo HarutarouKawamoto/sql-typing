@@ -55,6 +55,23 @@
   color: var(--color-miss);
 }
 
+.replayButton {
+  align-self: center;
+  padding: var(--space-2) var(--space-4);
+  font: inherit;
+  font-weight: bold;
+  color: var(--color-bg);
+  background: var(--color-active);
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.replayButton:focus-visible {
+  outline: 3px solid var(--color-text);
+  outline-offset: 2px;
+}
+
 .results {
   display: flex;
   flex-direction: column;

@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { computeTypingStats, topWeakPoints } from '../../core/scoring.js';
+import { isInteractiveTarget } from '../state/typing-keys.js';
 import { useTypingSession } from '../state/use-typing-session.js';
 import { ResultTable } from './ResultTable.jsx';
+import { StepPlayer } from './StepPlayer.jsx';
 import { TypingArea } from './TypingArea.jsx';
 import { TypingResult } from './TypingResult.jsx';
 import styles from './PlayMode1.module.css';
@@ -13,22 +15,37 @@ function localDate(date) {
 }
 
 /**
- * モード1（なぞり書き）。左に打つSQL、右に結果の表（句を打ち終えるたびに変わる）。
+ * モード1（なぞり書き）。真ん中に打つSQL、すぐ下に結果の表（句を打ち終えるたびに変わる）。
  * 打ち終えたら記録して結果を出す。結果で Enter を押すともう一度。
+ * 結果の「ステップ再生を見る」で、表の欄がステップ再生（見える化A）に変わる。
  * @param {{
  *   problem: import('../../schema/problem-schema.js').Problem,
  *   keywords: string[],
  *   runner: import('../../data/sql-runner/sql-runner.js').SqlRunner,
+ *   replaySpeed: number,
  *   onRecord: (play: object) => import('../../schema/progress-schema.js').Progress,
+ *   onReplayFinished: (problemId: string) => void,
  *   onRestart: () => void,
  *   onExit: () => void,
  *   saveFailed: boolean,
  * }} props
  */
-export function PlayMode1({ problem, keywords, runner, onRecord, onRestart, onExit, saveFailed }) {
+export function PlayMode1({
+  problem,
+  keywords,
+  runner,
+  replaySpeed,
+  onRecord,
+  onReplayFinished,
+  onRestart,
+  onExit,
+  saveFailed,
+}) {
+  const displaySql = problem.display ?? problem.answer;
   const [summary, setSummary] = useState(null);
+  const [showReplay, setShowReplay] = useState(false);
   const session = useTypingSession({
-    displaySql: problem.display ?? problem.answer,
+    displaySql,
     keywords,
     runner,
     onExit,
@@ -58,6 +75,8 @@ export function PlayMode1({ problem, keywords, runner, onRecord, onRestart, onEx
     if (!summary) return undefined;
     const onKeyDown = (event) => {
       // 最後のキーを押しっぱなしにしたときの繰り返しで、すぐにやり直しにならないように
+      // ボタン（ステップ再生を見る・戻る など）にフォーカスがあるときの Enter は、そのボタンに任せる
+      if (isInteractiveTarget(event.target)) return;
       if (event.key === 'Enter' && !event.repeat && !event.isComposing) {
         event.preventDefault();
         onRestart();
@@ -95,23 +114,48 @@ export function PlayMode1({ problem, keywords, runner, onRecord, onRestart, onEx
         <TypingArea target={session.target} typing={session.typing} missPulse={session.missPulse} />
       </section>
       {summary && (
-        <TypingResult
-          stats={summary.stats}
-          elapsedMs={summary.elapsedMs}
-          missCount={summary.missCount}
-          thisTimeMistakes={summary.mistakes}
-          weakPoints={summary.weakPoints}
-          saveFailed={saveFailed}
-        />
+        <>
+          <TypingResult
+            stats={summary.stats}
+            elapsedMs={summary.elapsedMs}
+            missCount={summary.missCount}
+            thisTimeMistakes={summary.mistakes}
+            weakPoints={summary.weakPoints}
+            saveFailed={saveFailed}
+          />
+          {!showReplay && (
+            <button
+              type="button"
+              className={styles.replayButton}
+              onClick={() => setShowReplay(true)}
+            >
+              ステップ再生を見る（DBの中でどう動いたか）
+            </button>
+          )}
+        </>
       )}
-      <section className={styles.results} aria-label="結果の表">
-        <h2 className={styles.heading}>実行結果（句を打ち終えるたびに変わる）</h2>
-        <ResultTable
-          result={session.live.result}
-          previousRowCount={session.live.previousRowCount}
-          emptyMessage="FROM まで打つと、ここに表が出ます"
-        />
-      </section>
+      {showReplay ? (
+        <section className={styles.results} aria-label="ステップ再生">
+          <h2 className={styles.heading}>ステップ再生（実行順に1句ずつ）</h2>
+          <StepPlayer
+            // SQLが変わったら段階を作り直す（古い段階と新しいSQLを組み合わせない）
+            key={displaySql}
+            sql={displaySql}
+            runner={runner}
+            speed={replaySpeed}
+            onFinished={() => onReplayFinished(problem.id)}
+          />
+        </section>
+      ) : (
+        <section className={styles.results} aria-label="結果の表">
+          <h2 className={styles.heading}>実行結果（句を打ち終えるたびに変わる）</h2>
+          <ResultTable
+            result={session.live.result}
+            previousRowCount={session.live.previousRowCount}
+            emptyMessage="FROM まで打つと、ここに表が出ます"
+          />
+        </section>
+      )}
     </div>
   );
 }

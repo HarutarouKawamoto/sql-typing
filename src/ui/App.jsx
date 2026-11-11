@@ -2,18 +2,52 @@ import { useCallback, useState } from 'react';
 import { getSqlRunner, useDatabaseStatus } from './state/database.js';
 import { useProgress } from './state/progress.js';
 import { PlayScreen } from './screens/PlayScreen.jsx';
+import { ReplayDemoScreen } from './screens/ReplayDemoScreen.jsx';
+
+/**
+ * `?demo`（ステップ再生の見本）と `speed`（再生の速さ）を読む。
+ * @param {string} search - location.search
+ * @returns {{ speed: number } | null}
+ */
+function readDemoParams(search) {
+  const params = new URLSearchParams(search);
+  if (!params.has('demo')) return null;
+  const speed = Number(params.get('speed'));
+  return { speed: Number.isFinite(speed) && speed > 0 ? speed : 1 };
+}
 
 /**
  * アプリの入口のコンポーネント。
- * 今は仮の入口（1問目をなぞり書きで遊ぶ）と、遊ぶ画面の切り替えだけ。一覧画面・会話は後の作業で足す。
+ * 今は仮の入口（1問目をなぞり書きで遊ぶ）と、遊ぶ画面・ステップ再生の見本の切り替えだけ。
+ * 一覧画面・会話は後の作業で足す。
  */
 export function App() {
   const database = useDatabaseStatus();
-  const { progress, record, recoveredNotice, dismissRecoveredNotice, saveFailed } = useProgress();
+  const {
+    progress,
+    record,
+    markReplayFinished,
+    recoveredNotice,
+    dismissRecoveredNotice,
+    saveFailed,
+  } = useProgress();
   const [playing, setPlaying] = useState(
     /** @type {{ problemId: string, mode: '1' } | null} */ (null),
   );
   const exit = useCallback(() => setPlaying(null), []);
+  const [demo, setDemo] = useState(() => readDemoParams(window.location.search));
+  const exitDemo = useCallback(() => {
+    setDemo(null);
+    window.history.replaceState(null, '', window.location.pathname);
+  }, []);
+
+  if (demo && database.status === 'ready') {
+    return (
+      <main className="app app-wide">
+        <ReplayDemoScreen runner={getSqlRunner()} speed={demo.speed} onExit={exitDemo} />
+      </main>
+    );
+  }
 
   if (playing) {
     return (
@@ -24,7 +58,9 @@ export function App() {
           problemId={playing.problemId}
           mode={playing.mode}
           runner={getSqlRunner()}
+          replaySpeed={progress.settings.replaySpeed}
           onRecord={record}
+          onReplayFinished={markReplayFinished}
           onExit={exit}
           saveFailed={saveFailed}
         />

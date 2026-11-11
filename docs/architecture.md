@@ -21,7 +21,7 @@
 | Vite | ^8.3 | 開発サーバー・ビルド | サーバー機能のいらない SPA を最も少ない設定で作れる。Web Worker と WebAssembly の読み込みに標準で対応している |
 | @vitejs/plugin-react | ^6.3 | Vite で React を使う | 公式のプラグイン |
 | @electric-sql/pglite | ^0.5 | ブラウザの中の PostgreSQL | 本物の PostgreSQL を WebAssembly で動かす。`EXPLAIN ANALYZE` が使える（上級で必要）。自前の Web Worker の中で動かす（付属の `PGliteWorker` は使わない。下の「実行のしくみ」） |
-| pgsql-ast-parser | ^12.0 | SQLの構文解析 | PostgreSQL の書き方を JS の構文木にし、SQLに戻せる（`toSql`）。Stepper で句を組み直すのに使う |
+| pgsql-ast-parser | ^12.0 | SQLの構文解析 | PostgreSQL の書き方を JS の構文木にし、SQLに戻せる（`toSql`）。**今は使っていない**：初級の Stepper は句の範囲で元のSQLの文字を切り貼りして段階のSQLを作る（2026-11-11 の見える化A の作業で決めた）。中級の JOIN・GROUP BY の段階で必要になったら使う |
 | motion | ^14.12 | アニメーション | `layout` アニメーションで、行の並び替え・消える動きを少ないコードで書ける |
 | @xyflow/react | ^12.12 | DBの地図 | テーブルの箱と線の図。拡大・移動もそのまま使える |
 | yaml | ^2.9 | YAML の読み込み | 問題データの読み込み（ビルド時とテスト時） |
