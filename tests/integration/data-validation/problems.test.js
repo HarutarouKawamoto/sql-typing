@@ -15,6 +15,7 @@ import {
   checkAnswersRun,
   checkClausePrefixes,
   checkTypable,
+  checkBlanksPlayable,
   checkWrongChoices,
   checkOrderDetermined,
 } from '../../helpers/answer-checks.js';
@@ -96,6 +97,13 @@ describe('data/ のファイルをまたぐ決まり', () => {
       .filter((p) => p.value)
       .map((p) => ({ file: p.file, problem: p.value }));
     expect(checkTypable(entries)).toEqual([]);
+  });
+
+  it('モード2の空欄が、表示用SQLの中に見つかり、選択肢がすべて打てる', () => {
+    const entries = problems
+      .filter((p) => p.value)
+      .map((p) => ({ file: p.file, problem: p.value }));
+    expect(checkBlanksPlayable(entries)).toEqual([]);
   });
 
   it('登場人物の color が tokens.css に定義されている', () => {

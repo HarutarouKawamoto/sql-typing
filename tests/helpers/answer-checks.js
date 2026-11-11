@@ -4,6 +4,7 @@
  * - 句の途中までのSQLを実行しても止まらない（checkClausePrefixes）
  * - モード2の間違いの選択肢を入れたSQLが、判定で正解にならない（checkWrongChoices）
  * - ordered の問題の並びが1つに決まる（checkOrderDetermined）
+ * PGlite を使わない検証もここに置く（打てる文字か checkTypable、モード2の空欄が遊べるか checkBlanksPlayable）
  *
  * 注意：Node 版の PGlite では打ち切りの時計が動かない（node-backend.js）。
  * 終わらない正解SQLがあると、この検証（と npm run build の prebuild）自体が止まる。
@@ -13,6 +14,7 @@ import { judge, computeExpected } from '../../src/core/judge.js';
 import { tokenize } from '../../src/core/sql-text.js';
 import { splitSelectList } from '../../src/core/stepper/select-list.js';
 import { buildTarget, untypableSlots } from '../../src/core/typing-engine.js';
+import { locateBlanks } from '../../src/core/blank-typing.js';
 
 /**
  * 問題ごとに、章の初期データ＋extraSql の状態にしてから fn を呼ぶ（章・初期データがない問題は飛ばす。別の検証で報告する）
@@ -47,16 +49,19 @@ export async function checkWrongChoices(args) {
     const expected = await computeExpected({ problem, runner: args.runner });
     if (!expected.ok) return issues; // 正解SQLの問題は checkAnswersRun が報告する
     const shown = problem.display ?? problem.answer;
-    for (const [index, blank] of problem.blanks.entries()) {
-      const at = shown.indexOf(blank.answer);
-      if (at === -1) {
-        issues.push(
-          `${file}: 空欄${index + 1}の正解「${blank.answer}」が、表示用SQLにそのままの文字で見つかりません（置き換えて確かめられない）`,
-        );
-        continue;
-      }
+    let ranges;
+    try {
+      ranges = blankCharRanges(shown, problem.blanks);
+    } catch (error) {
+      // 画面で遊べない空欄。checkBlanksPlayable も同じ理由で報告する
+      issues.push(`${file}: ${error.message}（置き換えて確かめられない）`);
+      return issues;
+    }
+    for (const { blank, from, to } of ranges) {
+      const index = problem.blanks.indexOf(blank);
       for (const wrong of blank.wrong) {
-        const sql = shown.slice(0, at) + wrong.text + shown.slice(at + blank.answer.length);
+        // 画面と同じ範囲（locateBlanks）を置き換える。改行・字下げ・大文字小文字が表示用SQLと違っても確かめられる
+        const sql = shown.slice(0, from) + wrong.text + shown.slice(to);
         const result = await judge({ sql, problem, runner: args.runner, expected });
         if (result.status === 'correct') {
           issues.push(
@@ -145,6 +150,68 @@ export function checkTypable(entries) {
       ({ char, start }) =>
         `${file}: 表示用SQLの ${start + 1} 文字目に打てない文字 ${JSON.stringify(char)} があります（文字列・コメントの中に改行やタブを入れない）`,
     );
+  });
+}
+
+/**
+ * 空欄の、表示用SQLの中の文字の範囲（画面と同じ locateBlanks で探す）。見つからない・重なるなら投げる。
+ * @param {string} shown
+ * @param {import('../../src/schema/problem-schema.js').Blank[]} blanks
+ * @returns {{ blank: import('../../src/schema/problem-schema.js').Blank, from: number, to: number }[]}
+ */
+function blankCharRanges(shown, blanks) {
+  const target = buildTarget(shown);
+  return locateBlanks(target, blanks).map(({ start, end, blank }) => {
+    const last = target.slots[end - 1];
+    return {
+      blank,
+      from: target.slots[start].start,
+      to: last.kind === 'separator' ? last.end : last.start + 1,
+    };
+  });
+}
+
+/**
+ * @param {{ start: number, end: number }[]} tokens
+ * @param {number} at - 文字の位置
+ * @returns {boolean} その位置が、1つの語（トークン）の途中か
+ */
+function insideToken(tokens, at) {
+  return tokens.some((token) => token.start < at && at < token.end);
+}
+
+/**
+ * モード2の空欄が画面で遊べるか（PGlite を使わない）。
+ * - 空欄の正解が、表示用SQLのスロットの中に見つかり、空欄どうしが重ならない（画面と同じ locateBlanks で確かめる）
+ * - 空欄の始まり・終わりが、語の途中でない（`x = 10` の `= 1` を空欄にすると、残りの `0` だけを打つことになる）
+ * - 選択肢（正解・間違い）に、打てない文字がない
+ * @param {{ file: string, problem: import('../../src/schema/problem-schema.js').Problem }[]} entries
+ * @returns {string[]}
+ */
+export function checkBlanksPlayable(entries) {
+  return entries.flatMap(({ file, problem }) => {
+    const issues = [];
+    const shown = problem.display ?? problem.answer;
+    try {
+      const tokens = tokenize(shown);
+      for (const { blank, from, to } of blankCharRanges(shown, problem.blanks)) {
+        if (insideToken(tokens, from) || insideToken(tokens, to)) {
+          issues.push(`${file}: 空欄「${blank.answer}」の始まりか終わりが、語の途中です`);
+        }
+      }
+    } catch (error) {
+      issues.push(`${file}: ${error.message}`);
+    }
+    for (const blank of problem.blanks) {
+      for (const text of [blank.answer, ...blank.wrong.map((w) => w.text)]) {
+        for (const { char } of untypableSlots(buildTarget(text))) {
+          issues.push(
+            `${file}: 選択肢「${text}」に打てない文字 ${JSON.stringify(char)} があります`,
+          );
+        }
+      }
+    }
+    return issues;
   });
 }
 

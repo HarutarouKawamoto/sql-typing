@@ -3,6 +3,7 @@ import {
   checkAnswersRun,
   checkClausePrefixes,
   checkTypable,
+  checkBlanksPlayable,
   checkWrongChoices,
   checkOrderDetermined,
 } from '../../helpers/answer-checks.js';
@@ -126,6 +127,29 @@ describe('checkAnswersRun', () => {
     ).toEqual([expect.stringContaining('打てない文字 "\\n"')]);
   });
 
+  it('モード2の空欄：表示用SQLにない空欄・重なる空欄・打てない選択肢を見つけ、普通の問題は0件', () => {
+    const entry = (problem) => ({ file: 'beginner/x.yaml', problem });
+    expect(checkBlanksPlayable([entry(makeProblem())])).toEqual([]);
+    const blank = (answer, wrongText = 'x') => ({ answer, wrong: [{ text: wrongText, why: 'y' }] });
+    expect(
+      checkBlanksPlayable([entry(makeProblem({ blanks: [blank('WHERE stock > 0')] }))]),
+    ).toEqual([expect.stringContaining('見つかりません')]);
+    expect(
+      checkBlanksPlayable([
+        entry(makeProblem({ blanks: [blank('price >= 1000'), blank('1000')] })),
+      ]),
+    ).toEqual([expect.stringContaining('重なっています')]);
+    // 1000 の途中で切れる空欄
+    expect(checkBlanksPlayable([entry(makeProblem({ blanks: [blank('>= 100')] }))])).toEqual([
+      expect.stringContaining('語の途中'),
+    ]);
+    expect(
+      checkBlanksPlayable([
+        entry(makeProblem({ blanks: [blank('price >= 1000', "name = 'a	b'")] })),
+      ]),
+    ).toEqual([expect.stringContaining('打てない文字')]);
+  });
+
   it('句の途中までのSQL：SELECT ... INTO は打ちながら実行できないと見つける', async () => {
     const issues = await checkClausePrefixes({
       runner,
@@ -168,23 +192,23 @@ describe('checkAnswersRun', () => {
     expect(await run(makeProblem())).toEqual([]);
   });
 
-  it('間違いの選択肢：空欄の正解が表示用SQLにそのままの文字でないと見つける', async () => {
-    const issues = await checkWrongChoices({
-      runner,
-      chapters: [makeChapter()],
-      entries: [
-        {
-          file: 'beginner/x.yaml',
-          problem: makeProblem({
-            blanks: [
-              { answer: 'where price >= 1000', wrong: [{ text: 'ORDER BY price', why: '-' }] },
-            ],
-          }),
-        },
-      ],
-      readSeed,
-    });
-    expect(issues).toEqual([expect.stringContaining('そのままの文字で見つかりません')]);
+  it('間違いの選択肢：画面と同じ範囲で置き換える（大文字・小文字が違っても確かめる）。ない空欄は見つける', async () => {
+    const run = (blankAnswer) =>
+      checkWrongChoices({
+        runner,
+        chapters: [makeChapter()],
+        entries: [
+          {
+            file: 'beginner/x.yaml',
+            problem: makeProblem({
+              blanks: [{ answer: blankAnswer, wrong: [{ text: 'ORDER BY price', why: '-' }] }],
+            }),
+          },
+        ],
+        readSeed,
+      });
+    expect(await run('where price >= 1000')).toEqual([]);
+    expect(await run('WHERE stock > 0')).toEqual([expect.stringContaining('見つかりません')]);
   });
 
   it('並び：ordered で同じ値の行があると見つけ、1つに決まる問題は0件', async () => {

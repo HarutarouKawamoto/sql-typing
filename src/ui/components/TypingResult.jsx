@@ -1,7 +1,7 @@
 import styles from './TypingResult.module.css';
 
 /**
- * なぞり書き（モード1）の結果。速さ・正確さ・時間・ランクと、今回まちがえたところ・苦手の上位3つ。
+ * なぞり書き（モード1）・打って選ぶ（モード2）の結果。速さ・正確さ・時間・ランクと、今回まちがえたところ・苦手の上位3つ。
  * @param {{
  *   stats: { cpm: number, accuracy: number, rank: string },
  *   elapsedMs: number,
@@ -9,7 +9,9 @@ import styles from './TypingResult.module.css';
  *   thisTimeMistakes: Record<string, number>,
  *   weakPoints: { key: string, rate: number, mistakes: number, typed: number }[],
  *   saveFailed: boolean,
+ *   wrongChoices?: number | null,
  * }} props
+ *   wrongChoices：モード2で選び間違えた回数（モード1は null）
  */
 export function TypingResult({
   stats,
@@ -18,6 +20,7 @@ export function TypingResult({
   thisTimeMistakes,
   weakPoints,
   saveFailed,
+  wrongChoices = null,
 }) {
   const mistakes = Object.entries(thisTimeMistakes).sort((a, b) => b[1] - a[1]);
   return (
@@ -48,6 +51,12 @@ export function TypingResult({
           <dt>ミス</dt>
           <dd>{missCount} 回</dd>
         </div>
+        {wrongChoices !== null && (
+          <div>
+            <dt>選び間違い</dt>
+            <dd data-testid="result-wrong-choices">{wrongChoices} 回</dd>
+          </div>
+        )}
       </dl>
 
       <h3 className={styles.subtitle}>今回まちがえたところ</h3>

@@ -101,15 +101,17 @@ export function weakPointKey(target, slotIndex, keywords) {
  * 問題を1回打ち終えたときに「打った」と数える回数。キーワードは1語（2語のものは2語で）につき1回、記号は1文字につき1回。
  * @param {import('./typing-engine.js').TypingTarget} target
  * @param {string[]} keywords
+ * @param {Set<number>} [skipSlots] - 数えないスロット（モード2の空欄。空欄の中の miss を苦手に入れないので、打った回数からも外す）
  * @returns {Record<string, number>}
  */
-export function countTypedKeys(target, keywords) {
+export function countTypedKeys(target, keywords, skipSlots = new Set()) {
   const keywordSet = new Set(keywords);
   const index = tokenIndexByChar(target);
   const seenGroups = new Set();
   /** @type {Record<string, number>} */
   const counts = {};
   target.slots.forEach((_, slotIndex) => {
+    if (skipSlots.has(slotIndex)) return;
     const found = keyOfSlot(target, slotIndex, keywordSet, index);
     if (!found || seenGroups.has(found.group)) return;
     seenGroups.add(found.group);

@@ -78,3 +78,21 @@
     animation: none;
   }
 }
+
+/* モード2のまだ埋まっていない空欄。答えの文字数がわからないように、いつも同じ幅の箱にする */
+.blank {
+  display: inline-block;
+  min-width: 4ch;
+  padding: 0 0.5ch;
+  color: var(--color-pending);
+  text-align: center;
+  border: 2px dashed var(--color-pending);
+  border-radius: var(--radius);
+  line-height: 1.2;
+}
+
+.blankActive {
+  color: var(--color-active);
+  border-color: var(--color-active);
+  background: color-mix(in srgb, var(--color-active) 15%, transparent);
+}

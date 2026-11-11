@@ -84,6 +84,13 @@ describe('countTypedKeys', () => {
       "'": 2,
     });
   });
+
+  it('モード2：空欄のスロットは数えない（空欄の中の miss を苦手に入れないので、分母もそろえる）', () => {
+    const target = buildTarget('SELECT * FROM t WHERE a = 1');
+    // FROM t（スロット 9〜14）を空欄にする
+    const skip = new Set([9, 10, 11, 12, 13, 14]);
+    expect(countTypedKeys(target, KEYWORDS, skip)).toEqual({ SELECT: 1, '*': 1, WHERE: 1, '=': 1 });
+  });
 });
 
 describe('topWeakPoints', () => {
