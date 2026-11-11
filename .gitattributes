@@ -1,0 +1,15 @@
+# 改行を LF に固定する。
+# core.autocrlf=true の Windows でも作業ツリーが CRLF にならないようにし、
+# Prettier（endOfLine: lf）の確認が npm run check で落ちないようにするため。
+* text=auto eol=lf
+
+# 文字ではないファイル（改行の変換をしない）
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.wasm binary

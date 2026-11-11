@@ -47,7 +47,8 @@ sql-typing/
 ├── playwright.config.js
 ├── eslint.config.js
 ├── jsconfig.json
-└── .prettierrc.json
+├── .prettierrc.json
+└── .gitattributes              # 改行を LF に固定（下の「改行」）
 ```
 
 ## ディレクトリ詳細
@@ -416,6 +417,10 @@ src/core        src/data
 - `.DS_Store`、`Thumbs.db`
 
 `.steering/` と `docs/review/` は**除外しない**（`docs/review/` はレビューに使うので必ずリポジトリに入れる。`.steering/` は `docs/review/` の記録と対になるので残す）。
+
+### 改行（.gitattributes）
+- すべての文字のファイルの改行を LF に固定する（`* text=auto eol=lf`）。Windows の `core.autocrlf=true` でも作業ツリーが CRLF にならず、Prettier（LF 前提）の確認が落ちない
+- 画像・フォント・`.wasm` は `binary`（改行を変換しない）。新しい種類の文字ではないファイルを置くときは、ここに足す
 
 ### .prettierignore・ESLint の除外
 - `dist/`
