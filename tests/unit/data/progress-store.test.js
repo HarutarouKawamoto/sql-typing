@@ -6,6 +6,8 @@ import {
   saveProgress,
   recordPlay,
   markStepReplayFinished,
+  isUnlocked,
+  nextProblemId,
 } from '../../../src/data/progress-store.js';
 import { createMemoryStorage } from '../../helpers/memory-storage.js';
 
@@ -238,5 +240,75 @@ describe('recordPlay', () => {
     progress = recordPlay(progress, play({ mistakes: { '(': 1, ',': 1 }, typed: { '(': 4 } }));
     expect(progress.mistakes).toEqual({ '(': 3, ',': 1 });
     expect(progress.typed).toEqual({ '(': 8, SELECT: 1 });
+  });
+});
+
+describe('進む条件', () => {
+  // 2章の作り物。ターニングポイントは問題の kind で決まる（章の最後に1問まで。作っている途中の章にはない）
+  const CHAPTERS = [
+    { id: 'beginner', problemIds: ['beginner-01', 'beginner-02', 'beginner-03'] },
+    { id: 'intermediate', problemIds: ['intermediate-01', 'intermediate-02'] },
+  ];
+  const TURNING = new Set(['beginner-03', 'intermediate-02']);
+  const clear = (progress, problemId, mode) =>
+    recordPlay(progress, {
+      problemId,
+      mode,
+      cleared: true,
+      date: '2026-11-12',
+      best: { timeMs: 1 },
+    });
+
+  it('最初の章の最初の問題は、何もしなくても開いている。ほかは閉じている', () => {
+    const empty = createEmptyProgress();
+    expect(isUnlocked(empty, CHAPTERS, 'beginner-01', TURNING)).toBe(true);
+    expect(isUnlocked(empty, CHAPTERS, 'beginner-02', TURNING)).toBe(false);
+    expect(isUnlocked(empty, CHAPTERS, 'intermediate-01', TURNING)).toBe(false);
+  });
+
+  it('前の問題をどれかのモードでクリアすると、次の問題が開く', () => {
+    const progress = clear(createEmptyProgress(), 'beginner-01', '1');
+    expect(isUnlocked(progress, CHAPTERS, 'beginner-02', TURNING)).toBe(true);
+    expect(isUnlocked(progress, CHAPTERS, 'beginner-03', TURNING)).toBe(false);
+  });
+
+  it('クリアしなかった回だけでは開かない', () => {
+    const progress = recordPlay(createEmptyProgress(), {
+      problemId: 'beginner-01',
+      mode: '3',
+      cleared: false,
+      date: '2026-11-12',
+    });
+    expect(isUnlocked(progress, CHAPTERS, 'beginner-02', TURNING)).toBe(false);
+  });
+
+  it('ターニングポイントはモード3・4でクリアしたときだけ、次の章が開く', () => {
+    let progress = createEmptyProgress();
+    for (const id of ['beginner-01', 'beginner-02']) progress = clear(progress, id, '1');
+    progress = clear(progress, 'beginner-03', '1');
+    progress = clear(progress, 'beginner-03', '2');
+    expect(isUnlocked(progress, CHAPTERS, 'intermediate-01', TURNING)).toBe(false);
+    const by3 = clear(progress, 'beginner-03', '3');
+    const by4 = clear(progress, 'beginner-03', '4');
+    expect(isUnlocked(by3, CHAPTERS, 'intermediate-01', TURNING)).toBe(true);
+    expect(isUnlocked(by4, CHAPTERS, 'intermediate-01', TURNING)).toBe(true);
+  });
+
+  it('ターニングポイントのない章（作っている途中）は、最後の問題をどのモードでクリアしても次の章が開く', () => {
+    let progress = createEmptyProgress();
+    for (const id of ['beginner-01', 'beginner-02', 'beginner-03'])
+      progress = clear(progress, id, '1');
+    expect(isUnlocked(progress, CHAPTERS, 'intermediate-01', new Set())).toBe(true);
+  });
+
+  it('知らない問題は閉じている', () => {
+    expect(isUnlocked(createEmptyProgress(), CHAPTERS, 'missing-01', TURNING)).toBe(false);
+  });
+
+  it('nextProblemId：章の中の次、章の終わりなら次の章の最初、最後なら null', () => {
+    expect(nextProblemId(CHAPTERS, 'beginner-01')).toBe('beginner-02');
+    expect(nextProblemId(CHAPTERS, 'beginner-03')).toBe('intermediate-01');
+    expect(nextProblemId(CHAPTERS, 'intermediate-02')).toBeNull();
+    expect(nextProblemId(CHAPTERS, 'missing-01')).toBeNull();
   });
 });

@@ -23,8 +23,10 @@ export default defineConfig({
           name: 'integration',
           include: ['tests/integration/**/*.test.js'],
           environment: 'node',
-          // PGlite の起動を含むテストが入るため長めにする
+          // PGlite の起動を含むテストが入るため長めにする。起動は beforeAll でもするので、hook も同じ長さに
+          // （ファイルごとに PGlite を並べて起動するので、PC が忙しいと既定の 10 秒を超えることがある）
           testTimeout: 30_000,
+          hookTimeout: 30_000,
         },
       },
     ],

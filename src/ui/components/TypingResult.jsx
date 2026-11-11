@@ -88,7 +88,6 @@ export function TypingResult({
       )}
 
       {saveFailed && <p className={styles.warning}>この環境では記録が保存されません。</p>}
-      <p className={styles.keys}>Enter：もう一度 ／ Esc：もどる</p>
     </section>
   );
 }

@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { computeTypingStats, topWeakPoints } from '../../core/scoring.js';
 import { localDate } from '../state/local-date.js';
-import { isInteractiveTarget, isPlainEnter } from '../state/typing-keys.js';
 import { useTypingSession } from '../state/use-typing-session.js';
 import { ResultTable } from './ResultTable.jsx';
 import { StepPlayer } from './StepPlayer.jsx';
@@ -19,7 +18,7 @@ const GUIDES = {
 /**
  * モード1（なぞり書き）・モード2（打って選ぶ）。真ん中に打つSQL、すぐ下に結果の表（句を打ち終えるたびに変わる）。
  * モード2は空欄を「？」の箱で隠し、空欄に来たら選択肢を出す（判定は blank-typing.js）。
- * 打ち終えたら記録して結果を出す。結果で Enter を押すともう一度。
+ * 打ち終えたら記録して結果を出す。結果のキー（次の問題へ・もう一度）は afterClear（AfterStory）が受ける。
  * 結果の「ステップ再生を見る」で、表の欄がステップ再生（見える化A）に変わる。
  * @param {{
  *   problem: import('../../schema/problem-schema.js').Problem,
@@ -29,9 +28,9 @@ const GUIDES = {
  *   replaySpeed: number,
  *   onRecord: (play: object) => import('../../schema/progress-schema.js').Progress,
  *   onReplayFinished: (problemId: string) => void,
- *   onRestart: () => void,
  *   onExit: () => void,
  *   saveFailed: boolean,
+ *   afterClear?: import('react').ReactNode,
  * }} props
  */
 export function PlayMode12({
@@ -42,9 +41,9 @@ export function PlayMode12({
   replaySpeed,
   onRecord,
   onReplayFinished,
-  onRestart,
   onExit,
   saveFailed,
+  afterClear = null,
 }) {
   const displaySql = problem.display ?? problem.answer;
   const [summary, setSummary] = useState(null);
@@ -77,22 +76,6 @@ export function PlayMode12({
       });
     },
   });
-
-  // 結果を出しているときの Enter でもう一度
-  useEffect(() => {
-    if (!summary) return undefined;
-    const onKeyDown = (event) => {
-      // 最後のキーを押しっぱなしにしたときの繰り返しで、すぐにやり直しにならないように
-      // ボタン（ステップ再生を見る・戻る など）にフォーカスがあるときの Enter は、そのボタンに任せる
-      if (isInteractiveTarget(event.target)) return;
-      if (isPlainEnter(event)) {
-        event.preventDefault();
-        onRestart();
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [summary, onRestart]);
 
   const live = computeTypingStats({
     okCount: session.typing.okCount,
@@ -142,6 +125,7 @@ export function PlayMode12({
             saveFailed={saveFailed}
             wrongChoices={mode === '2' ? summary.wrongChoices : null}
           />
+          {afterClear}
           {!showReplay && (
             <button
               type="button"

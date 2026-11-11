@@ -1,11 +1,9 @@
 import { test, expect } from '@playwright/test';
+import { openModeSelect, openPlay } from '../helpers/open-play.js';
 
-/** 入口を開き、データベースの準備ができたら1問目を打って選ぶで始める */
+/** 一覧から1問目の打って選ぶを始める */
 async function startMode2(page) {
-  await page.goto('/');
-  const start = page.getByRole('button', { name: '1問目を打って選ぶ' });
-  await expect(start).toBeEnabled({ timeout: 30_000 });
-  await start.click();
+  await openPlay(page, '2');
   await expect(page.getByTestId('typing-area')).toBeVisible();
 }
 
@@ -36,6 +34,7 @@ test('空欄は「？」で隠れ、空欄に来ると選択肢が出る。正�
   await expect(page.getByTestId('result-table')).toContainText('30行');
 
   await page.keyboard.press('Escape');
+  await openModeSelect(page);
   await expect(page.getByTestId('best-mode2')).toContainText('文字/分');
   expect(errors).toEqual([]);
 });
@@ -66,14 +65,13 @@ test('間違いを打ち切ると理由が出て打ち消し線になり、空�
   await expect(page.getByTestId('result-wrong-choices')).toHaveText('1 回');
 });
 
-test('クリアのあとステップ再生を見られ、Enter でもう一度（空欄はまた隠れる）', async ({ page }) => {
+test('クリアのあとステップ再生を見られ、R でもう一度（空欄はまた隠れる）', async ({ page }) => {
   await startMode2(page);
   await page.keyboard.type('SELECT * FROM products');
   await expect(page.getByRole('heading', { name: 'クリア！' })).toBeVisible();
   await page.getByRole('button', { name: /ステップ再生を見る/ }).click();
   await expect(page.getByTestId('step-player')).toBeVisible();
-  await page.getByRole('heading', { name: 'クリア！' }).click();
-  await page.keyboard.press('Enter');
+  await page.keyboard.press('r');
   await expect(page.getByTestId('blank-box')).toBeVisible();
   await expect(page.getByTestId('meter')).toContainText('0.0秒');
 });

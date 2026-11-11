@@ -32,61 +32,7 @@ pre {
   padding: var(--space-5) var(--space-3);
 }
 
-.app-title {
-  margin: 0;
-  font-family: var(--font-code);
-  font-size: 2.5rem;
-}
-
-.app-subtitle {
-  margin: var(--space-2) 0 0;
-  color: var(--color-text-muted);
-}
-
 .app-wide {
   max-width: 70rem;
   padding-top: var(--space-4);
-}
-
-.app-status {
-  margin-top: var(--space-4);
-  color: var(--color-pending);
-}
-
-.app-notice {
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-miss);
-  border-radius: var(--radius);
-}
-
-/* 仮の入口のボタンを横に並べる（一覧画面ができるまで） */
-.app-starts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-.app-start {
-  padding: var(--space-2) var(--space-4);
-  font: inherit;
-  font-weight: bold;
-  color: var(--color-bg);
-  background: var(--color-text);
-  border: none;
-  border-radius: var(--radius);
-  cursor: pointer;
-}
-
-.app-start:disabled {
-  opacity: 0.4;
-  cursor: wait;
-}
-
-.app-start:focus-visible {
-  outline: 3px solid var(--color-active);
-  outline-offset: 2px;
-}
-
-.app-best {
-  color: var(--color-text-muted);
 }

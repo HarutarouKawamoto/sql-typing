@@ -1,11 +1,9 @@
 import { test, expect } from '@playwright/test';
+import { homeProblem, openPlay } from '../helpers/open-play.js';
 
 /** 1問目をなぞり書きでクリアして、ステップ再生を開く */
 async function openReplay(page) {
-  await page.goto('/');
-  const start = page.getByRole('button', { name: '1問目をなぞり書きで遊ぶ' });
-  await expect(start).toBeEnabled({ timeout: 30_000 });
-  await start.click();
+  await openPlay(page, '1');
   // 問題を読み込み終えて入力エリアが出てから打つ（読み込み中のキーは捨てられる）
   await expect(page.getByTestId('typing-area')).toBeVisible();
   await page.keyboard.type('SELECT * FROM products');
@@ -58,10 +56,7 @@ test('最後の段階まで見たことが学習記録に残る', async ({ page 
 test('ボタンにフォーカスして Enter を押すと、そのボタンが押される（もう一度にならない）', async ({
   page,
 }) => {
-  await page.goto('/');
-  const start = page.getByRole('button', { name: '1問目をなぞり書きで遊ぶ' });
-  await expect(start).toBeEnabled({ timeout: 30_000 });
-  await start.click();
+  await openPlay(page, '1');
   await expect(page.getByTestId('typing-area')).toBeVisible();
   await page.keyboard.type('SELECT * FROM products');
 
@@ -76,11 +71,11 @@ test('ボタンにフォーカスして Enter を押すと、そのボタンが�
   await expect(page.getByTestId('step-player')).toBeVisible();
 });
 
-test('ステップ再生を開いても、Enter でもう一度・Esc でもどるは効く', async ({ page }) => {
+test('ステップ再生を開いても、R でもう一度・Esc でもどるは効く', async ({ page }) => {
   await openReplay(page);
-  await page.keyboard.press('Enter');
+  await page.keyboard.press('r');
   await expect(page.getByTestId('step-player')).toHaveCount(0);
   await expect(page.getByTestId('result-table')).toBeVisible();
   await page.keyboard.press('Escape');
-  await expect(page.getByRole('button', { name: '1問目をなぞり書きで遊ぶ' })).toBeVisible();
+  await expect(homeProblem(page)).toBeVisible();
 });

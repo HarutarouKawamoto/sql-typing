@@ -55,6 +55,27 @@ export function isPlainEnter(event) {
 }
 
 /**
+ * クリアの結果を出しているときのキー（本人の決定。2026-11-12）。
+ * - Enter・J：次の問題へ（ボタンにフォーカスがあるときの Enter はボタンに任せる）
+ * - R：もう一度
+ * 修飾キーつき（Ctrl+R の読み込み直し、実行の Ctrl+Enter を続けて押したとき）・長押し・変換中・入力欄の中は何もしない。
+ * @param {{ key: string, repeat?: boolean, isComposing?: boolean, ctrlKey?: boolean, metaKey?: boolean, altKey?: boolean, shiftKey?: boolean, target?: unknown }} event
+ * @returns {'next' | 'restart' | null}
+ */
+export function classifyResultKey(event) {
+  if (event.repeat || event.isComposing || event.ctrlKey || event.metaKey || event.altKey) {
+    return null;
+  }
+  if (isTextEntryTarget(event.target)) return null;
+  if (event.key === 'Enter') {
+    return isPlainEnter(event) && !isInteractiveTarget(event.target) ? 'next' : null;
+  }
+  if (event.key === 'j' || event.key === 'J') return 'next';
+  if (event.key === 'r' || event.key === 'R') return 'restart';
+  return null;
+}
+
+/**
  * キーを押したとき、文字を入れる欄（textarea・input・contenteditable）にフォーカスがあるか。
  * あるなら矢印・Space・Home などはその欄のカーソル移動・入力なので、画面全体の操作にしない。
  * @param {unknown} target - KeyboardEvent.target

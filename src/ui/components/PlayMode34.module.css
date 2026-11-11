@@ -32,7 +32,7 @@
   color: var(--color-text-muted);
 }
 
-/* 依頼の会話とテーブルの一覧（会話を1行ずつ送る StoryPanel・DBの地図ができるまでの仮） */
+/* 依頼の会話（書いている間に読み返せるように）とテーブルの一覧（DBの地図ができるまでの仮） */
 .request {
   display: flex;
   flex-direction: column;
@@ -41,22 +41,6 @@
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
-}
-
-.story {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.speaker {
-  display: inline-block;
-  min-width: 4em;
-  margin-right: var(--space-2);
-  font-weight: bold;
 }
 
 .tables {

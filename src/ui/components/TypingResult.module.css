@@ -50,8 +50,3 @@
 .warning {
   color: var(--color-miss);
 }
-
-.keys {
-  margin-top: var(--space-4);
-  color: var(--color-text-muted);
-}

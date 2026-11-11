@@ -1,11 +1,9 @@
 import { test, expect } from '@playwright/test';
+import { homeProblem, openModeSelect, openPlay } from '../helpers/open-play.js';
 
-/** 入口を開き、データベースの準備ができたら1問目のなぞり書きを始める */
+/** 一覧から1問目のなぞり書きを始める */
 async function startMode1(page) {
-  await page.goto('/');
-  const start = page.getByRole('button', { name: '1問目をなぞり書きで遊ぶ' });
-  await expect(start).toBeEnabled({ timeout: 30_000 });
-  await start.click();
+  await openPlay(page, '1');
   await expect(page.getByTestId('typing-area')).toBeVisible();
 }
 
@@ -48,21 +46,29 @@ test('Shift・Backspace は数えず、改行の代わりに Enter でも区切�
   await expect(page.getByTestId('meter')).toContainText('正確さ 100%');
 });
 
-test('クリアの記録が残り、読み込み直しても入口に最高記録が出る', async ({ page }) => {
+test('クリアの記録が残り、読み込み直しても一覧の星とモード選択の最高記録に出る', async ({
+  page,
+}) => {
   await startMode1(page);
   await page.keyboard.type('SELECT * FROM products');
   await expect(page.getByRole('heading', { name: 'クリア！' })).toBeVisible();
   await page.keyboard.press('Escape');
-  await expect(page.getByText(/これまでの最高：\d+ 文字\/分/)).toBeVisible();
+  await expect(page.getByTestId('star-beginner-01-1')).toHaveAttribute('data-cleared', 'true');
   await page.reload();
-  await expect(page.getByText(/これまでの最高：\d+ 文字\/分/)).toBeVisible();
+  await expect(page.getByTestId('star-beginner-01-1')).toHaveAttribute('data-cleared', 'true');
+  await openModeSelect(page);
+  await expect(page.getByTestId('best-mode1')).toContainText(/最高：\d+ 文字\/分/);
 });
 
-test('結果で Enter を押すと、もう一度最初から打てる', async ({ page }) => {
+test('結果で R を押すと、もう一度最初から打てる（次の問題がないときの Enter は何もしない）', async ({
+  page,
+}) => {
   await startMode1(page);
   await page.keyboard.type('SELECT * FROM products');
   await expect(page.getByRole('heading', { name: 'クリア！' })).toBeVisible();
   await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { name: 'クリア！' })).toBeVisible();
+  await page.keyboard.press('r');
   await expect(page.getByRole('heading', { name: 'クリア！' })).toHaveCount(0);
   expect(await typedCount(page)).toBe(0);
 });
@@ -95,7 +101,5 @@ test('壊れた学習記録があっても起動し、そのことを知らせ�
   });
   await page.goto('/');
   await expect(page.getByRole('alert')).toContainText('学習記録を読み込めなかった');
-  await expect(page.getByRole('button', { name: '1問目をなぞり書きで遊ぶ' })).toBeEnabled({
-    timeout: 30_000,
-  });
+  await expect(homeProblem(page)).toBeEnabled({ timeout: 30_000 });
 });
