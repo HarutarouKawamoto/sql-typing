@@ -96,7 +96,8 @@ export function saveProgress(storage, progress) {
 /**
  * どちらが良い記録か（本人の決定。2026-11-11）。
  * モード1・2は、ランクが高い方 → 同じランクなら正確さが高い方 → 同じ正確さなら速い方。
- * 速さのないモード3・4は時間が短い方。
+ * 速さのないモード3・4は、開いたヒントが少ない方 → 同じなら時間が短い方（本人の決定。2026-11-12）。
+ * モード4はヒントがないので、時間だけで比べることになる。
  * @param {import('../schema/progress-schema.js').Progress['problems'][string]['modes']['1']['best']} candidate
  * @param {typeof candidate} current
  */
@@ -113,6 +114,10 @@ function isBetter(candidate, current) {
     if (candidateAccuracy !== currentAccuracy) return candidateAccuracy > currentAccuracy;
     return candidate.cpm > current.cpm;
   }
+  // ヒントを多く開いて速く終えた回が、自分の力で書いた回の記録を上書きしないように
+  const candidateHints = candidate.hintsOpened ?? 0;
+  const currentHints = current.hintsOpened ?? 0;
+  if (candidateHints !== currentHints) return candidateHints < currentHints;
   return candidate.timeMs < current.timeMs;
 }
 

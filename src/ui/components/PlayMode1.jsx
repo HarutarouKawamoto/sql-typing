@@ -1,18 +1,13 @@
 import { useEffect, useState } from 'react';
 import { computeTypingStats, topWeakPoints } from '../../core/scoring.js';
-import { isInteractiveTarget } from '../state/typing-keys.js';
+import { localDate } from '../state/local-date.js';
+import { isInteractiveTarget, isPlainEnter } from '../state/typing-keys.js';
 import { useTypingSession } from '../state/use-typing-session.js';
 import { ResultTable } from './ResultTable.jsx';
 import { StepPlayer } from './StepPlayer.jsx';
 import { TypingArea } from './TypingArea.jsx';
 import { TypingResult } from './TypingResult.jsx';
 import styles from './PlayMode1.module.css';
-
-/** 'YYYY-MM-DD'（その人のタイムゾーンの日付。日ごとの記録に使う） */
-function localDate(date) {
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-}
 
 /**
  * モード1（なぞり書き）。真ん中に打つSQL、すぐ下に結果の表（句を打ち終えるたびに変わる）。
@@ -77,7 +72,7 @@ export function PlayMode1({
       // 最後のキーを押しっぱなしにしたときの繰り返しで、すぐにやり直しにならないように
       // ボタン（ステップ再生を見る・戻る など）にフォーカスがあるときの Enter は、そのボタンに任せる
       if (isInteractiveTarget(event.target)) return;
-      if (event.key === 'Enter' && !event.repeat && !event.isComposing) {
+      if (isPlainEnter(event)) {
         event.preventDefault();
         onRestart();
       }

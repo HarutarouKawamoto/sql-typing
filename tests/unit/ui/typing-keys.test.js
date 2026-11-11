@@ -3,6 +3,8 @@ import {
   classifyKeyEvent,
   createLatestOnlyRunner,
   isInteractiveTarget,
+  isPlainEnter,
+  isTextEntryTarget,
 } from '../../../src/ui/state/typing-keys.js';
 
 describe('isInteractiveTarget', () => {
@@ -16,6 +18,39 @@ describe('isInteractiveTarget', () => {
     expect(isInteractiveTarget(element(() => false))).toBe(false);
     expect(isInteractiveTarget(window_like())).toBe(false);
     expect(isInteractiveTarget(null)).toBe(false);
+  });
+});
+
+describe('isPlainEnter', () => {
+  const enter = (overrides) => ({ key: 'Enter', repeat: false, isComposing: false, ...overrides });
+
+  it('修飾キーのない Enter だけ true', () => {
+    expect(isPlainEnter(enter({}))).toBe(true);
+    expect(isPlainEnter(enter({ key: 'a' }))).toBe(false);
+  });
+
+  it('Ctrl・⌘・Alt・Shift つき、長押しの繰り返し、日本語入力の確定は false', () => {
+    for (const modifier of ['ctrlKey', 'metaKey', 'altKey', 'shiftKey', 'repeat', 'isComposing']) {
+      expect(isPlainEnter(enter({ [modifier]: true }))).toBe(false);
+    }
+  });
+});
+
+describe('isTextEntryTarget', () => {
+  const element = (accepts) => ({
+    closest: (selector) => (selector.split(', ').some((s) => accepts.includes(s)) ? {} : null),
+  });
+
+  it('textarea・input・contenteditable の中なら true', () => {
+    expect(isTextEntryTarget(element(['textarea']))).toBe(true);
+    expect(isTextEntryTarget(element(['input']))).toBe(true);
+    expect(isTextEntryTarget(element(['[contenteditable="true"]']))).toBe(true);
+  });
+
+  it('ボタンやページ全体なら false（ボタンの Space はボタンが受け、矢印はステップ再生が受ける）', () => {
+    expect(isTextEntryTarget(element(['button']))).toBe(false);
+    expect(isTextEntryTarget(window_like())).toBe(false);
+    expect(isTextEntryTarget(null)).toBe(false);
   });
 });
 

@@ -18,7 +18,7 @@ function readDemoParams(search) {
 
 /**
  * アプリの入口のコンポーネント。
- * 今は仮の入口（1問目をなぞり書きで遊ぶ）と、遊ぶ画面・ステップ再生の見本の切り替えだけ。
+ * 今は仮の入口（1問目をなぞり書き・ヒントありで書く・ヒントなしで書く）と、遊ぶ画面・ステップ再生の見本の切り替えだけ。
  * 一覧画面・会話は後の作業で足す。
  */
 export function App() {
@@ -32,7 +32,7 @@ export function App() {
     saveFailed,
   } = useProgress();
   const [playing, setPlaying] = useState(
-    /** @type {{ problemId: string, mode: '1' } | null} */ (null),
+    /** @type {{ problemId: string, mode: '1' | '3' | '4' } | null} */ (null),
   );
   const exit = useCallback(() => setPlaying(null), []);
   const [demo, setDemo] = useState(() => readDemoParams(window.location.search));
@@ -68,7 +68,9 @@ export function App() {
     );
   }
 
-  const best = progress.problems['beginner-01']?.modes['1']?.best;
+  const modes = progress.problems['beginner-01']?.modes ?? {};
+  const best = modes['1']?.best;
+  const ready = database.status === 'ready';
   return (
     <main className="app">
       <h1 className="app-title">SQL Typing</h1>
@@ -88,19 +90,47 @@ export function App() {
         {database.status === 'error' &&
           'データベースを起動できませんでした。ページを読み込み直してください'}
       </p>
-      <button
-        type="button"
-        className="app-start"
-        disabled={database.status !== 'ready'}
-        onClick={() => setPlaying({ problemId: 'beginner-01', mode: '1' })}
-      >
-        1問目をなぞり書きで遊ぶ
-      </button>
+      <div className="app-starts">
+        <button
+          type="button"
+          className="app-start"
+          disabled={!ready}
+          onClick={() => setPlaying({ problemId: 'beginner-01', mode: '1' })}
+        >
+          1問目をなぞり書きで遊ぶ
+        </button>
+        <button
+          type="button"
+          className="app-start"
+          disabled={!ready}
+          onClick={() => setPlaying({ problemId: 'beginner-01', mode: '3' })}
+        >
+          1問目をヒントありで書く
+        </button>
+        <button
+          type="button"
+          className="app-start"
+          disabled={!ready}
+          onClick={() => setPlaying({ problemId: 'beginner-01', mode: '4' })}
+        >
+          1問目をヒントなしで書く
+        </button>
+      </div>
       {best && (
         <p className="app-best">
           これまでの最高：{best.cpm} 文字/分・正確さ {best.accuracy}%・ランク {best.rank}
         </p>
       )}
+      {['3', '4'].map((mode) => {
+        const record = modes[mode]?.best;
+        if (!record) return null;
+        return (
+          <p key={mode} className="app-best" data-testid={`best-mode${mode}`}>
+            モード{mode}の最高：{(record.timeMs / 1000).toFixed(1)} 秒・実行 {record.runs ?? '-'} 回
+            {mode === '3' && `・ヒント ${record.hintsOpened ?? 0} 個`}
+          </p>
+        );
+      })}
     </main>
   );
 }

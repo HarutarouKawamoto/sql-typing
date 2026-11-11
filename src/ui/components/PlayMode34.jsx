@@ -1,0 +1,229 @@
+import { useEffect, useState } from 'react';
+import { loadCharacters } from '../../data/problem-loader.js';
+import { isInteractiveTarget, isPlainEnter } from '../state/typing-keys.js';
+import { useWriteSession } from '../state/use-write-session.js';
+import { escapeAction } from '../state/write-session-machine.js';
+import { HintPanel } from './HintPanel.jsx';
+import { JudgePanel } from './JudgePanel.jsx';
+import { ResultTable } from './ResultTable.jsx';
+import { SqlEditor } from './SqlEditor.jsx';
+import { StepPlayer } from './StepPlayer.jsx';
+import { WriteResult } from './WriteResult.jsx';
+import styles from './PlayMode34.module.css';
+
+const MODE_NAMES = { 3: 'モード3 ヒントありで書く', 4: 'モード4 ヒントなしで書く' };
+const MODIFIER_KEYS = new Set(['Shift', 'Control', 'Alt', 'Meta', 'AltGraph', 'CapsLock']);
+
+/**
+ * モード3（ヒントありで書く）・モード4（ヒントなしで書く）。
+ * 依頼とテーブルの一覧を見て、白紙からSQLを書き、Ctrl+Enter で判定する。
+ * 実行のたびに、書いたSQLの結果の表と、ステップ再生（見える化A）に切り替えるボタンを出す。
+ * 正解でクリア。クリアのあとは入力欄の外の Enter でもう一度、Esc でもどる。
+ * 書きかけのSQLがあるときの Esc は、1回目は確かめを出し、もう一度 Esc でもどる。
+ * @param {{
+ *   problem: import('../../schema/problem-schema.js').Problem,
+ *   mode: '3' | '4',
+ *   runner: import('../../data/sql-runner/sql-runner.js').SqlRunner,
+ *   replaySpeed: number,
+ *   onRecord: (play: object) => unknown,
+ *   onReplayFinished: (problemId: string) => void,
+ *   onRestart: () => void,
+ *   onExit: () => void,
+ *   saveFailed: boolean,
+ * }} props
+ */
+export function PlayMode34({
+  problem,
+  mode,
+  runner,
+  replaySpeed,
+  onRecord,
+  onReplayFinished,
+  onRestart,
+  onExit,
+  saveFailed,
+}) {
+  const session = useWriteSession({ problem, mode, runner, onRecord });
+  const { state, prepared } = session;
+  const [sql, setSql] = useState('');
+  // ステップ再生を開いた実行の番号。実行し直したら表に戻す（前のSQLの再生を新しい結果と並べない）
+  const [replayRun, setReplayRun] = useState(/** @type {number | null} */ (null));
+  const [characters] = useState(() => new Map(loadCharacters().map((c) => [c.id, c])));
+
+  // 書きかけがあるときの1回目の Esc で出す確かめ（もう一度 Esc でもどる、ほかのキーで続ける）
+  const [confirmExit, setConfirmExit] = useState(false);
+
+  // Esc でもどる（変換中の Esc は変換の取り消しなので抜けない）。クリアのあとは入力欄の外の Enter でもう一度
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      if (event.isComposing) return;
+      if (event.key === 'Escape') {
+        if (escapeAction(state, sql, confirmExit) === 'exit') onExit();
+        else setConfirmExit(true);
+        return;
+      }
+      // Shift などを押しただけでは確かめを閉じない
+      if (!MODIFIER_KEYS.has(event.key)) setConfirmExit(false);
+      // 実行の Ctrl+Enter を続けて押しても、結果を見る前にやり直しにならないように修飾キーつきは数えない
+      if (state.cleared && isPlainEnter(event) && !isInteractiveTarget(event.target)) {
+        event.preventDefault();
+        onRestart();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [state, sql, confirmExit, onExit, onRestart]);
+
+  const ready = prepared !== null && 'expected' in prepared && prepared.expected.ok;
+  const last = state.last;
+  const mine = last?.result.mine ?? null;
+  // 判定を始めたら、前の実行のステップ再生は畳む（新しい判定と並べない）
+  const showReplay = last !== null && replayRun === last.run && mine !== null && !state.judging;
+
+  const onChange = (value) => {
+    setSql(value);
+    session.edit();
+  };
+
+  return (
+    <div className={styles.play}>
+      <header className={styles.bar}>
+        <span className={styles.badge}>{MODE_NAMES[mode]}</span>
+        <span className={styles.problemTitle}>{problem.title}</span>
+        <span className={styles.meter} data-testid="meter">
+          {(session.elapsedMs / 1000).toFixed(1)}秒 ・ 実行 {state.runs}回
+          {mode === '3' && ` ・ ヒント ${state.hintsOpened}/${problem.hints.length}`}
+        </span>
+      </header>
+
+      <section className={styles.request} aria-label="依頼">
+        <ul className={styles.story}>
+          {problem.story.before.map((line, index) => {
+            const character = characters.get(line.speaker);
+            return (
+              <li key={index}>
+                <span
+                  className={styles.speaker}
+                  style={character ? { color: `var(${character.color})` } : undefined}
+                >
+                  {character?.name ?? line.speaker}
+                </span>
+                {line.text}
+              </li>
+            );
+          })}
+        </ul>
+        {prepared && 'tables' in prepared && (
+          <p className={styles.tables} data-testid="table-list">
+            使えるテーブル：
+            {prepared.tables.map(({ table, columns }) => (
+              <span key={table} className={styles.table}>
+                <code>{table}</code>（{columns.join(', ')}）
+              </span>
+            ))}
+          </p>
+        )}
+      </section>
+
+      <section className={styles.stage} aria-label="書くところ">
+        <p className={styles.guide}>
+          依頼に合うSQLを書いて、Ctrl+Enter で実行しましょう。
+          {mode === '3'
+            ? 'ヒントは下のボタンで1つずつ開けます。'
+            : 'このモードにヒントはありません。'}
+          Esc でもどる。
+        </p>
+        {confirmExit && (
+          <p className={styles.confirm} role="alert" data-testid="exit-confirm">
+            書きかけのSQLは消えます。もどるなら、もう一度 Esc
+            を押してください（ほかのキーで続けます）。
+          </p>
+        )}
+        {prepared === null && <p role="status">正解の結果を準備しています…</p>}
+        {prepared !== null && !ready && (
+          <p className={styles.problemError} role="alert">
+            この問題の正解を作れませんでした（
+            {'error' in prepared
+              ? prepared.error
+              : !prepared.expected.ok && prepared.expected.message}
+            ）。Esc でもどります。
+          </p>
+        )}
+        <SqlEditor
+          value={sql}
+          onChange={onChange}
+          onRun={() => session.run(sql)}
+          readOnly={state.cleared}
+          autoFocus
+        />
+        <button
+          type="button"
+          className={styles.runButton}
+          onClick={() => session.run(sql)}
+          disabled={!ready || state.judging || state.cleared || sql.trim() === ''}
+        >
+          {state.judging ? '判定しています…' : '実行して判定（Ctrl+Enter）'}
+        </button>
+        {mode === '3' && (
+          <HintPanel
+            hints={problem.hints}
+            opened={state.hintsOpened}
+            onOpen={session.openHint}
+            disabled={state.cleared}
+          />
+        )}
+      </section>
+
+      {state.cleared ? (
+        <WriteResult
+          elapsedMs={session.elapsedMs}
+          runs={state.runs}
+          hintsOpened={mode === '3' ? state.hintsOpened : null}
+          saveFailed={saveFailed}
+        />
+      ) : (
+        <JudgePanel result={last?.result ?? null} judging={state.judging} run={last?.run ?? 0} />
+      )}
+
+      {mine !== null && !showReplay && !state.judging && (
+        <button
+          type="button"
+          className={styles.replayButton}
+          onClick={() => setReplayRun(last.run)}
+        >
+          ステップ再生を見る（書いたSQLがDBの中でどう動いたか）
+        </button>
+      )}
+
+      {showReplay ? (
+        <section className={styles.results} aria-label="ステップ再生">
+          <h2 className={styles.heading}>ステップ再生（{last.run}回目に実行したSQL）</h2>
+          <StepPlayer
+            // 実行し直したら段階を作り直す（古い段階と新しいSQLを組み合わせない）
+            key={last.run}
+            sql={last.sql}
+            runner={runner}
+            speed={replaySpeed}
+            onFinished={() => onReplayFinished(problem.id)}
+          />
+        </section>
+      ) : (
+        <section className={styles.results} aria-label="結果の表">
+          <h2 className={styles.heading}>
+            {last ? `${last.run}回目に実行したSQLの結果` : '実行結果'}
+          </h2>
+          <ResultTable
+            result={state.judging ? null : mine}
+            emptyMessage={
+              state.judging
+                ? '判定しています…'
+                : last
+                  ? 'このSQLの結果の表はありません（エラー・打ち切り・空のSQL）'
+                  : 'Ctrl+Enter で実行すると、ここに書いたSQLの結果が出ます'
+            }
+          />
+        </section>
+      )}
+    </div>
+  );
+}

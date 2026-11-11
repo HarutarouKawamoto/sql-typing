@@ -65,11 +65,18 @@ sql-typing/
   - `database.js`：アプリに1つだけの SqlRunner と、起動の状態を返す `useDatabaseStatus`
   - `progress.js`：学習記録を読み、遊んだ結果を記録して保存する `useProgress`
   - `use-typing-session.js`：なぞり書きの1回分（keydown を1か所で受ける・時計・打ちながらの実行）
-  - `typing-keys.js`：React に依存しない部品（キーの判定 `classifyKeyEvent`、最新の1つだけ実行する `createLatestOnlyRunner`）。`tests/unit/ui/` で単体テストする
+  - `typing-keys.js`：React に依存しない部品（キーの判定 `classifyKeyEvent`、もう一度の Enter `isPlainEnter`、ボタン・入力欄の中か `isInteractiveTarget`・`isTextEntryTarget`、最新の1つだけ実行する `createLatestOnlyRunner`）。`tests/unit/ui/` で単体テストする
   - `use-step-replay.js`：ステップ再生の進み方をタイマーと React につなぐ
   - `step-replay-machine.js`：ステップ再生の進み方の決まり（React に依存しない reducer。`tests/unit/ui/` で単体テスト）
   - `step-replay-timing.js`：段階ごとの長さと速さの掛け算（React に依存しない。`tests/unit/ui/` で単体テスト）
+  - `use-write-session.js`：書く画面（モード3・4）の1回分（テーブルの一覧と正解の結果を1回だけ作る・判定を呼ぶ・時計・記録）
+  - `write-session-machine.js`：書く画面の決まり（時計・実行の回数・判定中は次を受けない・ヒントの数・クリア。React に依存しない reducer。`tests/unit/ui/` で単体テスト）
+  - `editor-keys.js`：入力欄のキーの判定（Ctrl+Enter・Tab）とスペース2つの入れ方（React に依存しない。`tests/unit/ui/` で単体テスト）
+  - `local-date.js`：学習記録の日付（その人のタイムゾーンの `YYYY-MM-DD`）
+  - `db-jobs.js`：DB を何回も使う仕事（問題の準備・正解の結果づくり・判定・ステップ再生の段階づくり）を1つずつ流す列 `runDbJob`（`tests/unit/ui/` で単体テスト）
 - `components/StepPlayer.jsx`・`StepTable.jsx`：見える化A（ステップ再生）の画面と、1段階の表
+- `components/PlayMode1.jsx`：モード1（なぞり書き）。`components/PlayMode34.jsx`：モード3・4（書いて判定）
+- `components/SqlEditor.jsx`・`HintPanel.jsx`・`JudgePanel.jsx`・`WriteResult.jsx`：書く画面の入力欄・ヒント・判定の結果・クリアの結果
 - `screens/ReplayDemoScreen.jsx`：ステップ再生の見本（`/?demo`）
 - `styles/`: `tokens.css`（色・余白などの CSS 変数。ライト／ダーク）、`global.css`
 
@@ -154,6 +161,7 @@ core/
 - `seed-loader.js`: `data/seeds/*.sql` を `import.meta.glob` の `?raw` で文字列として読む
 - `problem-loader.js`: ProblemLoader（`import.meta.glob` で章ごとに読み込み、`src/schema/` で検証）
 - `progress-store.js`: ProgressStore（localStorage、記録の形の移し替え）
+- `table-list.js`: 今の DB にあるテーブルと列の一覧（書く画面で使う。DBの地図ができるまでの仮）
 
 **命名規則**:
 - kebab-case ＋ `.js`。Worker の中で動くファイルは `.worker.js` で終える
@@ -229,6 +237,7 @@ tests/unit/
 ├── data/
 │   ├── progress-store.test.js
 │   ├── sql-runner.test.js     # 作り物のバックエンドで、実行待ちの列・打ち切り・起動の再試行
+│   ├── table-list.test.js     # 作り物の runner で、一覧が読めないとき
 │   └── value-parsers.test.js
 ├── schema/
 │   ├── cross-checks.test.js
@@ -236,7 +245,11 @@ tests/unit/
 ├── ui/
 │   ├── typing-keys.test.js    # 画面の、React に依存しない部品
 │   ├── step-replay-timing.test.js
-│   └── step-replay-machine.test.js
+│   ├── step-replay-machine.test.js
+│   ├── editor-keys.test.js
+│   ├── write-session-machine.test.js
+│   ├── db-jobs.test.js
+│   └── local-date.test.js
 └── scripts/
     └── check-review-files.test.js
 ```
@@ -256,6 +269,8 @@ tests/integration/
 │   └── beginner-steps.test.js # 初級9問の形のステップ再生が、元のSQLの結果と一致する
 ├── sql-runner/
 │   └── node-runner.test.js    # Node 版の PGlite で、結果の形・値の型・エラー・初期状態への戻し方
+├── data/
+│   └── table-list.test.js     # テーブルと列の一覧の読み方
 ├── data-validation/
 │   ├── problems.test.js       # 問題データの検証（安全柵）。初期データの決まり・正解SQLの実行も
 │   └── answer-checks.test.js  # 「正解SQLが実行でき0行でない」の検証そのものが働くこと
