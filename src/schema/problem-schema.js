@@ -63,6 +63,26 @@ export const JudgeRuleSchema = z
 
 export const PROBLEM_KINDS = /** @type {const} */ (['normal', 'composite', 'turningPoint']);
 
+/**
+ * 上級の見える化（書く画面で、実行したあとに出す）。
+ * index：query を、学習者のSQLを実行する前と後で比べる（インデックスのあり・なし）。query は SELECT だけ
+ */
+export const VisualSchema = z
+  .object({
+    kind: z.enum(['index', 'plan', 'transaction']),
+    query: sqlText().optional(),
+  })
+  .strict()
+  .refine((visual) => visual.kind !== 'index' || visual.query !== undefined, {
+    message: 'visual の kind: index には、比べる query がいる',
+    path: ['query'],
+  })
+  // EXPLAIN ANALYZE は実際に実行するので、読むだけの SELECT に限る（WITH は書き換えを含められるので入れない）
+  .refine((visual) => visual.query === undefined || /^\s*SELECT\b/i.test(visual.query), {
+    message: 'visual の query は SELECT で始める',
+    path: ['query'],
+  });
+
 export const ProblemSchema = z
   .object({
     id: z.string().regex(/^[a-z]+-\d{2}$/, '問題IDは <章id>-<2桁の番号>（例 beginner-03）'),
@@ -77,6 +97,7 @@ export const ProblemSchema = z
     blanks: z.array(BlankSchema).min(1, '空欄は1つ以上').max(3, '空欄は3つまで'),
     hints: z.tuple([z.string().min(1), z.string().min(1), z.string().min(1)]),
     judge: JudgeRuleSchema,
+    visual: VisualSchema.optional(),
     keywords: z
       .array(z.string().min(1))
       .min(1)

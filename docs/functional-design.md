@@ -83,7 +83,8 @@ CREATE TABLE products (
 -- 中級で追加：customers(id SERIAL PK, name, region, joined_on DATE)
 --             orders(id SERIAL PK, customer_id → customers.id, ordered_at TIMESTAMP, status)
 --             order_items(order_id → orders.id, product_id → products.id, quantity, unit_price, PK(order_id, product_id))
--- 上級で追加（P2）: access_logs など（インデックスの比較用に5万行を生成）
+-- 上級で追加：access_logs(id SERIAL PK, customer_id → customers.id, session_id, path, accessed_at TIMESTAMP)
+--   5万行を generate_series で作る（インデックスの比較用。2026-11-12 に data/seeds/advanced.sql を作った）
 ```
 
 **初期データの決まり**：
@@ -91,6 +92,7 @@ CREATE TABLE products (
 - 値段と名前はすべて違う（`ORDER BY price` の並びが1つに決まり、名前で行を見分けられるように）
 - 決まりは `tests/integration/data-validation/problems.test.js` で確かめる
 - 初期データは章ごとに1つのSQLファイル（`data/seeds/beginner.sql`・`intermediate.sql`）。問題ごとに足したい行は、問題YAMLの `setup.extraSql` に書く
+- 上級（`advanced.sql`）：`intermediate.sql` をそのまま含め、access_logs 5万行を `generate_series` で足す（ファイルを小さく保ち、毎回同じ行に）。session_id はすべて違う（1行だけを探す問い合わせができる）。最後に `ANALYZE`。初期状態に戻すのは、温まったあと 0.2〜0.3 秒
 - 中級（`intermediate.sql`）：products は `beginner.sql` をそのまま含める（同じであることを確かめる）。customers 10人（region は north・south・east・west）、うち2人は注文がない（LEFT JOIN で NULL が出る）。orders 20件（2026年8〜10月、status は paid・shipped・cancelled、cancelled は2件）。order_items 33行。一度も注文されていない商品がある。値引きの1行を除き unit_price は商品の price と同じ
 
 ### ER図（中級までの完成形）
@@ -167,6 +169,7 @@ erDiagram
  * @property {[string, string, string]} hints - モード3のヒント3段階（①使う句 ②句の順番 ③骨組み）
  * @property {JudgeRule} judge
  * @property {string[]} keywords         - この問題で使うキーワード（用語辞典・苦手の記録とつなぐ）
+ * @property {{ kind: 'index'|'plan'|'transaction', query?: string }} [visual] - 上級の見える化（書く画面で、実行したあとに出す）。index は query を学習者のSQLの前後で比べる
  */
 
 /**
@@ -536,6 +539,22 @@ export async function buildSteps(sql, runner) {}
 - 集計の SELECT の段階は `diff.aggregated = true`（まとまる行がなくても、段階の一言を「集計」にする）
 - 扱わない（`unsupported`）：DISTINCT と集計を一緒に使う、ウィンドウ関数（`OVER`）、`ROLLUP`・`CUBE`・`GROUPING SETS`
 
+#### Explain（実行計画を読む、`explain.js`）
+
+```js
+/** EXPLAIN (ANALYZE, FORMAT JSON) の結果（PGlite は JSON の文字列）を計画の木と時間にする */
+export function parseExplain(raw) {} // { plan: PlanNode, executionMs, planningMs }
+/** テーブルから読んだ行の数。読む節（Seq Scan・Index Scan・Index Only Scan・Bitmap Heap Scan・Tid Scan）ごとに「返した行 + 条件で取り除いた行」× loops を足す */
+export function rowsRead(plan) {}
+/** 読み方の一覧 [{ nodeType, relation, index }] */
+export function scanKinds(plan) {}
+/** query を、changeSql を実行する前と後で EXPLAIN ANALYZE する。前と後に DB を初期状態に戻す */
+export async function compareChange({ runner, query, changeSql }) {} // { ok, before, after } | { ok: false, stage, message }
+```
+- `PlanNode`：`{ nodeType, relation, alias, index, rows（Actual Rows × loops を丸めたもの）, removed（Rows Removed by Filter・Index Recheck・Join Filter の合計 × loops を丸めたもの）, loops, totalMs, children }`。Actual Rows は1回あたりの平均で小数のことがある。実行されなかった節は loops 0（行も0）。Bitmap Heap Scan のインデックスは子の Bitmap Index Scan から取る。Index Only Scan がテーブルを見に行った回数（Heap Fetches）は数えない
+- EXPLAIN ANALYZE は実際に実行するので、query は SELECT だけ。`compareChange` は SELECT で始まらない query を実行せずに断り（`isSelectQuery`。WITH は書き換えを含められるので入れない）、問題データの形（`visual` の refine）でも止める。実行計画を読めなかったときも例外にせず `{ ok: false, stage, message }` で返す
+- 初期状態に戻すのは前と後の2回（上級は5万行を入れ直すので、ブラウザで合わせて約2秒）
+
 #### Judge
 
 **責務**:
@@ -838,8 +857,10 @@ export function nextProblemId(chapters, problemId) {}
 | `ResultTable` | 結果の表。行の追加・削除・並び替えを Motion の `layout` で動かす |
 | `StepPlayer` | 見える化A：buildSteps を呼ぶ、SQLの句に実行順の番号を付けて今の句を光らせる、再生・一時停止・進む・戻る・最初から、段階の一言の説明（集計した SELECT は「1つのグループが1行にまとまり、集計した値が出る」、並び替わらない GROUP BY は「同じグループの行が同じ色になる（もう寄って並んでいる）」） |
 | `StepTable` | 見える化A の1段階の表：印の場面（消える行・まとまる行・消える列）と変化の場面、行数の変化、AS の「元 → 新」 |
-| `ReplayDemoScreen` | ステップ再生の見本（`/?demo`）。開いたら中級の初期データで DB を準備する（products は初級と同じ）。初級の形・集計・JOIN（INNER・LEFT・JOIN と GROUP BY）のSQLを選んでステップ再生を見る |
+| `ReplayDemoScreen` | ステップ再生の見本（`/?demo`）。開いたら上級の初期データで DB を準備する（products・中級のテーブルは同じ）。初級の形・集計・JOIN（INNER・LEFT・JOIN と GROUP BY）のSQLを選んでステップ再生を見る。上級の見える化の見本（インデックス）もここ |
 | `ReorderIntro` | 見える化B：句のチップが書いた順から実行順へ入れ替わる（1.5秒）。動きは下の「見える化B（ReorderIntro）の動き」 |
+| `IndexRace` | 上級の見える化「インデックスあり・なしの比較」。左右に、読み方（Seq Scan「全部の行を、上から順に読む」・Index Scan「索引で、目的の行だけを探す」など）・読んだ行のカウンター（1.2秒で増える。`use-count-up.js`、動きを減らす設定ならすぐ）・棒（カウンターと一緒に伸びる）・かかった時間（0.001 ms 未満はそう書く）。下に「読んだ行は 50,000 → 1 行。時間はおよそ N 分の1」（遅くなったら「かえって長くなりました」） |
+| `IndexRacePanel` | `runDbJob` で `compareChange` を呼び、`IndexRace` を出す枠。書く画面（モード3・4）では、問題に `visual: { kind: 'index', query }` があり、判定がエラー・打ち切りでなければ、学習者のSQLを変えるSQLとして比べる。正解でも不正解でも実行のたびに比べ直す（関係のない列にインデックスを作ると読む行が減らないことも見せるため。比べる間の約2秒は、次の判定がその後ろに並ぶ）。読み上げの枠（`role="status"`）は先に置き、結果が出たら「読んだ行は N 行から M 行になりました」を入れる。見本のページの「上級：インデックスで1行を探す」 |
 | `JudgePanel` | 判定の結果（不正解の理由・条件違反・打ち切り）、和訳したエラー（よくある原因、英語の原文は折りたたみ）。何回目の実行の結果かも出す |
 | `ResultScreen` | クリア後の記録（速さ・正確さ・ランク／時間・実行回数・ヒント数）、苦手の上位3つ、ステップ再生へのボタン、次の問題へ |
 | `SchemaMap` | DBの地図（React Flow）。テーブルの箱（名前・列名・型・PK・FK、新しいテーブルに NEW）と、外部キーのつながりの線。触っているテーブルを青で光らせ、両方のテーブルを触っている線も光らせる。箱を押すと選ぶ。ホイールの拡大・キーでの削除や選択は切る（ページのスクロール・打つキーを奪わない）。置き方は `src/ui/state/schema-layout.js`：指される側（親）を左の列、指す側（子）を右の列に置き、線を親の右から子の左へ流す（自分を指すつながりは列を決めるのに使わない）。親は子のすぐ左の列まで寄せる（中級では products が orders の下に来て、order_items への線がほかの箱の裏を通らない）。線に名前は付けない（箱の FK の印と読み上げ用の一覧でわかる）。同じ列のものは上から章の順に積む。図は読み上げから隠し（中をキーで動いても何もできないため）、同じ中身（テーブル・列・つながり・使っているか）を読み上げ用の一覧で出す。React Flow は大きいので、地図を開くまで読み込まない（`lazy`） |
@@ -1176,12 +1197,14 @@ data/
 - DBの地図の置き方（`schema-layout.js`）：中級の形（親を左・子を右、親は子のすぐ左、同じ列は積む）、自己結合、輪になったつながり、地図にないテーブルへのつながり
 - 空欄の答えを空白にする（`maskBlankAnswers`）：改行・字下げ、大文字・小文字の違い、空欄2つ
 - `KeywordSpans`：大文字・小文字、2語・3語のまとめ方、複数語の一部だけの語、文字列・コメント・引用符の中、語の一部。スロットごとの語と組（区切りのスロット・改行をはさむ語）
+- `Explain`：PGlite の実際の出力（`tests/helpers/fixtures/explain/`）で、計画の木・読んだ行（Seq Scan・Index Scan・Bitmap・入れ子・loops）・読み方
 - `Dictionary`：レベルごとの並び、初めて出てくる問題、どの問題にも出てこない語
 - `ProgressStore`：壊れたデータからの復帰、設定の変更（`updateSettings`）、記録を消す（`clearProgress`：設定は残す・退避した古い記録も消す・書けないときは記録のキーを消す・消せもしないとき）、`isUnlocked`（ターニングポイントはモード3・4だけで次の章が開く、ターニングポイントのない章）、`nextProblemId`
 - 画面の切り替え（`navigation.js`）、モード名と最高記録の文（`best-text.js`）
 
 ### 統合テスト（Vitest + PGlite（Node 版）、`tests/integration/`）
 - `Judge`：正解・別解（`IN` と `OR` の書き換え）・行数違い・順番違い・列名違い・列の並び順違い・`require` 違反・エラー・2つ以上の文・タイムアウト（作り物の SqlRunner）・判定のあと DB が初期状態に戻ること・書き換え系（`compareTable`・`ignoreColumns`・テーブルを消したとき）・空のSQL
+- `compareChange`：インデックスなし5万行 → あり1行、比べたあと初期状態に戻る、関係のないインデックス、変えるSQL・問い合わせのエラー（`tests/integration/explain/compare-change.test.js`）
 - `SchemaInfo`：初級の products の列・型・主キー、外部キーのつながり、2つの列の主キー・外部キー、別のテーブルの同じ名前の制約、public 以外のスキーマ・ビュー、先頭20行と行数、変わった名前のテーブルの引用
 - `Stepper`（JOIN）：INNER・LEFT・相手のない左の行・3つのテーブルと GROUP BY・自己結合・LEFT JOIN と count・LIMIT・作れない形（`join-steps.test.js`）
 - `Stepper`：初級9問の正解SQLすべてで、最後の段階が元のSQLの結果と一致すること。WHERE で消えた行・DISTINCT でまとまった行が正しいこと。集計：GROUP BY で寄る・HAVING でグループごと消える・集計で1グループ1行・GROUP BY のない集計（0行も）・NULL のグループ・式のグループ・作れない形（`group-by-steps.test.js`）
@@ -1193,6 +1216,7 @@ data/
   - 間違いの選択肢を入れたSQLが、判定で正解にならず、`ruleViolation` にもならない（結果が正解と変わる。`checkWrongChoices`）
   - `keywords` がすべて用語辞典にある。ターニングポイントが章の最後に1つだけ
   - 中級の初期データの決まり（products が初級と同じ、注文のない顧客、取り消しの注文、3か月、注文されていない商品、値引きの1行）
+  - 上級の見える化（`visual.kind: index`）の問題は、正解SQLを変えるSQLとして比べたとき、比べる問い合わせの読む行が減る（`checkVisuals`）
   - 正解SQL（表示用SQL）のステップ再生が作れる。`mismatch`・`error` は止め、まだ対応していない形（`unsupported`）は止めない（`checkStepsBuild`）
   - `ordered: true` の問題で、並び順が1つに決まる（`checkOrderDetermined`：ORDER BY の後ろに `ctid`（1つのテーブルの形）か、出す列の番号（`1, 2, …`。DISTINCT・GROUP BY・JOIN の形。サブクエリで包むと ORDER BY のテーブルの別名が見えなくなるため）の昇順と降順を足して実行し、結果が同じか比べる。ORDER BY がなければ失敗。WITH・UNION などの形、列の番号で並べる形で SELECT に `*`・`p.*` があるもの（番号と出す列の数がずれる）は確かめられないので失敗にする。既知の制限：同じ並びの値の行が前から読んでも後ろから読んでも同じ並びのときは見逃す）
 
@@ -1205,6 +1229,7 @@ data/
 - 中級：一覧に13問とターニングポイント、UPDATE の問題（WHERE を付け忘れると不正解）、中級の DBの地図（4つの箱・3本の線・NEW）（`tests/e2e/progression/intermediate.spec.js`）
 - 打つSQL・ヒント③・入力欄が合字（`>=` を ≥ の1文字に描く）を使わない（合字はサイト全体で切る。`global.css`）
 - 打っている途中・モード2の空欄が埋まったときに、入力欄の大きさが変わらない。モード1・2で依頼の会話を開いて見られ、開いたまま打てる（`typing-layout.spec.js`）
+- 上級の見える化（インデックス）：見本のページで、なし5万行・あり1行、カウンター、読み方の一言（`tests/e2e/visualization/index-race.spec.js`）
 - 見える化A の JOIN：見本のページで、2つの表が並びつながる行が同じ色、つながらない右の行・LEFT JOIN の NULL の印、合体した行数（`step-replay-marks.spec.js`）
 - 見える化B：モード3・4で実行すると、句のチップが書いた順 → 実行順に入れ替わり、そのあと判定の結果が出る（並びはページの中で MutationObserver で記録して確かめる）。句が1つだけ・OS の「動きを減らす」設定では流れない
 - 設定の画面：一覧から開き Esc でもどる。速さと見える化B の on/off が保存される。off なら流れない。学習記録を消すときは確かめ、やめる・Esc では消えず、消すと星が消えて設定は残る（`tests/e2e/settings/settings.spec.js`）

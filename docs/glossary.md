@@ -96,6 +96,9 @@
 | 実行順の並び替え（見える化B） | `reorderIntro`（`ReorderIntro`） | モード3・4で実行したとき、書いた順の句が実行順に入れ替わる1.5秒のアニメーション（判定と同時に流し、終わってから結果を見せる） | 設定（`reorderAnimation`）で止められる。チップは `buildReorderChips` |
 | 打ちながら変化（見える化C） | `liveResult` | モード1・2で、句を打ち終えるたびに結果の表が変わること | 句の終わり（`clauseEnded`） |
 | 予想クイズ（見える化D） | `prediction` | 実行前に結果の行数などを当てさせる（P2） | |
+| 実行計画 | `PlanNode`（`parseExplain`） | DB がSQLをどう実行したかの木。`EXPLAIN (ANALYZE, FORMAT JSON)` で取る | `explain.js` |
+| 読んだ行 | `rowsRead` | 実行計画のうち、テーブルの行を読む節が読んだ行の数（返した行 + 条件で取り除いた行）。インデックスの比較のカウンター | Seq Scan なら全部の行 |
+| 変える前と後の比較 | `compareChange` | 同じ問い合わせを、あるSQL（インデックスを作るなど）を実行する前と後で EXPLAIN ANALYZE して比べる | `IndexRace` |
 | DBの地図 | `SchemaMap` | お店のDBのテーブルとつながりの図（ER図）。今のSQLが触るテーブルを光らせる | 全レベル共通 |
 | 用語辞典 | `Dictionary` / `Keyword` | SQLのキーワードの、英語の意味とSQLでの意味の一覧（`DictionaryScreen`）。キーワードにカーソルを当てる（スマホではタップ）と出る説明（`KeywordTip`、`KeywordTipLayer`）も同じデータを使う | `keywords.yaml`。初めて出てくる問題は問題の `keywords` から作る |
 | インデックス比較 | `indexRace` | 上級：インデックスあり・なしで、読んだ行数と実測時間を左右で比べる（P2） | `EXPLAIN ANALYZE` |
