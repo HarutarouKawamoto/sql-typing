@@ -10,6 +10,7 @@ import { HomeScreen } from './screens/HomeScreen.jsx';
 import { ModeSelect } from './screens/ModeSelect.jsx';
 import { PlayScreen } from './screens/PlayScreen.jsx';
 import { ReplayDemoScreen } from './screens/ReplayDemoScreen.jsx';
+import { SettingsScreen } from './screens/SettingsScreen.jsx';
 import { StoryScreen } from './screens/StoryScreen.jsx';
 
 /**
@@ -26,7 +27,7 @@ function readDemoParams(search) {
 
 /**
  * アプリの入口のコンポーネント。画面の切り替え（navigation.js）と、学習記録・データベースの状態を配る。
- * 一覧 → モード選択 → 依頼の会話 → 遊ぶ（クリア後の会話から次の問題・一覧へ）。`/?demo` はステップ再生の見本。
+ * 一覧 → モード選択 → 依頼の会話 → 遊ぶ（クリア後の会話から次の問題・一覧へ）。一覧 → 設定。`/?demo` はステップ再生の見本。
  */
 export function App() {
   const database = useDatabaseStatus();
@@ -34,6 +35,8 @@ export function App() {
     progress,
     record,
     markReplayFinished,
+    changeSettings,
+    clearAll,
     recoveredNotice,
     dismissRecoveredNotice,
     saveFailed,
@@ -69,6 +72,7 @@ export function App() {
           mode={mode}
           runner={getSqlRunner()}
           replaySpeed={progress.settings.replaySpeed}
+          reorderAnimation={progress.settings.reorderAnimation}
           onRecord={record}
           onReplayFinished={markReplayFinished}
           onExit={goHome}
@@ -83,6 +87,20 @@ export function App() {
           }
           turningPoint={turningPointIds.has(problemId)}
           onNext={() => dispatch({ type: 'next', problemId: nextId })}
+        />
+      </main>
+    );
+  }
+
+  if (navigation.screen === 'settings') {
+    return (
+      <main className="app">
+        <SettingsScreen
+          settings={progress.settings}
+          onChange={changeSettings}
+          onClear={clearAll}
+          saveFailed={saveFailed}
+          onHome={goHome}
         />
       </main>
     );
@@ -138,6 +156,7 @@ export function App() {
         recoveredNotice={recoveredNotice}
         onDismissRecovered={dismissRecoveredNotice}
         onOpen={(problemId) => dispatch({ type: 'openProblem', problemId })}
+        onOpenSettings={() => dispatch({ type: 'openSettings' })}
       />
     </main>
   );

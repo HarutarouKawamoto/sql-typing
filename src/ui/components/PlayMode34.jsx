@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
+import { buildReorderChips } from '../../core/reorder.js';
+import { prefersReducedMotion } from '../state/reduced-motion.js';
 import { useWriteSession } from '../state/use-write-session.js';
 import { escapeAction } from '../state/write-session-machine.js';
 import { HintPanel } from './HintPanel.jsx';
 import { JudgePanel } from './JudgePanel.jsx';
+import { ReorderIntro } from './ReorderIntro.jsx';
 import { ResultTable } from './ResultTable.jsx';
 import { SqlEditor } from './SqlEditor.jsx';
 import { StoryLines } from './StoryLines.jsx';
@@ -17,6 +20,8 @@ const MODIFIER_KEYS = new Set(['Shift', 'Control', 'Alt', 'Meta', 'AltGraph', 'C
  * モード3（ヒントありで書く）・モード4（ヒントなしで書く）。
  * 依頼とテーブルの一覧を見て、白紙からSQLを書き、Ctrl+Enter で判定する。
  * 実行のたびに、書いたSQLの結果の表と、ステップ再生（見える化A）に切り替えるボタンを出す。
+ * 設定が on なら、実行してから判定の結果を見せるまでに、句が実行順に入れ替わる動き（見える化B）を流す。
+ * 判定は動きと同時に始め、動きが終わるまで結果は見せない。
  * 正解でクリア。クリアのあとのキー（次の問題へ・もう一度）は afterClear（AfterStory）が受け、Esc で一覧へ。
  * 書きかけのSQLがあるときの Esc は、1回目は確かめを出し、もう一度 Esc でもどる。
  * @param {{
@@ -24,6 +29,7 @@ const MODIFIER_KEYS = new Set(['Shift', 'Control', 'Alt', 'Meta', 'AltGraph', 'C
  *   mode: '3' | '4',
  *   runner: import('../../data/sql-runner/sql-runner.js').SqlRunner,
  *   replaySpeed: number,
+ *   reorderAnimation: boolean,
  *   onRecord: (play: object) => unknown,
  *   onReplayFinished: (problemId: string) => void,
  *   onExit: () => void,
@@ -36,6 +42,7 @@ export function PlayMode34({
   mode,
   runner,
   replaySpeed,
+  reorderAnimation,
   onRecord,
   onReplayFinished,
   onExit,
@@ -47,6 +54,11 @@ export function PlayMode34({
   const [sql, setSql] = useState('');
   // ステップ再生を開いた実行の番号。実行し直したら表に戻す（前のSQLの再生を新しい結果と並べない）
   const [replayRun, setReplayRun] = useState(/** @type {number | null} */ (null));
+
+  // 見える化Bを流している間のチップ。流し終えるまで判定の結果を見せず、次の実行も受けない
+  const [intro, setIntro] = useState(
+    /** @type {import('../../core/reorder.js').ReorderChip[] | null} */ (null),
+  );
 
   // 書きかけがあるときの1回目の Esc で出す確かめ（もう一度 Esc でもどる、ほかのキーで続ける）
   const [confirmExit, setConfirmExit] = useState(false);
@@ -70,8 +82,18 @@ export function PlayMode34({
   const ready = prepared !== null && 'expected' in prepared && prepared.expected.ok;
   const last = state.last;
   const mine = last?.result.mine ?? null;
+  // 判定中か、見える化Bを流している間（どちらも結果をまだ見せない）
+  const busy = state.judging || intro !== null;
   // 判定を始めたら、前の実行のステップ再生は畳む（新しい判定と並べない）
-  const showReplay = last !== null && replayRun === last.run && mine !== null && !state.judging;
+  const showReplay = last !== null && replayRun === last.run && mine !== null && !busy;
+
+  const runSql = () => {
+    // 判定は動きより早く終わることがあるので、動きの間はセッションの判定中でなくても止める
+    if (intro !== null) return;
+    const chips = reorderAnimation && !prefersReducedMotion() ? buildReorderChips(sql) : null;
+    // 動きは、セッションが判定を始めたときだけ流す（判定しない実行で動きだけ流れないように）
+    session.run(sql, chips ? () => setIntro(chips) : undefined);
+  };
 
   const onChange = (value) => {
     setSql(value);
@@ -130,17 +152,17 @@ export function PlayMode34({
         <SqlEditor
           value={sql}
           onChange={onChange}
-          onRun={() => session.run(sql)}
+          onRun={runSql}
           readOnly={state.cleared}
           autoFocus
         />
         <button
           type="button"
           className={styles.runButton}
-          onClick={() => session.run(sql)}
-          disabled={!ready || state.judging || state.cleared || sql.trim() === ''}
+          onClick={runSql}
+          disabled={!ready || busy || state.cleared || sql.trim() === ''}
         >
-          {state.judging ? '判定しています…' : '実行して判定（Ctrl+Enter）'}
+          {busy ? '判定しています…' : '実行して判定（Ctrl+Enter）'}
         </button>
         {mode === '3' && (
           <HintPanel
@@ -152,7 +174,9 @@ export function PlayMode34({
         )}
       </section>
 
-      {state.cleared ? (
+      {intro !== null ? (
+        <ReorderIntro chips={intro} onDone={() => setIntro(null)} />
+      ) : state.cleared ? (
         <>
           <WriteResult
             elapsedMs={session.elapsedMs}
@@ -166,7 +190,7 @@ export function PlayMode34({
         <JudgePanel result={last?.result ?? null} judging={state.judging} run={last?.run ?? 0} />
       )}
 
-      {mine !== null && !showReplay && !state.judging && (
+      {mine !== null && !showReplay && !busy && (
         <button
           type="button"
           className={styles.replayButton}
@@ -194,9 +218,9 @@ export function PlayMode34({
             {last ? `${last.run}回目に実行したSQLの結果` : '実行結果'}
           </h2>
           <ResultTable
-            result={state.judging ? null : mine}
+            result={busy ? null : mine}
             emptyMessage={
-              state.judging
+              busy
                 ? '判定しています…'
                 : last
                   ? 'このSQLの結果の表はありません（エラー・打ち切り・空のSQL）'

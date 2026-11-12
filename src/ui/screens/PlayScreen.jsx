@@ -9,11 +9,13 @@ import { runDbJob } from '../state/db-jobs.js';
 /**
  * 1問を遊ぶ画面。問題を読み、DBをその問題の初期状態にしてから、モードの中身を出す。
  * モード1・2（なぞり書き・打って選ぶ）は PlayMode12、モード3・4（書いて判定）は PlayMode34。
+ * reorderAnimation（見える化Bを流すか）はモード3・4だけが使う。
  * @param {{
  *   problemId: string,
  *   mode: '1' | '2' | '3' | '4',
  *   runner: import('../../data/sql-runner/sql-runner.js').SqlRunner,
  *   replaySpeed: number,
+ *   reorderAnimation: boolean,
  *   onRecord: (play: object) => import('../../schema/progress-schema.js').Progress,
  *   onReplayFinished: (problemId: string) => void,
  *   onExit: () => void,
@@ -29,6 +31,7 @@ export function PlayScreen({
   mode,
   runner,
   replaySpeed,
+  reorderAnimation,
   onRecord,
   onReplayFinished,
   onExit,
@@ -105,6 +108,7 @@ export function PlayScreen({
         mode={mode}
         runner={runner}
         replaySpeed={replaySpeed}
+        reorderAnimation={reorderAnimation}
         onRecord={onRecord}
         onReplayFinished={onReplayFinished}
         onExit={onExit}

@@ -1,4 +1,4 @@
-import { ProgressSchema } from '../schema/index.js';
+import { ProgressSchema, SettingsSchema } from '../schema/index.js';
 
 /**
  * 学習記録（localStorage）の読み書き。storage は引数で受け取る（画面は window.localStorage、テストは作り物）。
@@ -7,9 +7,20 @@ import { ProgressSchema } from '../schema/index.js';
  */
 
 /** @typedef {import('../schema/progress-schema.js').Progress} Progress */
-/** @typedef {{ getItem(key: string): string | null, setItem(key: string, value: string): void, removeItem(key: string): void }} KeyValueStorage */
+/**
+ * @typedef {{
+ *   getItem(key: string): string | null,
+ *   setItem(key: string, value: string): void,
+ *   removeItem(key: string): void,
+ *   key?: (index: number) => string | null,
+ *   length?: number,
+ * }} KeyValueStorage
+ *   key・length は、退避した古い記録を探して消すときだけ使う（なければ探さない）
+ */
 
 export const PROGRESS_KEY = 'sql-typing:progress';
+/** 壊れていて退避した古い記録のキーの頭 */
+const BROKEN_PREFIX = `${PROGRESS_KEY}:broken-`;
 
 /**
  * ブラウザの localStorage を返す。使えない（プライベートモードで例外など）ときは、
@@ -30,6 +41,10 @@ export function getBrowserStorage() {
       getItem: (key) => (data.has(key) ? data.get(key) : null),
       setItem: (key, value) => void data.set(key, String(value)),
       removeItem: (key) => void data.delete(key),
+      key: (index) => [...data.keys()][index] ?? null,
+      get length() {
+        return data.size;
+      },
     },
     persistent: false,
   };
@@ -71,7 +86,7 @@ export function loadProgress(storage, now = new Date()) {
   if (parsed.success) return { progress: parsed.data, recovered: false };
 
   try {
-    storage.setItem(`${PROGRESS_KEY}:broken-${now.toISOString()}`, raw);
+    storage.setItem(`${BROKEN_PREFIX}${now.toISOString()}`, raw);
     storage.removeItem(PROGRESS_KEY);
   } catch {
     // 退避できなくても、初期化した記録で遊べるようにする（次の保存で上書きされる）
@@ -90,6 +105,49 @@ export function saveProgress(storage, progress) {
     return { ok: true };
   } catch {
     return { ok: false };
+  }
+}
+
+/**
+ * 設定を変えた、新しい記録を返す（元の記録は変えない）。形の違う値は例外（画面の作り間違い）。
+ * @param {Progress} progress
+ * @param {Partial<Progress['settings']>} patch
+ * @returns {Progress}
+ */
+export function updateSettings(progress, patch) {
+  return { ...progress, settings: SettingsSchema.parse({ ...progress.settings, ...patch }) };
+}
+
+/**
+ * 学習記録をすべて消す（設定画面）。退避した古い記録も消し、設定だけ残した空の記録を保存する。
+ * 設定（見える化Bの on/off・再生の速さ）は学習の記録ではなく好みなので残す。
+ * 書けない（容量いっぱいなど）ときは、記録のキーを消す（読み込み直しで古い記録が戻らないように。設定は既定にもどる）。
+ * @param {KeyValueStorage} storage
+ * @param {Progress['settings']} settings - 残す設定
+ * @returns {{ progress: Progress, ok: boolean, saved: boolean }}
+ *   ok：保存されていた記録が消えた。saved：設定を残した空の記録を書けた。どちらも例外にしない
+ */
+export function clearProgress(storage, settings) {
+  const progress = { ...createEmptyProgress(), settings };
+  try {
+    if (typeof storage.key === 'function' && typeof storage.length === 'number') {
+      // 消しながら数えるとずれるので、先に集める
+      const broken = [];
+      for (let index = 0; index < storage.length; index += 1) {
+        const key = storage.key(index);
+        if (key?.startsWith(BROKEN_PREFIX)) broken.push(key);
+      }
+      for (const key of broken) storage.removeItem(key);
+    }
+  } catch {
+    // 古い記録が消せなくても、今の記録は消す
+  }
+  if (saveProgress(storage, progress).ok) return { progress, ok: true, saved: true };
+  try {
+    storage.removeItem(PROGRESS_KEY);
+    return { progress, ok: true, saved: false };
+  } catch {
+    return { progress, ok: false, saved: false };
   }
 }
 

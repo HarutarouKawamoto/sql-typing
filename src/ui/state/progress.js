@@ -1,14 +1,16 @@
 import { useCallback, useRef, useState } from 'react';
 import {
+  clearProgress,
   getBrowserStorage,
   loadProgress,
   markStepReplayFinished,
   recordPlay,
   saveProgress,
+  updateSettings,
 } from '../../data/progress-store.js';
 
 /**
- * 学習記録を読み、遊んだ結果を記録して保存する。
+ * 学習記録を読み、遊んだ結果・設定を記録して保存する。設定画面から記録を消す。
  * - recoveredNotice：記録が壊れていて初期化した（1回だけ知らせる）
  * - saveFailed：この環境では記録が保存されない（localStorage が使えない・書けない）
  */
@@ -50,12 +52,38 @@ export function useProgress() {
     [commit],
   );
 
+  /** 設定を変えて保存する（設定画面） */
+  const changeSettings = useCallback(
+    (patch) => commit(updateSettings(progressRef.current, patch)),
+    [commit],
+  );
+
+  /**
+   * 学習記録をすべて消す（設定は残す）。設定画面で確かめたあとに呼ぶ。
+   * 壊れた記録の知らせも閉じる（退避した古い記録も消えたので、もう当てはまらない）。
+   * @returns {boolean} 保存されていた記録が消えたか（false なら、読み込み直すと古い記録がもどる）
+   */
+  const clearAll = useCallback(() => {
+    const {
+      progress: cleared,
+      ok,
+      saved,
+    } = clearProgress(initial.storage, progressRef.current.settings);
+    progressRef.current = cleared;
+    setProgress(cleared);
+    setRecoveredNotice(false);
+    if (!saved) setSaveFailed(true);
+    return ok;
+  }, [initial.storage]);
+
   const dismissRecoveredNotice = useCallback(() => setRecoveredNotice(false), []);
 
   return {
     progress,
     record,
     markReplayFinished,
+    changeSettings,
+    clearAll,
     recoveredNotice,
     dismissRecoveredNotice,
     saveFailed,

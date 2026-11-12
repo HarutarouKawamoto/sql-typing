@@ -8,7 +8,8 @@ import { canRun, createWriteState, elapsedMs, writeReducer } from './write-sessi
 /**
  * 書く画面（モード3・4）の1回分。
  * - 開いたら、テーブルの一覧を読み、正解の結果を作る（1回だけ。StrictMode で effect が2回動いても作り直さない）
- * - run(sql)：判定中・クリアのあと・空白だけなら何もしない。判定が終わるまで次の実行を受けない
+ * - run(sql, onStart)：判定中・クリアのあと・空白だけなら何もしない。判定が終わるまで次の実行を受けない。
+ *   判定を始めたときだけ onStart を呼ぶ
  * - 正解なら学習記録に残す（時間・実行した回数・モード3は開いたヒントの数）
  * 問題やモードが変わるときは、このフックを使う部品ごと作り直す（key に問題IDとモードを入れる）。
  *
@@ -94,9 +95,14 @@ export function useWriteSession({ problem, mode, runner, onRecord }) {
   const expected = prepared && 'expected' in prepared ? prepared.expected : null;
 
   const run = useCallback(
-    async (/** @type {string} */ sql) => {
+    /**
+     * @param {string} sql
+     * @param {() => void} [onStart] - 判定を始めたときだけ、その場で呼ぶ（見える化B を、判定しない実行で流さないため）
+     */
+    async (sql, onStart) => {
       if (!expected?.ok || judgingRef.current || !canRun(state, sql)) return;
       judgingRef.current = true;
+      onStart?.();
       dispatch({ type: 'runStart', time: performance.now() });
       /** @type {import('../../core/judge.js').JudgeResult} */
       let result;
