@@ -78,6 +78,7 @@ sql-typing/
   - `use-problems.js`：全章の問題を1回だけ読み、ターニングポイントの ID の集合を返す
   - `use-narrow-screen.js`：画面の幅が 768px 未満か
   - `best-text.js`：モードの名前と最高記録の文（`tests/unit/ui/` で単体テスト）
+  - `schema-layout.js`：DBの地図の箱の置き方（親を左・子を右。React に依存しない。`tests/unit/ui/` で単体テスト）
   - `db-jobs.js`：DB を何回も使う仕事（問題の準備・正解の結果づくり・判定・ステップ再生の段階づくり）を1つずつ流す列 `runDbJob`（`tests/unit/ui/` で単体テスト）
 - `components/StepPlayer.jsx`・`StepTable.jsx`：見える化A（ステップ再生）の画面と、1段階の表
 - `components/PlayMode12.jsx`：モード1・2（なぞり書き・打って選ぶ）。`components/PlayMode34.jsx`：モード3・4（書いて判定）
@@ -85,6 +86,7 @@ sql-typing/
 - `components/SqlEditor.jsx`・`HintPanel.jsx`・`JudgePanel.jsx`・`WriteResult.jsx`：書く画面の入力欄・ヒント・判定の結果・クリアの結果
 - `components/StoryPanel.jsx`・`StoryLines.jsx`・`AfterStory.jsx`：会話を1行ずつ送る部品、会話の行の描き方、クリア後の会話と次への道
 - `components/ReorderIntro.jsx`：見える化B（句のチップが書いた順から実行順へ入れ替わる）
+- `components/SchemaMap.jsx`・`SchemaMapPanel.jsx`：DBの地図（React Flow の箱と線）と、開いて見る枠（読み込み・中身を見る）
 - `screens/ReplayDemoScreen.jsx`：ステップ再生の見本（`/?demo`）
 - `screens/SettingsScreen.jsx`：設定（見える化B の on/off・ステップ再生の速さ・学習記録を消す）
 - `styles/`: `tokens.css`（色・余白などの CSS 変数。ライト／ダーク）、`global.css`
@@ -125,6 +127,7 @@ ui/
 - `blank-typing.js`: 空欄つきのなぞり書き（空欄の外は TypingEngine、中は ChoiceEngine。空欄がなければ TypingEngine と同じなので、モード1もこれで動かす）
 - `clause-splitter.js`: ClauseSplitter
 - `reorder.js`: 見える化B のチップ（`buildReorderChips`。句の書いた順と実行順）
+- `touched-tables.js`: SQLが触っているテーブル（DBの地図で光らせる）
 - `judge.js`: Judge
 - `scoring.js`: Scoring（速さ・正確さ・ランク・苦手の集計）
 - `error-translator.js`: ErrorTranslator
@@ -150,6 +153,7 @@ core/
 ├── blank-typing.js
 ├── clause-splitter.js
 ├── reorder.js
+├── touched-tables.js
 ├── judge.js
 ├── scoring.js
 ├── error-translator.js
@@ -174,7 +178,8 @@ core/
 - `seed-loader.js`: `data/seeds/*.sql` を `import.meta.glob` の `?raw` で文字列として読む
 - `problem-loader.js`: ProblemLoader（`import.meta.glob` で章ごとに読み込み、`src/schema/` で検証）
 - `progress-store.js`: ProgressStore（localStorage、記録の形の移し替え）
-- `table-list.js`: 今の DB にあるテーブルと列の一覧（書く画面で使う。DBの地図ができるまでの仮）
+- `table-list.js`: 今の DB にあるテーブルと列の一覧（書く画面で、地図を開かなくても名前がわかるように使う）
+- `schema-info.js`: DBの地図の中身（テーブル・列・型・主キー・外部キー `loadSchema`、テーブルの先頭の行と行数 `loadTablePreview`）
 
 **命名規則**:
 - kebab-case ＋ `.js`。Worker の中で動くファイルは `.worker.js` で終える
@@ -247,6 +252,7 @@ tests/unit/
 │   ├── blank-typing.test.js
 │   ├── clause-splitter.test.js
 │   ├── reorder.test.js
+│   ├── touched-tables.test.js
 │   ├── scoring.test.js
 │   ├── judge-compare.test.js  # Judge の純粋な部分（値・表の比べ方、require・forbid の探し方）
 │   └── error-translator.test.js
@@ -265,6 +271,7 @@ tests/unit/
 │   ├── editor-keys.test.js
 │   ├── write-session-machine.test.js
 │   ├── db-jobs.test.js
+│   ├── schema-layout.test.js
 │   ├── local-date.test.js
 │   ├── navigation.test.js
 │   └── best-text.test.js
@@ -288,7 +295,8 @@ tests/integration/
 ├── sql-runner/
 │   └── node-runner.test.js    # Node 版の PGlite で、結果の形・値の型・エラー・初期状態への戻し方
 ├── data/
-│   └── table-list.test.js     # テーブルと列の一覧の読み方
+│   ├── table-list.test.js     # テーブルと列の一覧の読み方
+│   └── schema-info.test.js    # DBの地図の中身（列・型・主キー・外部キー・先頭の行と行数）
 ├── data-validation/
 │   ├── problems.test.js       # 問題データの検証（安全柵）。初期データの決まり・正解SQLの実行も
 │   └── answer-checks.test.js  # 「正解SQLが実行でき0行でない」の検証そのものが働くこと
@@ -320,6 +328,8 @@ tests/e2e/
 │   └── turning-point.spec.js  # ターニングポイントが開く・印・説明・11行の会話・クリア後
 ├── settings/
 │   └── settings.spec.js       # 設定の画面（速さ・見える化B の on/off・学習記録を消す）
+├── map/
+│   └── schema-map.spec.js     # DBの地図（モード選択・モード1・モード4・幅375px）
 ├── device/
 │   └── narrow-screen.spec.js  # 幅375pxでは遊べず、会話は読める
 └── helpers/

@@ -87,6 +87,29 @@ export function locateBlanks(target, blanks) {
 }
 
 /**
+ * 表示用SQLから空欄の答えの文字を空白にしたもの（DBの地図で、空欄の答えのテーブルを光らせないため）。
+ * 空欄は locateBlanks と同じ探し方で見つける（改行・字下げ・キーワードの大文字小文字の違いを無視する）。
+ * 長さと改行は変えない。
+ * @param {string} displaySql
+ * @param {BlankLike[]} blanks
+ * @returns {string}
+ */
+export function maskBlankAnswers(displaySql, blanks) {
+  if (blanks.length === 0) return displaySql;
+  const target = buildTarget(displaySql);
+  const chars = [...displaySql];
+  for (const range of locateBlanks(target, blanks)) {
+    const first = target.slots[range.start];
+    const last = target.slots[range.end - 1];
+    const end = last.kind === 'separator' ? last.end : last.start + 1;
+    for (let i = first.start; i < end; i += 1) {
+      if (chars[i] !== '\n') chars[i] = ' ';
+    }
+  }
+  return chars.join('');
+}
+
+/**
  * 今の位置が空欄の始まりなら、その空欄を始める。
  * @param {BlankTypingState} state
  * @param {() => number} randomFn

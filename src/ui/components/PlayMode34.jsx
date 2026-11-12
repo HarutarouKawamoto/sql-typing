@@ -6,6 +6,7 @@ import { escapeAction } from '../state/write-session-machine.js';
 import { HintPanel } from './HintPanel.jsx';
 import { JudgePanel } from './JudgePanel.jsx';
 import { ReorderIntro } from './ReorderIntro.jsx';
+import { SchemaMapPanel } from './SchemaMapPanel.jsx';
 import { ResultTable } from './ResultTable.jsx';
 import { SqlEditor } from './SqlEditor.jsx';
 import { StoryLines } from './StoryLines.jsx';
@@ -26,6 +27,7 @@ const MODIFIER_KEYS = new Set(['Shift', 'Control', 'Alt', 'Meta', 'AltGraph', 'C
  * 書きかけのSQLがあるときの Esc は、1回目は確かめを出し、もう一度 Esc でもどる。
  * @param {{
  *   problem: import('../../schema/problem-schema.js').Problem,
+ *   chapter: import('../../schema/chapter-schema.js').Chapter,
  *   mode: '3' | '4',
  *   runner: import('../../data/sql-runner/sql-runner.js').SqlRunner,
  *   replaySpeed: number,
@@ -39,6 +41,7 @@ const MODIFIER_KEYS = new Set(['Shift', 'Control', 'Alt', 'Meta', 'AltGraph', 'C
  */
 export function PlayMode34({
   problem,
+  chapter,
   mode,
   runner,
   replaySpeed,
@@ -124,6 +127,8 @@ export function PlayMode34({
           </p>
         )}
       </section>
+      {/* 書いているSQLが触るテーブルを、書くたびに光らせる */}
+      <SchemaMapPanel runner={runner} chapter={chapter} sql={sql} databaseStatus="ready" />
 
       <section className={styles.stage} aria-label="書くところ">
         <p className={styles.guide}>

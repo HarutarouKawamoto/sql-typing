@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { SchemaMapPanel } from '../components/SchemaMapPanel.jsx';
 import { formatBest, MODE_LABELS } from '../state/best-text.js';
 import styles from './ModeSelect.module.css';
 
@@ -6,7 +7,9 @@ const MODES = /** @type {const} */ (['1', '2', '3', '4']);
 
 /**
  * 問題のモードを選ぶ。4つのモードのボタン（星・最高記録）、1〜4のキー、Esc で一覧へ。
- * データベースの準備中・幅の狭い画面では選べない（狭い画面でも依頼の会話は読める）。
+ * データベースの準備中・幅の狭い画面では選べない（狭い画面でも依頼の会話とDBの地図は見られる）。
+ * DBの地図は、開いたときに DB を章の初期状態にしてから読む（前に遊んだ問題の DB のままにしない）。
+ * 光らせるテーブルはない（モード4の答えのヒントにならないように）。
  * @param {{
  *   problemId: string,
  *   title: string,
@@ -14,6 +17,9 @@ const MODES = /** @type {const} */ (['1', '2', '3', '4']);
  *   turningPoint: boolean,
  *   databaseStatus: 'starting' | 'ready' | 'error',
  *   narrow: boolean,
+ *   runner: import('../../data/sql-runner/sql-runner.js').SqlRunner,
+ *   chapter: import('../../schema/chapter-schema.js').Chapter | null,
+ *   prepareDb: () => Promise<void>,
  *   onChoose: (mode: '1' | '2' | '3' | '4') => void,
  *   onRead: () => void,
  *   onHome: () => void,
@@ -26,6 +32,9 @@ export function ModeSelect({
   turningPoint,
   databaseStatus,
   narrow,
+  runner,
+  chapter,
+  prepareDb,
   onChoose,
   onRead,
   onHome,
@@ -101,6 +110,14 @@ export function ModeSelect({
           );
         })}
       </ul>
+      {chapter && (
+        <SchemaMapPanel
+          runner={runner}
+          chapter={chapter}
+          prepareDb={prepareDb}
+          databaseStatus={databaseStatus}
+        />
+      )}
       <div className={styles.footer}>
         <button type="button" className={styles.link} onClick={onRead}>
           依頼の会話を読む

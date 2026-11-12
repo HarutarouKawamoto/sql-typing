@@ -1,5 +1,6 @@
 import { useCallback, useReducer, useState } from 'react';
 import { loadChapters } from '../data/problem-loader.js';
+import { loadSeed } from '../data/seed-loader.js';
 import { isUnlocked, nextProblemId } from '../data/progress-store.js';
 import { getSqlRunner, useDatabaseStatus } from './state/database.js';
 import { HOME, navigationReducer } from './state/navigation.js';
@@ -126,16 +127,26 @@ export function App() {
   }
 
   if (navigation.screen === 'mode') {
+    const problem = problems?.get(navigation.problemId);
+    const chapter = chapters.find((c) => c.id === problem?.chapterId) ?? null;
     return (
       <main className="app">
         <ModeSelect
           key={navigation.problemId}
           problemId={navigation.problemId}
-          title={problems?.get(navigation.problemId)?.title ?? navigation.problemId}
+          title={problem?.title ?? navigation.problemId}
           progress={progress}
           turningPoint={turningPointIds.has(navigation.problemId)}
           databaseStatus={database.status}
           narrow={narrow}
+          runner={getSqlRunner()}
+          chapter={chapter}
+          prepareDb={async () => {
+            // DBの地図を読む前に、この問題の初期状態にする（遊ぶ画面に入るときも作り直す）
+            if (!problem || !chapter) return;
+            const seedSql = await loadSeed(chapter.seed);
+            await getSqlRunner().prepare({ seedSql, extraSql: problem.setup.extraSql });
+          }}
           onChoose={(mode) => dispatch({ type: 'chooseMode', mode })}
           onRead={() => dispatch({ type: 'readStory' })}
           onHome={goHome}

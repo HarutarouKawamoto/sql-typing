@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   createBlankTypingState,
   locateBlanks,
+  maskBlankAnswers,
   pressBlankKey,
 } from '../../../src/core/blank-typing.js';
 import { buildTarget, createTypingState, pressKey } from '../../../src/core/typing-engine.js';
@@ -155,5 +156,41 @@ describe('pressBlankKey：空欄', () => {
     const { state, last } = typeAll(s0, t, [...'SELECT count']);
     expect(last.result).toBe('decidedCorrect');
     expect(state.active).toBe(1);
+  });
+});
+
+describe('maskBlankAnswers', () => {
+  const blank = (answer) => ({ answer, wrong: [{ text: 'x', why: 'y' }] });
+
+  it('空欄の答えの文字を空白にする（長さは変えない）', () => {
+    const sql = 'SELECT * FROM products';
+    expect(maskBlankAnswers(sql, [blank('FROM products')])).toBe('SELECT *              ');
+  });
+
+  it('改行・字下げのある表示用SQLでも、空欄と同じ探し方で見つける', () => {
+    const sql = 'SELECT name\nFROM\n  products\nWHERE price > 1';
+    // 改行は残す（行の形を変えない）
+    expect(maskBlankAnswers(sql, [blank('FROM products')])).toBe(
+      'SELECT name\n    \n          \nWHERE price > 1',
+    );
+  });
+
+  it('キーワードの大文字・小文字が違っても見つける', () => {
+    expect(maskBlankAnswers('select * from products', [blank('FROM products')])).toBe(
+      'select *              ',
+    );
+  });
+
+  it('空欄が2つでも、それぞれ消す', () => {
+    expect(
+      maskBlankAnswers('SELECT name FROM orders ORDER BY id DESC', [
+        blank('orders'),
+        blank('DESC'),
+      ]),
+    ).toBe('SELECT name FROM        ORDER BY id     ');
+  });
+
+  it('空欄がなければそのまま', () => {
+    expect(maskBlankAnswers('SELECT 1', [])).toBe('SELECT 1');
   });
 });

@@ -41,7 +41,7 @@ export function PlayScreen({
   onNext,
 }) {
   const [loaded, setLoaded] = useState(
-    /** @type {{ problem: import('../../schema/problem-schema.js').Problem } | { error: string } | null} */ (
+    /** @type {{ problem: import('../../schema/problem-schema.js').Problem, chapter: import('../../schema/chapter-schema.js').Chapter } | { error: string } | null} */ (
       null
     ),
   );
@@ -56,9 +56,9 @@ export function PlayScreen({
       const seedSql = await loadSeed(chapter.seed);
       // 前の画面に残った判定などが終わってから、この問題の初期状態を作る
       await runDbJob(() => runner.prepare({ seedSql, extraSql: problem.setup.extraSql }));
-      return problem;
+      return { problem, chapter };
     })().then(
-      (problem) => active && setLoaded({ problem }),
+      (value) => active && setLoaded(value),
       (error) => {
         console.error(error);
         if (active) setLoaded({ error: String(error?.message ?? error) });
@@ -105,6 +105,7 @@ export function PlayScreen({
         // 問題・モード・やり直しが変わったら、書いたSQL・時計・判定を引き継がないように作り直す
         key={`${loaded.problem.id}:${mode}:${attempt}`}
         problem={loaded.problem}
+        chapter={loaded.chapter}
         mode={mode}
         runner={runner}
         replaySpeed={replaySpeed}
@@ -122,6 +123,7 @@ export function PlayScreen({
       // 問題・モード・やり直しが変わったら、打っている状態・時計・記録・選択肢の並びを引き継がないように作り直す
       key={`${loaded.problem.id}:${mode}:${attempt}`}
       problem={loaded.problem}
+      chapter={loaded.chapter}
       mode={mode}
       keywords={keywords}
       runner={runner}
