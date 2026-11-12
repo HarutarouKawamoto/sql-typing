@@ -139,7 +139,9 @@ ui/
 - `error-messages.js`: SQLSTATE ごとの和訳の表（データだけ）
 - `stepper/index.js`: `buildSteps`（初級の単一テーブルの段階を、句の範囲で元のSQLを切り貼りして作る）
 - `stepper/select-list.js`: SELECT 句を項目に分け、元の列と別名を見分ける `splitSelectList`
-- 中級の `GROUP BY`・`JOIN` の段階を足すときは、`stepper/` に段階ごとのファイル（`group-by-step.js` など）を分ける
+- `stepper/group-by.js`: GROUP BY 句を項目に分ける `splitGroupBy`（ROLLUP などは扱わない）と、列の番号・SELECT の別名を式に置き換える `resolveGroupItems`
+- `stepper/aggregates.js`: サブクエリの外の集計関数・ウィンドウ関数を見つける
+- 集計の段階は `index.js` の `pushGroupedSteps`（段階ごとの関数）と `group-by.js`。中級の `JOIN` の段階を足すときは、`stepper/` に段階ごとのファイル（`join-step.js` など）を分ける
 - `sql-text.js`: 文字列リテラル・コメントを見分ける小さな字句解析（TypingEngine・ClauseSplitter・Judge の `require`/`forbid` で共有）
 
 **命名規則**:
@@ -168,7 +170,9 @@ core/
 ├── sql-text.js
 └── stepper/
     ├── index.js
-    └── select-list.js
+    ├── select-list.js
+    ├── group-by.js
+    └── aggregates.js
 ```
 
 ### src/data/（データレイヤー）
@@ -259,6 +263,7 @@ tests/unit/
 │   ├── blank-typing.test.js
 │   ├── clause-splitter.test.js
 │   ├── reorder.test.js
+│   ├── group-by.test.js
 │   ├── touched-tables.test.js
 │   ├── keyword-spans.test.js
 │   ├── dictionary.test.js
@@ -300,7 +305,8 @@ tests/integration/
 ├── judge/
 │   └── judge.test.js          # 本物の PGlite で判定（正解・別解・間違いの種類・エラー・書き換え系・DB の戻し方）
 ├── stepper/
-│   └── beginner-steps.test.js # 初級9問の形のステップ再生が、元のSQLの結果と一致する
+│   ├── beginner-steps.test.js # 初級9問の形のステップ再生が、元のSQLの結果と一致する
+│   └── group-by-steps.test.js # 集計（GROUP BY・HAVING・集計関数）の段階
 ├── sql-runner/
 │   └── node-runner.test.js    # Node 版の PGlite で、結果の形・値の型・エラー・初期状態への戻し方
 ├── data/

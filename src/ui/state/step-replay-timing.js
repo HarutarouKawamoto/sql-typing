@@ -11,6 +11,8 @@
 const DURATIONS = {
   FROM: [0, 600],
   WHERE: [1800, 800],
+  'GROUP BY': [1800, 800],
+  HAVING: [1800, 800],
   SELECT: [1500, 500],
   DISTINCT: [1800, 600],
   'ORDER BY': [0, 800],
@@ -21,12 +23,17 @@ const DEFAULT_DURATION = [0, 800];
 const HOLD_MS = 1000;
 
 /**
- * 印を付ける場面が要る段階か（行が消える・列が消える・行がまとまる）。
+ * 印を付ける場面が要る段階か（行が消える・列が消える・行がまとまる・グループの色が付く）。
  * @param {{ diff: import('../../core/stepper/index.js').StepDiff }} step
  */
 export function needsMark(step) {
-  const { removed, removedColumns, merged } = step.diff;
-  return removed.length > 0 || removedColumns.length > 0 || Object.keys(merged).length > 0;
+  const { removed, removedColumns, merged, groups = {} } = step.diff;
+  return (
+    removed.length > 0 ||
+    removedColumns.length > 0 ||
+    Object.keys(merged).length > 0 ||
+    Object.keys(groups).length > 0
+  );
 }
 
 /**

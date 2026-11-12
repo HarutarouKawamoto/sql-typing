@@ -12,11 +12,27 @@ import styles from './StepPlayer.module.css';
 const EXPLANATIONS = {
   FROM: 'テーブルの全部の行を読む',
   WHERE: '条件に合わない行が消える',
+  'GROUP BY': '同じグループの行が同じ色になり、寄って並ぶ',
+  HAVING: '条件に合わないグループが、行ごと消える',
   SELECT: '使う列だけが残る',
   DISTINCT: '同じ値の行が1つにまとまる',
   'ORDER BY': '行が並び替わる',
   LIMIT: '指定した行数だけが残る',
 };
+
+/**
+ * 段階の一言。集計した SELECT は「1グループが1行に」、もう寄って並んでいる GROUP BY は「同じ色になる」と言う。
+ * @param {import('../../core/stepper/index.js').Step} step
+ */
+function explanationOf(step) {
+  if (step.label === 'SELECT' && step.diff.aggregated) {
+    return '1つのグループが1行にまとまり、集計した値が出る';
+  }
+  if (step.label === 'GROUP BY' && !step.diff.reordered) {
+    return '同じグループの行が同じ色になる（もう寄って並んでいる）';
+  }
+  return EXPLANATIONS[step.label];
+}
 
 /**
  * 見える化A（ステップ再生）。SQLの句に実行順の番号を付け、今の段階の句を光らせながら、
@@ -145,7 +161,7 @@ function StepPlayerView({ sql, steps, speed, onFinished }) {
 
       <p className={styles.stepTitle} data-testid="step-title">
         段階 {replay.index + 1}/{steps.length}：<strong>{replay.step.label}</strong>
-        <span className={styles.explanation}> ― {EXPLANATIONS[replay.step.label]}</span>
+        <span className={styles.explanation}> ― {explanationOf(replay.step)}</span>
       </p>
 
       <StepTable step={replay.step} previous={replay.previous} phase={replay.phase} />

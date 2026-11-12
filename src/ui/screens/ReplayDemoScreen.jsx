@@ -5,7 +5,7 @@ import styles from './ReplayDemoScreen.module.css';
 /**
  * ステップ再生の見本（`/?demo` で開く。入口からはリンクしない）。
  * 1問目（SELECT * FROM products）には消える行・まとまる行がないので、印（赤・黄・灰色）の見た目を
- * 目と E2E で確かめるために、初級の形のSQLを並べておく。初期データは初級（products 30行）。
+ * 目と E2E で確かめるために、初級・中級の集計の形のSQLを並べておく。初期データは初級（products 30行）。
  * `?demo&speed=0.2` のように再生の速さも変えられる（E2E で印の場面を長く見せるため）。
  */
 export const DEMO_SAMPLES = [
@@ -25,6 +25,20 @@ export const DEMO_SAMPLES = [
   {
     title: 'AND：2つの条件の両方に合う行だけが残る',
     sql: "SELECT name, stock FROM products WHERE category = 'kitchen' AND stock < 5",
+  },
+  {
+    title: 'GROUP BY：同じグループの行が寄り、集計で1行にまとまる',
+    sql: 'SELECT supplier, count(*) AS items FROM products GROUP BY supplier',
+  },
+  {
+    title: 'HAVING：条件に合わないグループが消える',
+    sql:
+      'SELECT category, sum(stock) AS total FROM products WHERE price >= 1000 ' +
+      'GROUP BY category HAVING count(*) >= 3 ORDER BY total DESC',
+  },
+  {
+    title: '集計関数だけ：全部の行が1行にまとまる',
+    sql: 'SELECT count(*) AS items, max(price) AS top FROM products',
   },
 ];
 

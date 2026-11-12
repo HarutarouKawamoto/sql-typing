@@ -137,7 +137,7 @@ graph LR
 | キー入力から画面への反映 | 16ms 以内 | Chrome の Performance パネルで、1キーの処理時間を測る |
 | 見える化C（句を打ち終えてから表が変わるまで） | 300ms 以内 | 初級データ（30行） |
 | 判定（実行ボタンから結果まで） | 500ms 以内 | 初級・中級データ |
-| ステップ再生の準備（`buildSteps`） | 500ms 以内 | 初級データ。段階のSQLは最大6本 |
+| ステップ再生の準備（`buildSteps`） | 500ms 以内 | 初級データ。段階のSQLは、元のSQLのほかに最大7本（集計：FROM・WHERE・グループの鍵・HAVING・SELECT・ORDER BY・LIMIT） |
 | アニメーション | 毎秒60コマ | 一般的なノートPC、表50行まで |
 
 ### リソース使用量
@@ -177,7 +177,7 @@ graph LR
 
 - **問題の追加**：YAML を1つ置き、`chapters.yaml` の `problemIds` に足すだけ。コードの変更はいらない
 - **章の追加**：`chapters.yaml` に章を足し、`data/seeds/` に初期データSQLを置く
-- **ステップ再生の拡張**：`Stepper` の中で、句の種類ごとに「段階を作る関数」を表で持つ（`{ WHERE: buildWhereStep, ... }`）。中級の `GROUP BY` / `JOIN` は関数を足すだけにする
+- **ステップ再生の拡張**：`Stepper` の中で、句の種類ごとに「段階を作る関数」を表で持つ（`{ WHERE: buildWhereStep, ... }`）。集計（GROUP BY・HAVING）は `pushGroupedSteps` の段階ごとの関数で足した（2026-11-12）。中級の `JOIN` も同じように関数を足す
 - **上級の専用の見える化**（P2）：問題YAMLに `viz: 'indexRace' | 'planTree' | 'txTimeline'` を足し、画面側でその見える化のコンポーネントを出す。`viz` がない問題は今までどおりステップ再生
 - **設定**：見える化Bの on/off、再生の速さ（機能設計の `Settings`）
 

@@ -463,7 +463,7 @@ export async function buildSteps(sql, runner) {}
 
 /**
  * @typedef {Object} Step
- * @property {string} label            - 'FROM' / 'WHERE' / 'SELECT' / 'DISTINCT' / 'ORDER BY' / 'LIMIT'
+ * @property {string} label            - 'FROM' / 'WHERE' / 'GROUP BY' / 'HAVING' / 'SELECT' / 'DISTINCT' / 'ORDER BY' / 'LIMIT'
  * @property {[number, number]} range  - SQLの中で光らせる文字の範囲（DISTINCT は SELECT 句の範囲）
  * @property {string[]} columns        - `__rid` は含めない
  * @property {StepRow[]} rows
@@ -471,15 +471,17 @@ export async function buildSteps(sql, runner) {}
  * @property {StepDiff} diff           - 1つ前の段階からの変化
  *
  * @typedef {Object} StepRow
- * @property {string} rid              - 行の目印（元テーブルの ctid）。DISTINCT 後は先頭の行の rid
+ * @property {string} rid              - 行の目印（元テーブルの ctid）。DISTINCT・集計のあとは、まとまった組の先頭の行の rid（0行の集計は `group:<鍵>`）
  * @property {Array<string|number|null>} values
  *
  * @typedef {Object} StepDiff
  * @property {string[]} removed            - この段階で消えた行の rid（WHERE / LIMIT）
  * @property {string[]} removedColumns     - この段階で消えた列（SELECT）
  * @property {Object<string,string>} renamedColumns - AS で変わった列名 { 元: 新 }
- * @property {Object<string,string[]>} merged      - まとまった行 { 残る rid: [吸収された rid...] }（DISTINCT）
- * @property {boolean} reordered           - 並び順が変わったか（ORDER BY）
+ * @property {Object<string,string[]>} merged      - まとまった行 { 残る rid: [吸収された rid...] }（DISTINCT・集計の SELECT）
+ * @property {boolean} reordered           - 並び順が変わったか（ORDER BY・GROUP BY）
+ * @property {Object<string,number>} groups - 各行のグループの番号 { rid: 番号 }（GROUP BY・HAVING。最初に出てきた順。色分けのため）
+ * @property {boolean} aggregated          - 集計した SELECT の段階か
  */
 ```
 
@@ -495,14 +497,29 @@ export async function buildSteps(sql, runner) {}
 | LIMIT | DISTINCT なし：`SELECT p, ctid::text AS __rid FROM t WHERE w ORDER BY o LIMIT …`。DISTINCT あり：元のSQLの結果の値で前の段階の行に対応づける（DISTINCT のあとは値が重ならない） | 前後の消えた行 |
 
 - 段階のSQLは、ClauseSplitter の句の範囲（文字の位置）で、元のSQLの句の文字をそのまま切り貼りして作る（`pgsql-ast-parser` は使わない。初級の単一テーブルなら切り貼りで足り、構文木を経由すると書き方が変わる心配が増えるため。中級で必要になったら使う）。SELECT の項目は `src/core/stepper/select-list.js` で、括弧・文字列の外のカンマで分ける
-- 対応する形：句に分けられ、`GROUP BY`・`HAVING` がなく、FROM 句がテーブル名1つ（別名可）で、SELECT の項目に集計関数（`string_agg` なども）・ウィンドウ関数がなく、`DISTINCT ON`・`SELECT ALL`・`SELECT ... INTO` でなく、括弧の外に `OFFSET`（LIMIT 句の中は可）・`FETCH`・`FOR`・`WINDOW`・`UNION` などがないもの。ClauseSplitter が句として数えない語が、直前の句の文字に混ざって別の段階で行が減るのを防ぐため
+- 対応する形：句に分けられ、FROM 句がテーブル名1つ（別名可）で、ウィンドウ関数がなく、`DISTINCT ON`・`SELECT ALL`・`SELECT ... INTO` でなく、括弧の外に `OFFSET`（LIMIT 句の中は可）・`FETCH`・`FOR`・`WINDOW`・`UNION` などがないもの。ClauseSplitter が句として数えない語が、直前の句の文字に混ざって別の段階で行が減るのを防ぐため
 - 行の目印 `ctid::text AS __rid` は項目の**末尾**に足す（先頭に足すと `ORDER BY 2` のような列番号がずれる）
 - 最初に元のSQLを実行する。エラーなら `error`（PostgreSQL のメッセージ付き。学習者のSQLの間違い）。元のSQLが成功したあとに段階のSQLだけが失敗したら `unsupported`（学習者が書いていないSQLのエラーは見せない）
 - SELECT の段階の消えた列・名前の変わった列は、項目の「元の列」から決める（結果の列名との一致では決めない）。元の列は FROM の段階に実在するものだけ（`TRUE`・`CURRENT_DATE` を列と取り違えない）、引用符なしの名前は小文字で比べる、同じ列を2回以上使うときは名前の変わった表示をしない、`*` があればどの列も消えない
 - LIMIT の段階は、DISTINCT がなければ元の ORDER BY と LIMIT をそのまま付けて行の目印つきで実行し、残る行を決める（同じ値の行を取り違えない）。残る行が ORDER BY の段階の並びの中で続いていなければ `mismatch`
 - 最後の段階の表が、元のSQLをそのまま実行した結果と一致することを確かめる（ORDER BY・LIMIT があれば並びも）。一致しなければ `mismatch`（間違った見える化を見せない）
-- まだ対応していない形（中級以降の `GROUP BY` / `JOIN` など、MVPの範囲外）は `unsupported` を返し、画面は「この形のステップ再生はまだありません」と出す
-- 中級（P1）では、`GROUP BY`（各行のグループの値を `SELECT __rid, (グループ式) ...` で求めて色分け）と `JOIN`（左右のテーブルの ctid を両方持たせる）の段階をここに足す
+- まだ対応していない形（`JOIN` など）は `unsupported` を返し、画面は「この形のステップ再生はまだありません」と出す
+- 中級（P1）では、`JOIN`（左右のテーブルの ctid を両方持たせる）の段階をここに足す
+
+**集計（GROUP BY・HAVING・集計関数。2026-11-12）**：GROUP BY・HAVING・集計関数のどれかがあれば集計するSQLとして、WHERE のあとを次の段階にする（`src/core/stepper/index.js` の `pushGroupedSteps`）。各行のグループの鍵 `k` は `ROW(GROUP BY の項目)::text`（GROUP BY がなければ `'all'`：全部の行が1つのグループ）。GROUP BY 句の項目は `src/core/stepper/group-by.js` の `splitGroupBy` で分ける。
+
+| 段階 | 実行するSQL（`g` は GROUP BY 句、`h` は HAVING 句） | 前との差の求め方 |
+|---|---|---|
+| GROUP BY | `SELECT *, ctid::text AS __rid, k AS __grp FROM t WHERE w` | 行の目印 → グループの鍵。前の段階の並びのまま、グループが最初に出てきた順に安定に寄せる（`groups`・`reordered`） |
+| HAVING | `SELECT k AS __grp FROM t WHERE w g h` | 残るグループの行だけ。消える行は、そのグループの行すべて（`removed`・`groups`） |
+| SELECT | `SELECT p, k AS __grp FROM t WHERE w g h` | 鍵で、グループの最初の行の目印につなぐ。ほかの行は `merged`。並びはグループの番号の順 |
+| ORDER BY・LIMIT | 上に `o`・`LIMIT …` を付ける | 鍵で目印に直す。LIMIT は今までと同じく続いていること |
+
+- `GROUP BY 1`（括弧つきの `(1)` も）のような列の番号と、SELECT の別名での GROUP BY は、段階のSQLの中ではそのまま使えない（「1という値」・ない列になる）ので、`resolveGroupItems` で SELECT の項目の式に置き換える（入力の列名と同じ名前は、別名より列を優先する。PostgreSQL と同じ）
+- 集計するSQLかは、サブクエリの外に集計関数があるかで決める（`src/core/stepper/aggregates.js`。`(SELECT avg(price) ...)` の集計は外の行をまとめない）
+- 最後の守り：集計のあとの行が、グループごとに1行ずつか（鍵・目印が重ならず、行数がグループの数と同じ。LIMIT のあとは少なくてよい）を確かめ、外れたら `mismatch`（鍵の文字と本物のグループ分けがずれる `1.0` と `1.00` のようなとき、途中の段階がうそになるため）
+- 集計の SELECT の段階は `diff.aggregated = true`（まとまる行がなくても、段階の一言を「集計」にする）
+- 扱わない（`unsupported`）：DISTINCT と集計を一緒に使う、ウィンドウ関数（`OVER`）、`ROLLUP`・`CUBE`・`GROUPING SETS`
 
 #### Judge
 
@@ -804,9 +821,9 @@ export function nextProblemId(chapters, problemId) {}
 | `HintPanel` | モード3：ヒントを1つずつ開く（①使う句 ②句の順番 ③骨組み） |
 | `WriteResult` | モード3・4のクリアの結果：時間・実行した回数・（モード3）開いたヒントの数 |
 | `ResultTable` | 結果の表。行の追加・削除・並び替えを Motion の `layout` で動かす |
-| `StepPlayer` | 見える化A：buildSteps を呼ぶ、SQLの句に実行順の番号を付けて今の句を光らせる、再生・一時停止・進む・戻る・最初から、段階の一言の説明 |
+| `StepPlayer` | 見える化A：buildSteps を呼ぶ、SQLの句に実行順の番号を付けて今の句を光らせる、再生・一時停止・進む・戻る・最初から、段階の一言の説明（集計した SELECT は「1つのグループが1行にまとまり、集計した値が出る」、並び替わらない GROUP BY は「同じグループの行が同じ色になる（もう寄って並んでいる）」） |
 | `StepTable` | 見える化A の1段階の表：印の場面（消える行・まとまる行・消える列）と変化の場面、行数の変化、AS の「元 → 新」 |
-| `ReplayDemoScreen` | ステップ再生の見本（`/?demo`）。初級の形のSQLを選んでステップ再生を見る |
+| `ReplayDemoScreen` | ステップ再生の見本（`/?demo`）。初級の形と集計（GROUP BY・HAVING・集計関数だけ）のSQLを選んでステップ再生を見る |
 | `ReorderIntro` | 見える化B：句のチップが書いた順から実行順へ入れ替わる（1.5秒）。動きは下の「見える化B（ReorderIntro）の動き」 |
 | `JudgePanel` | 判定の結果（不正解の理由・条件違反・打ち切り）、和訳したエラー（よくある原因、英語の原文は折りたたみ）。何回目の実行の結果かも出す |
 | `ResultScreen` | クリア後の記録（速さ・正確さ・ランク／時間・実行回数・ヒント数）、苦手の上位3つ、ステップ再生へのボタン、次の問題へ |
@@ -993,8 +1010,11 @@ stateDiagram-v2
 |---|---|---|
 | FROM | 全行が現れる | 0 → 0.6秒 |
 | WHERE | 消える行が赤くなり打ち消し線が付く → 横にずれて消える → 残った行が詰まる | 1.8 → 0.8秒 |
+| GROUP BY | 行がグループごとの色になる → 同じグループの行が寄る | 1.8 → 0.8秒 |
+| HAVING | 条件に合わないグループの行が赤くなる（グループの色より赤を先に） → 消える | 1.8 → 0.8秒 |
 | SELECT | 消える列が灰色の打ち消し線になる → 消える。AS の列は見出しが「元 → 新」 | 1.5 → 0.5秒 |
 | DISTINCT | まとまる組ごとに違う色になり、残る行は太字、まとまって消える行は文字が薄く打ち消し線 → 1行に重なる | 1.8 → 0.6秒 |
+| SELECT（集計） | DISTINCT と同じ印で、1グループが1行に重なる（色は前の GROUP BY・HAVING のグループの色のまま。1行だけのグループも色を残す）。一言は「1つのグループが1行にまとまり、集計した値が出る」 | 1.5 → 0.5秒 |
 | ORDER BY | 行が新しい位置へ動く（行の目印を key にした layout アニメーション） | 0 → 0.8秒 |
 | LIMIT | 消える行が赤くなる → 消える | 1.5 → 0.3秒 |
 
@@ -1005,8 +1025,8 @@ stateDiagram-v2
 - 最後の段階の変化を見せたら、学習記録の `stepReplayFinished` を true にする（KPI「見える化の利用」）
 - 入口：モード1のクリアの結果の「ステップ再生を見る」。押すと結果の表の欄がステップ再生に変わる。モード3・4は実行のたびに（間違っていても）書いたSQLの「ステップ再生を見る」が出る
 - 入力欄（textarea・input）にフォーカスがあるときの矢印・Space・Home は入力欄のもの（ステップ再生を動かさない）
-- **見本のページ**（`/?demo`、入口からはリンクしない）：初級の形のSQL（WHERE・AS・DISTINCT と ORDER BY・ORDER BY と LIMIT・AND）を選んでステップ再生を見られる。`&speed=0.05` のように速さも変えられる。印の見た目を目と E2E で確かめるため（1問目には消える行・まとまる行がない）
-- 印の付いた行・列には `data-mark`（`removing`・`merging`・`merging-keep`・`removing-column`）を付け、E2E で数える
+- **見本のページ**（`/?demo`、入口からはリンクしない）：初級の形のSQL（WHERE・AS・DISTINCT と ORDER BY・ORDER BY と LIMIT・AND）と集計（GROUP BY・HAVING・集計関数だけ）を選んでステップ再生を見られる。`&speed=0.05` のように速さも変えられる。印の見た目を目と E2E で確かめるため（1問目には消える行・まとまる行がない）
+- 印の付いた行・列には `data-mark`（`removing`・`merging`・`merging-keep`・`removing-column`）を付け、E2E で数える。GROUP BY・HAVING の段階の行には `data-group`（グループの番号）
 - 表示用の行は50行まで（結果の表と同じ）。OS の「動きを減らす」設定では動きを付けない
 
 ### 見える化B（ReorderIntro）の動き
@@ -1117,7 +1137,7 @@ data/
 ### 統合テスト（Vitest + PGlite（Node 版）、`tests/integration/`）
 - `Judge`：正解・別解（`IN` と `OR` の書き換え）・行数違い・順番違い・列名違い・列の並び順違い・`require` 違反・エラー・2つ以上の文・タイムアウト（作り物の SqlRunner）・判定のあと DB が初期状態に戻ること・書き換え系（`compareTable`・`ignoreColumns`・テーブルを消したとき）・空のSQL
 - `SchemaInfo`：初級の products の列・型・主キー、外部キーのつながり、2つの列の主キー・外部キー、別のテーブルの同じ名前の制約、public 以外のスキーマ・ビュー、先頭20行と行数、変わった名前のテーブルの引用
-- `Stepper`：初級9問の正解SQLすべてで、最後の段階が元のSQLの結果と一致すること。WHERE で消えた行・DISTINCT でまとまった行が正しいこと
+- `Stepper`：初級9問の正解SQLすべてで、最後の段階が元のSQLの結果と一致すること。WHERE で消えた行・DISTINCT でまとまった行が正しいこと。集計：GROUP BY で寄る・HAVING でグループごと消える・集計で1グループ1行・GROUP BY のない集計（0行も）・NULL のグループ・式のグループ・作れない形（`group-by-steps.test.js`）
 - **問題データの検証（安全柵、PRD の開発プロセス要件）**：`data/` の全ファイルについて
   - Zod の形に合う
   - 正解SQLが実行でき、0行でない
