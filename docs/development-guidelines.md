@@ -341,7 +341,7 @@ describe('pressKey', () => {
 - `npm run check`：ESLint ＋ Vitest（単体・統合・問題データの検証）
 - `npm run validate:data`：問題データの検証だけ（問題を書いている間に使う）
 - `npm run build` の前に `validate:data` が自動で走る（`prebuild`）
-- GitHub に置いたら、GitHub Actions で `npm run check` と `npm run test:e2e` を push のたびに回す（P1 の公開と同じ時期に設定する）
+- GitHub Actions（`.github/workflows/pages.yml`）で、`main` に push するたびに `npm run check` と `npm run test:e2e` を回し、通ったときだけ GitHub Pages に公開する（2026-11-13）
 
 ## 開発環境セットアップ
 

@@ -313,7 +313,7 @@ MVPは**初級1章（8問＋ターニングポイント1問）**。この時点�
 
 #### 公開
 
-Cloudflare Pages に静的サイトとして公開し、URLで開けるようにする。
+GitHub Pages に静的サイトとして公開し、URLで開けるようにする（`https://harutaroukawamoto.github.io/sql-typing/`）。最初は Cloudflare Pages の予定だったが、2026-11-13 に本人の希望で GitHub Pages に変えた。リポジトリは公開（public）で、`main` に push すると GitHub Actions がチェックと E2E を流してから公開する。
 
 **優先度**: P1(重要)
 

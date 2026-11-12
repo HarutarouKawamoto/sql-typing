@@ -39,7 +39,7 @@
 | @eslint/js・globals | ^10.0・^17.14 | ESLint 10 のフラット設定 | 推奨ルールと、ブラウザ／Node のグローバル変数の定義 |
 | eslint-plugin-react-hooks | ^7.1 | フックの使い方のチェック | `useEffect` の依存の書き忘れなどを止める |
 | prettier | ^3.9 | 整形 | 整形の議論をなくす |
-| wrangler | ^4.160 | Cloudflare Pages への公開（P1） | 公開の段階で入れる。MVPでは入れない |
+| （なし） | — | GitHub Pages への公開（P1） | 公開は GitHub Actions（`.github/workflows/pages.yml`）で行うので、npm の依存は足さない。最初は Cloudflare Pages と wrangler の予定だったが、2026-11-13 に本人の希望で GitHub Pages に変えた |
 
 ## アーキテクチャパターン
 
@@ -144,7 +144,7 @@ graph LR
 
 | リソース | 上限 | 理由 |
 |---------|------|------|
-| 配る量（brotli 後） | 初回 5MB 以内（公開先の Cloudflare Pages は brotli で配るため、brotli で測る。2026-11-11 に本人が gzip から変更） | 初回表示 3秒の目標のため。問題データは章ごとに分ける。**実測（2026-11-11、DBが動く作業の時点）：brotli 3.71MB（gzip 5.49MB）**。ほぼ PGlite 本体（`.wasm`・`.data`）。画面の表示に必要な JS は gzip 69KB で、PGlite は裏で読むので一覧の表示は待たせない |
+| 配る量 | 初回 5MB 以内（2026-11-11 に、公開先の Cloudflare Pages が brotli で配るため、本人が brotli で測ると決めた。公開先を GitHub Pages に変えたので、何で測るかは下の注を見る） | 初回表示 3秒の目標のため。問題データは章ごとに分ける。**実測（2026-11-11、DBが動く作業の時点）：brotli 3.71MB（gzip 5.49MB）**。**実測（2026-11-13、書体を同梱したあと、一覧を開いて DB の準備が終わるまで）：brotli 4.42MB・gzip 6.30MB**（79ファイル。PGlite 本体 `.wasm`・`.data` が gzip 5.3MB、書体 36ファイルが gzip 0.5MB）。画面の表示に必要な JS・CSS は先に読み、PGlite は裏で読むので一覧の表示は待たせない |
 | メモリ（タブ全体） | 300MB 以内 | PGlite（初級〜中級のデータ）＋ React。上級の5万行のデータは、その問題を開いたときだけ作る |
 | localStorage | 100KB 以内 | 学習記録は問題数 × モード数の記録だけ。ブラウザの上限（約5MB）に十分余裕がある |
 
@@ -154,8 +154,9 @@ graph LR
 
 - **暗号化**：しない。保存するのは学習記録だけで、個人情報を持たない
 - **外部への送信**：アプリのコードに `fetch`・`XMLHttpRequest`・`WebSocket` で外に送る処理を書かない（`src/` の中では ESLint のエラーにする。どうしても使うときは `eslint-disable-next-line` と理由のコメントを書く）
-- **Content Security Policy**（公開時、P1）：`default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src 'self'`。外部のスクリプト・接続を許さない
-- **配信の圧縮（brotli）**：圧縮は Cloudflare Pages、伸張はブラウザが行い、アプリは brotli のライブラリを持たない。配るのは誰にでも同じ静的ファイルだけで、秘密の値（クッキー・トークン）も利用者ごとに変わるレスポンスもないため、圧縮を使った盗み見（BREACH・CRIME）は当てはまらない（2026-11-11 判断）。ログインや利用者ごとのページを足すときは見直す
+- **Content Security Policy**（公開時、P1）：`default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src 'self'; font-src 'self' data:`。外部のスクリプト・接続を許さない。GitHub Pages はレスポンスのヘッダーを足せないので、ビルドのときだけ HTML に `<meta http-equiv="Content-Security-Policy">` を入れる（`vite.config.js`。開発サーバーはページの中に直接スクリプトを書き込むので入れない）。`font-src` の `data:` は、ビルドが小さな書体のファイル（4KB 未満）を CSS に埋め込むため（同梱の書体だけ）。Zod は `new Function` を試すので、`jitless` にして試さないようにする（`src/schema/zod-config.js`）。違反が起きないことは E2E で確かめる（`tests/e2e/smoke/app-boot.spec.js`）
+- **置き場所**：GitHub Pages ではサイトがサブフォルダ（`/sql-typing/`）に置かれるので、ビルドは相対パス（`vite.config.js` の `base: './'`）にする。手元の `vite preview`（ルート）でも同じビルドが動く
+- **配信の圧縮**：圧縮は公開先（GitHub Pages は gzip）、伸張はブラウザが行い、アプリは圧縮のライブラリを持たない。配るのは誰にでも同じ静的ファイルだけで、秘密の値（クッキー・トークン）も利用者ごとに変わるレスポンスもないため、圧縮を使った盗み見（BREACH・CRIME）は当てはまらない（2026-11-11 判断）。ログインや利用者ごとのページを足すときは見直す
 
 ### 入力検証
 

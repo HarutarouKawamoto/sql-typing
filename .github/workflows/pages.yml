@@ -1,0 +1,46 @@
+# main に push するたびに、チェック（npm run check）と E2E を流し、通ったら GitHub Pages に公開する。
+# 公開先：https://harutaroukawamoto.github.io/sql-typing/（docs/architecture.md の「公開」）
+name: 公開（GitHub Pages）
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 公開は1つずつ（途中の公開を取り消さない）
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run check
+      # ビルド（validate:data を含む）と E2E。dist/ が公開するもの
+      - run: npm run test:e2e
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
