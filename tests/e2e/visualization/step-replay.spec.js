@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { homeProblem, openPlay } from '../helpers/open-play.js';
+import { homeProblem, openPlay, skipPrediction } from '../helpers/open-play.js';
 
 /** 1問目をなぞり書きでクリアして、ステップ再生を開く */
 async function openReplay(page) {
@@ -8,6 +8,7 @@ async function openReplay(page) {
   await expect(page.getByTestId('typing-area')).toBeVisible();
   await page.keyboard.type('SELECT * FROM products');
   await page.getByRole('button', { name: /ステップ再生を見る/ }).click();
+  await skipPrediction(page);
   await expect(page.getByTestId('step-player')).toBeVisible();
 }
 
@@ -61,6 +62,9 @@ test('ボタンにフォーカスして Enter を押すと、そのボタンが�
   await page.keyboard.type('SELECT * FROM products');
 
   await page.getByRole('button', { name: /ステップ再生を見る/ }).focus();
+  await page.keyboard.press('Enter');
+  // 予想クイズが出て、最初の選択肢にフォーカスが移る。「予想しないで再生する」も Enter で押す
+  await page.getByRole('button', { name: '予想しないで再生する' }).focus();
   await page.keyboard.press('Enter');
   await expect(page.getByTestId('step-player')).toBeVisible();
   await expect(page.getByTestId('step-title')).toContainText('段階 2/2', { timeout: 10_000 });

@@ -19,15 +19,18 @@ import { SettingsScreen } from './screens/SettingsScreen.jsx';
 import { StoryScreen } from './screens/StoryScreen.jsx';
 
 /**
- * `?demo`（ステップ再生の見本）と `speed`（再生の速さ）を読む。
+ * `?demo`（ステップ再生の見本）と `speed`（再生の速さ）・`predict`（予想クイズを出す）を読む。
  * @param {string} search - location.search
- * @returns {{ speed: number } | null}
+ * @returns {{ speed: number, predict: boolean } | null}
  */
 function readDemoParams(search) {
   const params = new URLSearchParams(search);
   if (!params.has('demo')) return null;
   const speed = Number(params.get('speed'));
-  return { speed: Number.isFinite(speed) && speed > 0 ? speed : 1 };
+  return {
+    speed: Number.isFinite(speed) && speed > 0 ? speed : 1,
+    predict: params.has('predict'),
+  };
 }
 
 /**
@@ -81,7 +84,12 @@ function Screens() {
   if (demo && database.status === 'ready') {
     return (
       <main className="app app-wide">
-        <ReplayDemoScreen runner={getSqlRunner()} speed={demo.speed} onExit={exitDemo} />
+        <ReplayDemoScreen
+          runner={getSqlRunner()}
+          speed={demo.speed}
+          predict={demo.predict}
+          onExit={exitDemo}
+        />
       </main>
     );
   }
@@ -99,6 +107,7 @@ function Screens() {
           runner={getSqlRunner()}
           replaySpeed={progress.settings.replaySpeed}
           reorderAnimation={progress.settings.reorderAnimation}
+          predictionQuiz={progress.settings.predictionQuiz}
           onRecord={record}
           onReplayFinished={markReplayFinished}
           onExit={goHome}

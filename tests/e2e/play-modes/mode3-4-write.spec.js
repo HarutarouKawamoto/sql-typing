@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { homeProblem, openModeSelect, openPlay } from '../helpers/open-play.js';
+import { homeProblem, openModeSelect, openPlay, skipPrediction } from '../helpers/open-play.js';
 
 /**
  * 一覧から1問目を書くモードで始める。
@@ -190,6 +190,7 @@ test('間違えたSQLのステップ再生を見られ、入力欄の矢印キ�
   await expect(page.getByTestId('judge-panel')).toHaveAttribute('data-status', 'wrong');
 
   await page.getByRole('button', { name: /ステップ再生を見る/ }).click();
+  await skipPrediction(page);
   await expect(page.getByTestId('step-player')).toBeVisible();
   await page.getByRole('button', { name: '一時停止' }).click();
   await page.getByRole('button', { name: '最初から' }).click();

@@ -23,7 +23,7 @@ describe('createEmptyProgress', () => {
       mistakes: {},
       typed: {},
       days: {},
-      settings: { reorderAnimation: true, replaySpeed: 1 },
+      settings: { reorderAnimation: true, replaySpeed: 1, predictionQuiz: true },
     });
   });
 });
@@ -319,12 +319,14 @@ describe('updateSettings', () => {
   it('設定を変えた新しい記録を返す（元は変えない・ほかの設定は残す）', () => {
     const progress = createEmptyProgress();
     const next = updateSettings(progress, { replaySpeed: 2 });
-    expect(next.settings).toEqual({ reorderAnimation: true, replaySpeed: 2 });
+    expect(next.settings).toEqual({ reorderAnimation: true, replaySpeed: 2, predictionQuiz: true });
     expect(progress.settings.replaySpeed).toBe(1);
     expect(updateSettings(next, { reorderAnimation: false }).settings).toEqual({
       reorderAnimation: false,
       replaySpeed: 2,
+      predictionQuiz: true,
     });
+    expect(updateSettings(next, { predictionQuiz: false }).settings.predictionQuiz).toBe(false);
   });
 
   it('形の違う値は入れない（例外）', () => {
@@ -351,7 +353,7 @@ describe('clearProgress', () => {
     expect({ ok, saved }).toEqual({ ok: true, saved: true });
     expect(cleared).toEqual({
       ...createEmptyProgress(),
-      settings: { reorderAnimation: false, replaySpeed: 0.5 },
+      settings: { reorderAnimation: false, replaySpeed: 0.5, predictionQuiz: true },
     });
     expect(loadProgress(storage, NOW).progress).toEqual(cleared);
   });

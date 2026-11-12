@@ -15,6 +15,7 @@ import { runDbJob } from '../state/db-jobs.js';
  *   mode: '1' | '2' | '3' | '4',
  *   runner: import('../../data/sql-runner/sql-runner.js').SqlRunner,
  *   replaySpeed: number,
+ *   predictionQuiz: boolean,
  *   reorderAnimation: boolean,
  *   onRecord: (play: object) => import('../../schema/progress-schema.js').Progress,
  *   onReplayFinished: (problemId: string) => void,
@@ -31,6 +32,7 @@ export function PlayScreen({
   mode,
   runner,
   replaySpeed,
+  predictionQuiz,
   reorderAnimation,
   onRecord,
   onReplayFinished,
@@ -109,6 +111,7 @@ export function PlayScreen({
         mode={mode}
         runner={runner}
         replaySpeed={replaySpeed}
+        predictionQuiz={predictionQuiz}
         reorderAnimation={reorderAnimation}
         onRecord={onRecord}
         onReplayFinished={onReplayFinished}
@@ -128,6 +131,7 @@ export function PlayScreen({
       keywords={keywords}
       runner={runner}
       replaySpeed={replaySpeed}
+      predictionQuiz={predictionQuiz}
       onRecord={onRecord}
       onReplayFinished={onReplayFinished}
       onExit={onExit}

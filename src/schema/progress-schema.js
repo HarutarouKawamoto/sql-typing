@@ -45,6 +45,8 @@ export const SettingsSchema = z
   .object({
     reorderAnimation: z.boolean().default(true),
     replaySpeed: z.union([z.literal(0.5), z.literal(1), z.literal(2)]).default(1),
+    // 見える化D：ステップ再生の前に、結果の行の数を予想するクイズを出すか（古い記録にはないので既定で出す）
+    predictionQuiz: z.boolean().default(true),
   })
   .strict();
 

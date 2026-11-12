@@ -142,7 +142,22 @@ describe('ProgressSchema', () => {
 
   it('一部のモードだけの記録が通り、設定に既定値が入る', () => {
     const parsed = ProgressSchema.parse(progress());
-    expect(parsed.settings).toEqual({ reorderAnimation: true, replaySpeed: 1 });
+    expect(parsed.settings).toEqual({
+      reorderAnimation: true,
+      replaySpeed: 1,
+      predictionQuiz: true,
+    });
+  });
+
+  it('予想クイズの設定がない古い記録（ほかの設定はある）は、既定で出す', () => {
+    const parsed = ProgressSchema.parse(
+      progress({ settings: { reorderAnimation: false, replaySpeed: 2 } }),
+    );
+    expect(parsed.settings).toEqual({
+      reorderAnimation: false,
+      replaySpeed: 2,
+      predictionQuiz: true,
+    });
   });
 
   it('モードの番号が 1〜4 以外だと失敗する', () => {
