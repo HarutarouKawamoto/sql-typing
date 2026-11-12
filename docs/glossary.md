@@ -104,7 +104,9 @@
 | インデックス比較 | `indexRace` | 上級：インデックスあり・なしで、読んだ行数と実測時間を左右で比べる（P2） | `EXPLAIN ANALYZE` |
 | 実行計画の木 | `planTree`（`PlanTree`） | 上級：`EXPLAIN ANALYZE` の結果を木の図にし、データの流れを見せる。葉（テーブルを読む節）が下、結果が上。線の太さは流れる行の数（P2） | `explainQuery`・`layoutPlan` |
 | 節 | `PlanNode` | 実行計画の木の1つの箱（Seq Scan・Hash Join・Sort など）。下の節から行を受け取り、上の節へ返す | 実行されなかった節は loops 0 |
-| トランザクションのタイムライン | `txTimeline` | 上級：2人の同時の注文を2列で並べるシミュレーション（P2） | PGlite は接続が1つ |
+| トランザクションのタイムライン | `txTimeline`（`TxTimeline`） | 上級：2人の同時の注文を2列で並べるシミュレーション。学習者が A と B の SQL を好きな順に1つずつ実行する（P2） | PGlite は接続が1つ。`tx-simulation.js` |
+| 行の鍵 | `lockOwner` | `UPDATE`・`SELECT ... FOR UPDATE` が行に取る鍵（行ロック）。相手が持っていれば COMMIT・ROLLBACK まで待つ | |
+| 売りすぎ | `oversold` | 同時の注文で、在庫がマイナスになり、在庫より多く注文が入ること | 鍵なしで両方が先に在庫を読むと起きる |
 
 ### 作り方（ハーネス）
 

@@ -4,6 +4,7 @@ import { runDbJob } from '../state/db-jobs.js';
 import { IndexRacePanel } from '../components/IndexRacePanel.jsx';
 import { PlanTreePanel } from '../components/PlanTreePanel.jsx';
 import { StepPlayer } from '../components/StepPlayer.jsx';
+import { TxTimeline } from '../components/TxTimeline.jsx';
 import styles from './ReplayDemoScreen.module.css';
 
 /**
@@ -81,6 +82,7 @@ export const DEMO_SAMPLES = [
       'SELECT c.name, (SELECT count(*) FROM orders o WHERE o.customer_id = c.id) AS orders ' +
       'FROM customers c WHERE c.id < 0',
   },
+  { title: '上級：トランザクション（在庫1個に2人が注文）', kind: 'transaction' },
 ];
 
 /**
@@ -147,6 +149,8 @@ export function ReplayDemoScreen({ runner, speed, onExit }) {
           />
         ) : sample.kind === 'plan' ? (
           <PlanTreePanel key={sample.title} runner={runner} query={sample.query} />
+        ) : sample.kind === 'transaction' ? (
+          <TxTimeline />
         ) : (
           <StepPlayer key={sample.sql} sql={sample.sql} runner={runner} speed={speed} />
         ))}
