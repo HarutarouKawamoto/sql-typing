@@ -100,8 +100,18 @@ export function PlayMode12({
       <header className={styles.bar}>
         <span className={styles.badge}>{MODE_NAMES[mode]}</span>
         <span className={styles.problemTitle}>{problem.title}</span>
+        {/* 伝票の欄のように、罫線で区切って並べる */}
         <span className={styles.meter} data-testid="meter">
-          {(session.elapsedMs / 1000).toFixed(1)}秒 ・ {live.cpm} 文字/分 ・ 正確さ {live.accuracy}%
+          <span className={styles.meterCell}>
+            <span className={styles.meterLabel}>時間</span> {(session.elapsedMs / 1000).toFixed(1)}
+            秒
+          </span>
+          <span className={styles.meterCell}>
+            <span className={styles.meterLabel}>速さ</span> {live.cpm} 文字/分
+          </span>
+          <span className={styles.meterCell}>
+            <span className={styles.meterLabel}>正確さ</span> {live.accuracy}%
+          </span>
         </span>
       </header>
       {/*
@@ -138,6 +148,7 @@ export function PlayMode12({
       {summary && (
         <>
           <TypingResult
+            mode={mode}
             stats={summary.stats}
             elapsedMs={summary.elapsedMs}
             missCount={summary.missCount}

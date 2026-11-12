@@ -1,13 +1,15 @@
 import { useEffect, useRef } from 'react';
+import { Stamp } from './Stamp.jsx';
 import styles from './WriteResult.module.css';
 
 /**
  * モード3・4のクリアの結果：かかった時間・実行した回数・（モード3）開いたヒントの数。
  * 出たら見出しにフォーカスを移す（入力欄から外れ、結果のキー（Enter・J で次の問題へ、R でもう一度）が効くように）。
- * @param {{ elapsedMs: number, runs: number, hintsOpened: number | null, saveFailed: boolean }} props
+ * 右上に、このモードの承認欄へ押す判子（押す動きはここだけ）。
+ * @param {{ mode: '3' | '4', elapsedMs: number, runs: number, hintsOpened: number | null, saveFailed: boolean }} props
  *   hintsOpened：モード4は null（ヒントがない）
  */
-export function WriteResult({ elapsedMs, runs, hintsOpened, saveFailed }) {
+export function WriteResult({ mode, elapsedMs, runs, hintsOpened, saveFailed }) {
   const heading = useRef(/** @type {HTMLHeadingElement | null} */ (null));
   useEffect(() => {
     heading.current?.focus();
@@ -18,6 +20,9 @@ export function WriteResult({ elapsedMs, runs, hintsOpened, saveFailed }) {
       <h2 id="write-result-title" className={styles.title} ref={heading} tabIndex={-1}>
         クリア！
       </h2>
+      <span className={styles.stamp}>
+        <Stamp mode={mode} size="large" pressed />
+      </span>
       <dl className={styles.stats}>
         <div>
           <dt>時間</dt>

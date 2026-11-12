@@ -1,8 +1,11 @@
+import { Stamp } from './Stamp.jsx';
 import styles from './TypingResult.module.css';
 
 /**
  * なぞり書き（モード1）・打って選ぶ（モード2）の結果。速さ・正確さ・時間・ランクと、今回まちがえたところ・苦手の上位3つ。
+ * 右上に、このモードの承認欄へ押す判子（押す動きはここだけ）。
  * @param {{
+ *   mode: '1' | '2',
  *   stats: { cpm: number, accuracy: number, rank: string },
  *   elapsedMs: number,
  *   missCount: number,
@@ -14,6 +17,7 @@ import styles from './TypingResult.module.css';
  *   wrongChoices：モード2で選び間違えた回数（モード1は null）
  */
 export function TypingResult({
+  mode,
   stats,
   elapsedMs,
   missCount,
@@ -28,6 +32,9 @@ export function TypingResult({
       <h2 id="typing-result-title" className={styles.title}>
         クリア！
       </h2>
+      <span className={styles.stamp}>
+        <Stamp mode={mode} size="large" pressed />
+      </span>
       <dl className={styles.stats}>
         <div>
           <dt>ランク</dt>

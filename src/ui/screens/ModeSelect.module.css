@@ -7,7 +7,8 @@
 }
 
 .header {
-  text-align: center;
+  padding-bottom: var(--space-3);
+  border-bottom: 4px double var(--color-text);
 }
 
 .title {
@@ -22,47 +23,50 @@
 
 .turning {
   margin: var(--space-2) 0 0;
-  color: var(--color-active);
+  color: var(--color-stamp);
 }
 
 .notice {
   margin: 0;
   padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-active);
+  border: 1px solid var(--color-rule-strong);
   border-radius: var(--radius);
-  color: var(--color-active);
+  color: var(--color-text);
 }
 
 .modes {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
   margin: 0;
   padding: 0;
   list-style: none;
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule-strong);
 }
 
+.modes > li + li {
+  border-top: 1px solid var(--color-border);
+}
+
+/* モードの行：番号・名前と最高記録・承認欄のます（クリアの判子） */
 .mode {
   display: grid;
-  grid-template-columns: 2rem 1fr auto;
+  grid-template-columns: 2rem 1fr 3rem;
   grid-template-areas:
-    'key name star'
-    'key best best';
-  align-items: baseline;
+    'key name stamp'
+    'key best stamp';
+  align-items: center;
   gap: 0 var(--space-3);
   width: 100%;
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-3) 0 var(--space-3) var(--space-3);
   font: inherit;
   text-align: left;
   color: var(--color-text);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
+  background: transparent;
+  border: none;
   cursor: pointer;
 }
 
 .mode:hover:not(:disabled) {
-  border-color: var(--color-active);
+  background: color-mix(in srgb, var(--color-marker) 22%, transparent);
 }
 
 .mode:disabled {
@@ -71,15 +75,15 @@
 }
 
 .mode:focus-visible {
-  outline: 3px solid var(--color-active);
-  outline-offset: 2px;
+  outline: 3px solid var(--color-focus);
+  outline-offset: -3px;
 }
 
 .key {
   grid-area: key;
   font-family: var(--font-code);
   font-size: 1.4rem;
-  color: var(--color-active);
+  color: var(--color-text-muted);
 }
 
 .name {
@@ -88,17 +92,21 @@
   font-size: 1.1rem;
 }
 
-.starOn,
-.starOff {
-  grid-area: star;
+.approval {
+  grid-area: stamp;
+  display: grid;
+  place-items: center;
+  align-self: stretch;
+  border-left: 1px solid var(--color-border);
 }
 
-.starOn {
-  color: var(--color-correct);
-}
-
-.starOff {
-  color: var(--color-pending);
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .best {
@@ -123,6 +131,6 @@
 }
 
 .link:focus-visible {
-  outline: 3px solid var(--color-active);
+  outline: 3px solid var(--color-focus);
   outline-offset: 2px;
 }

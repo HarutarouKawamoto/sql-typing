@@ -1,12 +1,13 @@
 import { useEffect } from 'react';
 import { SchemaMapPanel } from '../components/SchemaMapPanel.jsx';
+import { Stamp } from '../components/Stamp.jsx';
 import { formatBest, MODE_LABELS } from '../state/best-text.js';
 import styles from './ModeSelect.module.css';
 
 const MODES = /** @type {const} */ (['1', '2', '3', '4']);
 
 /**
- * 問題のモードを選ぶ。4つのモードのボタン（星・最高記録）、1〜4のキー、Esc で一覧へ。
+ * 問題のモードを選ぶ。4つのモードのボタン（クリアの判子・最高記録）、1〜4のキー、Esc で一覧へ。
  * データベースの準備中・幅の狭い画面では選べない（狭い画面でも依頼の会話とDBの地図は見られる）。
  * DBの地図は、開いたときに DB を章の初期状態にしてから読む（前に遊んだ問題の DB のままにしない）。
  * 光らせるテーブルはない（モード4の答えのヒントにならないように）。
@@ -99,8 +100,13 @@ export function ModeSelect({
               >
                 <span className={styles.key}>{mode}</span>
                 <span className={styles.name}>{MODE_LABELS[mode]}</span>
-                <span className={record?.cleared ? styles.starOn : styles.starOff}>
-                  {record?.cleared ? '★ クリア' : '☆'}
+                <span className={styles.approval}>
+                  {record?.cleared ? (
+                    <>
+                      <Stamp mode={mode} />
+                      <span className={styles.srOnly}>クリア</span>
+                    </>
+                  ) : null}
                 </span>
                 <span className={styles.best} data-testid={`best-mode${mode}`}>
                   {best ? `最高：${best}` : 'まだ記録はありません'}

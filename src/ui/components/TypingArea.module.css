@@ -42,7 +42,7 @@
 
 .current {
   color: var(--color-pending);
-  background: color-mix(in srgb, var(--color-active) 25%, transparent);
+  background: color-mix(in srgb, var(--color-marker) 65%, transparent);
   border-radius: 2px;
 }
 
@@ -68,7 +68,7 @@
   top: 0.15em;
   width: 0.6ch;
   height: 1.2em;
-  background: color-mix(in srgb, var(--color-active) 25%, transparent);
+  background: color-mix(in srgb, var(--color-marker) 65%, transparent);
   border-radius: 2px;
 }
 
@@ -116,5 +116,5 @@
 .blankActive {
   color: var(--color-active);
   border-color: var(--color-active);
-  background: color-mix(in srgb, var(--color-active) 15%, transparent);
+  background: color-mix(in srgb, var(--color-marker) 35%, transparent);
 }

@@ -114,9 +114,21 @@ export function PlayMode34({
       <header className={styles.bar}>
         <span className={styles.badge}>{MODE_NAMES[mode]}</span>
         <span className={styles.problemTitle}>{problem.title}</span>
+        {/* 伝票の欄のように、罫線で区切って並べる */}
         <span className={styles.meter} data-testid="meter">
-          {(session.elapsedMs / 1000).toFixed(1)}秒 ・ 実行 {state.runs}回
-          {mode === '3' && ` ・ ヒント ${state.hintsOpened}/${problem.hints.length}`}
+          <span className={styles.meterCell}>
+            <span className={styles.meterLabel}>時間</span> {(session.elapsedMs / 1000).toFixed(1)}
+            秒
+          </span>
+          <span className={styles.meterCell}>
+            <span className={styles.meterLabel}>実行</span> {state.runs}回
+          </span>
+          {mode === '3' && (
+            <span className={styles.meterCell}>
+              <span className={styles.meterLabel}>ヒント</span> {state.hintsOpened}/
+              {problem.hints.length}
+            </span>
+          )}
         </span>
       </header>
 
@@ -127,7 +139,7 @@ export function PlayMode34({
             使えるテーブル：
             {prepared.tables.map(({ table, columns }) => (
               <span key={table} className={styles.table}>
-                <code>{table}</code>（{columns.join(', ')}）
+                <code>{table}</code>（<code className={styles.columns}>{columns.join(', ')}</code>）
               </span>
             ))}
           </p>
@@ -190,6 +202,7 @@ export function PlayMode34({
       ) : state.cleared ? (
         <>
           <WriteResult
+            mode={mode}
             elapsedMs={session.elapsedMs}
             runs={state.runs}
             hintsOpened={mode === '3' ? state.hintsOpened : null}
