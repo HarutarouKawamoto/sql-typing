@@ -26,6 +26,20 @@ describe('ProblemSchema', () => {
     expect(judge.ordered).toBe(false);
   });
 
+  it('上級の見える化 visual：index は SELECT の query がいる', () => {
+    const base = makeProblem();
+    const visual = (v) => ProblemSchema.safeParse({ ...base, visual: v }).success;
+    expect(visual({ kind: 'index', query: "SELECT * FROM t WHERE x = 'a'" })).toBe(true);
+    expect(visual({ kind: 'index', query: '  select 1' })).toBe(true);
+    expect(visual({ kind: 'index' })).toBe(false);
+    expect(visual({ kind: 'index', query: 'DELETE FROM t' })).toBe(false);
+    expect(visual({ kind: 'index', query: 'WITH x AS (DELETE FROM t RETURNING *) SELECT 1' })).toBe(
+      false,
+    );
+    expect(visual({ kind: 'plan' })).toBe(true);
+    expect(visual({ kind: 'other' })).toBe(false);
+  });
+
   it('通常の問題は依頼の会話が9行で失敗する', () => {
     const problem = makeProblem();
     problem.story.before = lines(9);

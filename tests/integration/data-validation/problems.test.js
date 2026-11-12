@@ -17,6 +17,7 @@ import {
   checkTypable,
   checkBlanksPlayable,
   checkStepsBuild,
+  checkVisuals,
   checkWrongChoices,
   checkOrderDetermined,
 } from '../../helpers/answer-checks.js';
@@ -167,6 +168,16 @@ describe('PGlite で確かめる決まり', () => {
     expect(issues).toEqual([]);
   });
 
+  it('上級の見える化（インデックス）の問題は、正解SQLで比べる問い合わせの読む行が減る', async () => {
+    const issues = await checkVisuals({
+      runner,
+      chapters: chapters.value ?? [],
+      entries: problems.filter((p) => p.value).map((p) => ({ file: p.file, problem: p.value })),
+      readSeed,
+    });
+    expect(issues).toEqual([]);
+  });
+
   it('ordered: true の問題は、行の並びが1つに決まる', async () => {
     const issues = await checkOrderDetermined({
       runner,
@@ -231,6 +242,35 @@ describe('PGlite で確かめる決まり', () => {
     it('名前はすべて違う', async () => {
       const outcome = await runner.run('SELECT count(DISTINCT name) FROM products');
       expect(outcome.ok && outcome.result.rows[0][0]).toBe(30);
+    });
+  });
+
+  describe('上級の初期データ（advanced.sql）の決まり', () => {
+    /** @param {string} sql */
+    const one = async (sql) => {
+      const outcome = await runner.run(sql);
+      if (!outcome.ok) throw new Error(JSON.stringify(outcome));
+      return outcome.result.rows[0][0];
+    };
+
+    beforeAll(async () => {
+      await runner.prepare({ seedSql: readSeed('advanced.sql') });
+    });
+
+    it('advanced.sql は intermediate.sql の全文を含む（中級の問題の形をそのまま使える）', () => {
+      expect(readSeed('advanced.sql').includes(readSeed('intermediate.sql'))).toBe(true);
+    });
+
+    it('アクセスログは5万行で、session_id はすべて違う（1行だけを探す問い合わせができる）', async () => {
+      expect(await one('SELECT count(*) FROM access_logs')).toBe(50000);
+      expect(await one('SELECT count(DISTINCT session_id) FROM access_logs')).toBe(50000);
+    });
+
+    it('顧客は 1〜10、パスは /products/1〜30', async () => {
+      expect(
+        await one('SELECT count(*) FROM access_logs WHERE customer_id NOT BETWEEN 1 AND 10'),
+      ).toBe(0);
+      expect(await one('SELECT count(DISTINCT path) FROM access_logs')).toBe(30);
     });
   });
 

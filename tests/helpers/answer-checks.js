@@ -17,6 +17,7 @@ import { splitSelectList } from '../../src/core/stepper/select-list.js';
 import { buildTarget, untypableSlots } from '../../src/core/typing-engine.js';
 import { locateBlanks } from '../../src/core/blank-typing.js';
 import { buildSteps } from '../../src/core/stepper/index.js';
+import { compareChange } from '../../src/core/explain.js';
 
 /**
  * 問題ごとに、章の初期データ＋extraSql の状態にしてから fn を呼ぶ（章・初期データがない問題は飛ばす。別の検証で報告する）
@@ -355,5 +356,30 @@ export async function checkStepsBuild(args) {
     const built = await buildSteps(shown, args.runner);
     if (built.ok || built.reason === 'unsupported') return [];
     return [`${file}: 正解SQLのステップ再生を作れません（${built.reason}：${built.message}）`];
+  });
+}
+
+/**
+ * 上級の見える化（visual.kind が index）の問題で、正解SQLを「変えるSQL」として比べたとき、
+ * 比べる問い合わせの読む行が減るか（インデックスを作る問題なのに、比較で何も変わらないと見える化の意味がない）。
+ * @param {Parameters<typeof checkAnswersRun>[0]} args
+ * @returns {Promise<string[]>}
+ */
+export async function checkVisuals(args) {
+  const targets = args.entries.filter(({ problem }) => problem.visual?.kind === 'index');
+  return forEachPrepared({ ...args, entries: targets }, async ({ file, problem }) => {
+    const result = await compareChange({
+      runner: args.runner,
+      query: /** @type {string} */ (problem.visual?.query),
+      changeSql: problem.answer,
+    });
+    if (!result.ok) {
+      return [`${file}: インデックスの比較を作れません（${result.stage}：${result.message}）`];
+    }
+    return result.after.rowsRead < result.before.rowsRead
+      ? []
+      : [
+          `${file}: 正解SQLを実行しても、比べる問い合わせの読む行が減りません（${result.before.rowsRead} → ${result.after.rowsRead}）`,
+        ];
   });
 }

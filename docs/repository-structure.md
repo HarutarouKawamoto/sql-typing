@@ -78,6 +78,7 @@ sql-typing/
   - `use-problems.js`：全章の問題を1回だけ読み、ターニングポイントの ID の集合を返す
   - `use-narrow-screen.js`：画面の幅が 768px 未満か
   - `best-text.js`：モードの名前と最高記録の文（`tests/unit/ui/` で単体テスト）
+  - `use-count-up.js`：数を0から目標まで増やす（インデックスの比較のカウンター）
   - `keyword-words.js`：用語辞典の用語（`KEYWORD_WORDS`・`KEYWORD_BY_WORD`。1回だけ読む）
   - `join-colors.js`：JOIN の段階の色分け（つながる行どうしを同じ色。React に依存しない。`tests/unit/ui/` で単体テスト）
   - `schema-layout.js`：DBの地図の箱の置き方（親を左・子を右、親は子のすぐ左。React に依存しない。`tests/unit/ui/` で単体テスト）
@@ -90,6 +91,7 @@ sql-typing/
 - `components/ReorderIntro.jsx`：見える化B（句のチップが書いた順から実行順へ入れ替わる）
 - `components/KeywordTipLayer.jsx`・`KeywordText.jsx`：キーワードの説明（ページ全体で1つ）と、SQLの文字に `data-keyword` を付けて描く部品
 - `screens/DictionaryScreen.jsx`：用語辞典
+- `components/IndexRace.jsx`・`IndexRacePanel.jsx`：上級の見える化（インデックスあり・なしの比較）と、比較を作って出す枠
 - `components/SchemaMap.jsx`・`SchemaMapPanel.jsx`：DBの地図（React Flow の箱と線）と、開いて見る枠（読み込み・中身を見る）
 - `screens/ReplayDemoScreen.jsx`：ステップ再生の見本（`/?demo`）
 - `screens/SettingsScreen.jsx`：設定（見える化B の on/off・ステップ再生の速さ・学習記録を消す）
@@ -132,6 +134,7 @@ ui/
 - `clause-splitter.js`: ClauseSplitter
 - `reorder.js`: 見える化B のチップ（`buildReorderChips`。句の書いた順と実行順）
 - `touched-tables.js`: SQLが触っているテーブル（DBの地図で光らせる）
+- `explain.js`: 実行計画（EXPLAIN ANALYZE）を読む・読んだ行の数・変える前と後の比較（上級の見える化）
 - `keyword-spans.js`: SQLの中の用語辞典の語の場所（キーワードの説明を出すため。複数語の用語をまとめる）
 - `dictionary.js`: 用語辞典の中身（レベルごとの並びと、初めて出てくる問題）
 - `judge.js`: Judge
@@ -163,6 +166,7 @@ core/
 ├── clause-splitter.js
 ├── reorder.js
 ├── touched-tables.js
+├── explain.js
 ├── keyword-spans.js
 ├── dictionary.js
 ├── judge.js
@@ -243,7 +247,8 @@ data/
 ├── keywords.yaml
 ├── seeds/
 │   ├── beginner.sql
-│   └── intermediate.sql        # products は beginner.sql と同じ。customers・orders・order_items を足す
+│   ├── intermediate.sql        # products は beginner.sql と同じ。customers・orders・order_items を足す
+│   └── advanced.sql            # intermediate.sql と同じ。access_logs 5万行を足す
 └── problems/
     ├── beginner/
     │   ├── 01-select-all.yaml
@@ -274,6 +279,7 @@ tests/unit/
 │   ├── group-by.test.js
 │   ├── from-clause.test.js
 │   ├── touched-tables.test.js
+│   ├── explain.test.js
 │   ├── keyword-spans.test.js
 │   ├── dictionary.test.js
 │   ├── scoring.test.js
@@ -323,6 +329,8 @@ tests/integration/
 ├── data/
 │   ├── table-list.test.js     # テーブルと列の一覧の読み方
 │   └── schema-info.test.js    # DBの地図の中身（列・型・主キー・外部キー・先頭の行と行数）
+├── explain/
+│   └── compare-change.test.js # インデックスあり・なしの比較（上級の初期データ）
 ├── data-validation/
 │   ├── problems.test.js       # 問題データの検証（安全柵）。初期データの決まり・正解SQLの実行も
 │   └── answer-checks.test.js  # 「正解SQLが実行でき0行でない」の検証そのものが働くこと
@@ -348,7 +356,8 @@ tests/e2e/
 │   └── typing-layout.spec.js  # 打っている途中に入力欄の大きさが変わらない・依頼の会話を見返せる
 ├── visualization/
 │   ├── step-replay.spec.js    # 見える化A（ステップ再生）
-│   └── step-replay-marks.spec.js # 見本のページで、印（消える行・列、まとまる行）の数を確かめる
+│   ├── step-replay-marks.spec.js # 見本のページで、印（消える行・列、まとまる行）の数を確かめる
+│   └── index-race.spec.js     # 見本のページで、インデックスあり・なしの比較
 ├── progression/
 │   ├── home-story.spec.js     # 一覧・モード選択・依頼の会話・クリア後の会話・星
 │   ├── turning-point.spec.js  # ターニングポイントが開く・印・説明・11行の会話・クリア後・モード4で中級が開く
@@ -380,6 +389,7 @@ tests/e2e/
 - `memory-storage.js`：localStorage の作り物（`failOnSet` で書けない環境の真似もできる。`key`・`length` でキーを順に見られる）
 - `answer-checks.js` の `checkClausePrefixes`：見える化C のため、SELECT の問題の句の途中までのSQLを実行しても止まらないことを確かめる
 - `answer-checks.js` の `checkWrongChoices`：間違いの選択肢を入れたSQLが、判定（Judge）で正解にも `ruleViolation` にもならないことを確かめる
+- `answer-checks.js` の `checkVisuals`：上級の見える化（インデックス）の問題で、正解SQLで比べる問い合わせの読む行が減ることを確かめる
 - `answer-checks.js` の `checkOrderDetermined`：`ordered: true` の問題で、並び順が1つに決まることを確かめる
 - `answer-checks.js` の `checkStepsBuild`：正解SQLのステップ再生が作れる（`mismatch`・`error` にならない）ことを確かめる
 - `answer-checks.js` の `checkBlanksPlayable`：モード2の空欄が表示用SQLの中に見つかり（画面と同じ `locateBlanks`）、選択肢がすべて打てることを確かめる
@@ -510,7 +520,7 @@ src/core        src/data
 1. **新しい問題**：`data/problems/<章id>/` に YAML を1つ追加し、`chapters.yaml` に足す。コードは変えない
 2. **新しい章**：`chapters.yaml` に章、`data/seeds/` に初期データ、`data/problems/<章id>/` を作る
 3. **ステップ再生の新しい句**：中級の `GROUP BY`・`JOIN` は `stepper/index.js` の段階ごとの関数（`pushGroupedSteps`・`pushJoinStep`）と、句を読む小さなファイル（`group-by.js`・`from-clause.js`）で足した。上級の句も同じ形で足す。`build()` が長くなってきたので、上級で足す前に FROM・WHERE・SELECT 以降の関数に分ける
-4. **上級の専用の見える化**：`src/ui/components/viz/` を作り、`IndexRace.jsx`・`PlanTree.jsx`・`TxTimeline.jsx` を置く。計算部分は `src/core/viz/` に置く
+4. **上級の専用の見える化**：画面の部品は `src/ui/components/` に置く（`IndexRace.jsx`・`IndexRacePanel.jsx`。このあと `PlanTree.jsx`・`TxTimeline.jsx`）。計算部分は `src/core/` に置く（`explain.js`）。問題に出すときは問題YAMLの `visual` に書く
 
 ### ファイルサイズの管理
 

@@ -4,6 +4,7 @@ import { prefersReducedMotion } from '../state/reduced-motion.js';
 import { useWriteSession } from '../state/use-write-session.js';
 import { escapeAction } from '../state/write-session-machine.js';
 import { HintPanel } from './HintPanel.jsx';
+import { IndexRacePanel } from './IndexRacePanel.jsx';
 import { JudgePanel } from './JudgePanel.jsx';
 import { ReorderIntro } from './ReorderIntro.jsx';
 import { SchemaMapPanel } from './SchemaMapPanel.jsx';
@@ -204,6 +205,21 @@ export function PlayMode34({
           ステップ再生を見る（書いたSQLがDBの中でどう動いたか）
         </button>
       )}
+
+      {/* 上級の見える化：書いたSQLを、問題の問い合わせを実行する前と後の間に入れて比べる（エラーのときは比べない） */}
+      {problem.visual?.kind === 'index' &&
+        problem.visual.query &&
+        last !== null &&
+        !busy &&
+        last.result.status !== 'error' &&
+        last.result.status !== 'timeout' && (
+          <IndexRacePanel
+            key={last.run}
+            runner={runner}
+            query={problem.visual.query}
+            changeSql={last.sql}
+          />
+        )}
 
       {showReplay ? (
         <section className={styles.results} aria-label="ステップ再生">

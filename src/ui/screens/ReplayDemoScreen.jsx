@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { loadSeed } from '../../data/seed-loader.js';
 import { runDbJob } from '../state/db-jobs.js';
+import { IndexRacePanel } from '../components/IndexRacePanel.jsx';
 import { StepPlayer } from '../components/StepPlayer.jsx';
 import styles from './ReplayDemoScreen.module.css';
 
@@ -58,6 +59,12 @@ export const DEMO_SAMPLES = [
       'JOIN customers c ON c.id = o.customer_id JOIN order_items i ON i.order_id = o.id ' +
       "WHERE o.status <> 'cancelled' GROUP BY c.region ORDER BY sales DESC",
   },
+  {
+    title: '上級：インデックスで1行を探す',
+    kind: 'index',
+    query: "SELECT * FROM access_logs WHERE session_id = 's-31337'",
+    changeSql: 'CREATE INDEX ON access_logs (session_id)',
+  },
 ];
 
 /**
@@ -70,14 +77,14 @@ export const DEMO_SAMPLES = [
 export function ReplayDemoScreen({ runner, speed, onExit }) {
   const [selected, setSelected] = useState(0);
   const sample = DEMO_SAMPLES[selected];
-  // 中級の初期データで DB を準備する（JOIN の見本のため。products は初級と同じなので、初級の見本もそのまま）
+  // 上級の初期データで DB を準備する（JOIN・インデックスの見本のため。products・中級のテーブルは同じなので、初級・中級の見本もそのまま）
   const [prepared, setPrepared] = useState(
     /** @type {'loading' | 'ready' | 'error'} */ ('loading'),
   );
   useEffect(() => {
     let active = true;
     runDbJob(async () =>
-      runner.prepare({ seedSql: await loadSeed('intermediate.sql'), extraSql: '' }),
+      runner.prepare({ seedSql: await loadSeed('advanced.sql'), extraSql: '' }),
     ).then(
       () => active && setPrepared('ready'),
       (error) => {
@@ -99,7 +106,7 @@ export function ReplayDemoScreen({ runner, speed, onExit }) {
       </header>
       <ul className={styles.samples}>
         {DEMO_SAMPLES.map((item, index) => (
-          <li key={item.sql}>
+          <li key={item.title}>
             <button
               type="button"
               aria-pressed={index === selected}
@@ -114,9 +121,17 @@ export function ReplayDemoScreen({ runner, speed, onExit }) {
       {prepared === 'loading' && <p role="status">初期データを準備しています…</p>}
       {prepared === 'error' && <p role="alert">初期データを準備できませんでした</p>}
       {/* SQLを変えたら段階を作り直す */}
-      {prepared === 'ready' && (
-        <StepPlayer key={sample.sql} sql={sample.sql} runner={runner} speed={speed} />
-      )}
+      {prepared === 'ready' &&
+        (sample.kind === 'index' ? (
+          <IndexRacePanel
+            key={sample.title}
+            runner={runner}
+            query={sample.query}
+            changeSql={sample.changeSql}
+          />
+        ) : (
+          <StepPlayer key={sample.sql} sql={sample.sql} runner={runner} speed={speed} />
+        ))}
     </div>
   );
 }

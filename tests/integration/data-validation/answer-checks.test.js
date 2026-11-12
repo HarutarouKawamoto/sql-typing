@@ -7,6 +7,7 @@ import {
   checkStepsBuild,
   checkWrongChoices,
   checkOrderDetermined,
+  checkVisuals,
 } from '../../helpers/answer-checks.js';
 import { makeNodeRunner } from '../../helpers/make-runner.js';
 import { makeProblem, makeChapter } from '../../helpers/problem-factory.js';
@@ -377,5 +378,41 @@ describe('検証で見つかった見逃し', () => {
     expect(
       await run('WITH t AS (SELECT name FROM products) SELECT name FROM t ORDER BY name'),
     ).toEqual([expect.stringContaining('確かめられない形')]);
+  });
+});
+
+describe('checkVisuals（上級の見える化の問題）', () => {
+  const bigSeed = () =>
+    `${SEED}
+CREATE TABLE logs (id SERIAL PRIMARY KEY, code TEXT);
+INSERT INTO logs (code) SELECT 'c' || g FROM generate_series(1, 20000) AS g;
+ANALYZE logs;`;
+  const run = (answer, visual) =>
+    checkVisuals({
+      runner,
+      chapters: [makeChapter()],
+      entries: [
+        {
+          file: 'beginner/x.yaml',
+          problem: makeProblem({ answer, visual }),
+        },
+      ],
+      readSeed: bigSeed,
+    });
+  const visual = { kind: 'index', query: "SELECT * FROM logs WHERE code = 'c777'" };
+
+  it('正解SQL（インデックスを作る）で読む行が減れば問題0件', async () => {
+    expect(await run('CREATE INDEX ON logs (code)', visual)).toEqual([]);
+  });
+
+  it('正解SQLで読む行が減らなければ見つける', async () => {
+    expect(await run('CREATE INDEX ON logs (id)', visual)).toEqual([
+      expect.stringContaining('読む行が減りません'),
+    ]);
+  });
+
+  it('visual のない問題・index 以外は確かめない', async () => {
+    expect(await run('SELECT 1', undefined)).toEqual([]);
+    expect(await run('SELECT 1', { kind: 'plan' })).toEqual([]);
   });
 });
