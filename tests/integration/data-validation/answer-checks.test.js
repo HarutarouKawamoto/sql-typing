@@ -286,6 +286,47 @@ describe('checkAnswersRun', () => {
     expect(issues).toEqual([]);
   });
 
+  it('並び：JOIN・別名の ORDER BY でも確かめられ、同じ値の行・* の形を見つける', async () => {
+    const joinSeed = () =>
+      `${SEED}\nCREATE TABLE sales (product_id INT, qty INT);\nINSERT INTO sales VALUES (1, 2), (2, 2), (2, 5);`;
+    const runJoin = (answer) =>
+      checkOrderDetermined({
+        runner,
+        chapters: [makeChapter()],
+        entries: [
+          {
+            file: 'beginner/x.yaml',
+            problem: makeProblem({
+              answer,
+              judge: { ordered: true, checkColumnNames: false, require: [], forbid: [] },
+            }),
+          },
+        ],
+        readSeed: joinSeed,
+      });
+    // 別名つきの ORDER BY（サブクエリで包むと p.name が見えなくなっていた）
+    expect(
+      await runJoin(
+        'SELECT p.name, s.qty FROM sales s JOIN products p ON p.id = s.product_id ORDER BY p.name, s.qty',
+      ),
+    ).toEqual([]);
+    // 集計と JOIN：同じ合計の行がある並び
+    expect(
+      await runJoin(
+        'SELECT p.name, sum(s.qty) AS total FROM sales s JOIN products p ON p.id = s.product_id GROUP BY p.name ORDER BY total DESC, p.name',
+      ),
+    ).toEqual([]);
+    expect(
+      await runJoin(
+        'SELECT s.qty, p.name FROM sales s JOIN products p ON p.id = s.product_id ORDER BY s.qty',
+      ),
+    ).toEqual([expect.stringContaining('並びが1つに決まりません')]);
+    // * は列の番号で並べられないので、確かめられない形として止める
+    expect(
+      await runJoin('SELECT * FROM sales s JOIN products p ON p.id = s.product_id ORDER BY s.qty'),
+    ).toEqual([expect.stringContaining('確かめられない形')]);
+  });
+
   it('書き換え系の正解SQLが行を書き換えれば問題0件', async () => {
     expect(
       await check([makeProblem({ answer: 'UPDATE products SET price = 0 WHERE id = 1' })]),

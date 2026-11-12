@@ -31,3 +31,13 @@ export const BEFORE_TURNING_POINT = ['01', '02', '03', '04', '05', '06', '07', '
   problemId: `beginner-${n}`,
   mode: /** @type {const} */ ('1'),
 }));
+
+/** 初級を全部（ターニングポイントはモード3で）クリアし、中級の1〜n問目をモード1でクリアした状態 */
+export const intermediateUpTo = (n) => [
+  ...BEFORE_TURNING_POINT,
+  { problemId: 'beginner-09', mode: /** @type {const} */ ('3') },
+  ...Array.from({ length: n }, (_, i) => ({
+    problemId: `intermediate-${String(i + 1).padStart(2, '0')}`,
+    mode: /** @type {const} */ ('1'),
+  })),
+];

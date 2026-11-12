@@ -9,12 +9,15 @@ async function openDictionary(page) {
   await expect(page.getByTestId('dict-SELECT')).toBeVisible();
 }
 
-test('一覧から開くと初級の16語が並び、初めて出てくる問題からモード選択へ行ける', async ({
+test('一覧から開くと初級の16語・中級の20語が並び、初めて出てくる問題からモード選択へ行ける', async ({
   page,
 }) => {
   await openDictionary(page);
   await expect(page.getByRole('heading', { name: '初級（16語）' })).toBeVisible();
-  await expect(page.locator('article[data-testid^="dict-"]')).toHaveCount(16);
+  await expect(
+    page.getByRole('region', { name: '初級（16語）' }).locator('article[data-testid^="dict-"]'),
+  ).toHaveCount(16);
+  await expect(page.getByRole('heading', { name: '中級（20語）' })).toBeVisible();
 
   const where = page.getByTestId('dict-WHERE');
   await expect(where).toContainText('〜のところで');

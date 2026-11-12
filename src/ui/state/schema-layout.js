@@ -1,12 +1,13 @@
 /**
  * DBの地図の箱の置き方（React に依存しない。単体テストする）。
- * 指される側（親）を左の列、指す側（子）を右の列に置き、線が左から右へ流れるようにする
+ * 指される側（親）を左の列、指す側（子）を右の列に置き、線が左から右へ流れるようにする。
+ * 親は、子のすぐ左の列まで寄せる（products → order_items の線が orders の箱の裏を通らないように）
  * （中級の customers ← orders ← order_items → products）。同じ列のものは上から章の順に積む。
  */
 
 /** 箱の大きさの目安（px。React Flow の座標） */
 export const SCHEMA_LAYOUT = {
-  columnWidth: 280,
+  columnWidth: 360,
   headerHeight: 40,
   rowHeight: 22,
   gapY: 40,
@@ -46,10 +47,26 @@ function depths(names, relations) {
  */
 export function layoutTables(tables, relations) {
   const { columnWidth, headerHeight, rowHeight, gapY } = SCHEMA_LAYOUT;
-  const depth = depths(
-    tables.map((t) => t.table),
-    relations,
+  const names = tables.map((t) => t.table);
+  const depth = depths(names, relations);
+  // 親を、子のうちいちばん左の列のすぐ左まで右へ寄せる（左端に置いたままだと、線がほかの箱の裏を通る）
+  const known = new Set(names);
+  const edges = relations.filter(
+    (r) => r.table !== r.refTable && known.has(r.table) && known.has(r.refTable),
   );
+  for (let round = 0; round < names.length; round += 1) {
+    let changed = false;
+    for (const name of names) {
+      const children = edges.filter((r) => r.refTable === name).map((r) => depth.get(r.table) ?? 0);
+      if (children.length === 0) continue;
+      const target = Math.min(...children) - 1;
+      if (target > (depth.get(name) ?? 0)) {
+        depth.set(name, target);
+        changed = true;
+      }
+    }
+    if (!changed) break;
+  }
   /** @type {Record<string, { x: number, y: number }>} */
   const positions = {};
   /** @type {Map<number, number>} 列ごとの、次に置く高さ */

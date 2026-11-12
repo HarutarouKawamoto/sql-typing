@@ -85,8 +85,10 @@ export async function checkWrongChoices(args) {
  * ordered: true の問題で、行の並びが1つに決まるか。
  * 同じ並びの値の行があると、同じ値どうしの並べ方（ctid や行全体の向き）を変えたときに並び（と LIMIT で残る行）が変わる。
  * - 単一のテーブルで DISTINCT・GROUP BY のない形：`… ORDER BY o, ctid ASC` と `DESC` を比べる
- * - それ以外（DISTINCT・GROUP BY・HAVING・JOIN・サブクエリ）：ORDER BY と LIMIT を外したSQLを
- *   `SELECT * FROM (…) AS __t ORDER BY o, __t::text ASC` と `DESC` にして比べる（ctid が使えないため）
+ * - それ以外（DISTINCT・GROUP BY・HAVING・JOIN・サブクエリ）：`… ORDER BY o, 1 ASC, 2 ASC, …` と `DESC` を比べる
+ *   （出す列の番号で同じ値の行を並べる。ctid が使えず、サブクエリで包むと ORDER BY の o.id のようなテーブルの別名が見えなくなるため。
+ *   出す列が全部同じ行は同じ行なので、並べ方が変わっても結果は同じ）
+ * - 列の番号で並べる形で、SELECT に * があるもの（`SELECT *`・`p.*`）は、番号と出す列の数がずれるので確かめられない形として止める
  * 既知の制限：同じ値の行が3つ以上で、並びが a, b, a のように前後対称だと見逃す
  * @param {Parameters<typeof checkAnswersRun>[0]} args
  * @returns {Promise<string[]>}
@@ -113,13 +115,21 @@ export async function checkOrderDetermined(args) {
       !byKind['GROUP BY'] &&
       !byKind.HAVING &&
       !fromTokens.some((t) => t.text === ',' || t.text === '(' || /^join$/i.test(t.text));
+    // 出す列の番号で並べる形は、* があると番号が出す列の数とずれて見逃すので、確かめられない形にする
+    if (!simple && items.some((item) => /(^|\.)\*$/.test(item.text.trim()))) {
+      return [
+        `${file}: 並びが1つに決まるか確かめられない形です（* で出す列を書いた DISTINCT・GROUP BY・JOIN）`,
+      ];
+    }
     const twoWays = simple
       ? ['ASC', 'DESC'].map(
           (dir) => `SELECT ${list} ${rest} ${text('ORDER BY')}, ctid ${dir} ${text('LIMIT')}`,
         )
       : ['ASC', 'DESC'].map(
           (dir) =>
-            `SELECT * FROM (SELECT ${distinct ? 'DISTINCT ' : ''}${list} ${rest}) AS __t ${text('ORDER BY')}, __t::text ${dir} ${text('LIMIT')}`,
+            `SELECT ${distinct ? 'DISTINCT ' : ''}${list} ${rest} ${text('ORDER BY')}, ${items
+              .map((_, i) => `${i + 1} ${dir}`)
+              .join(', ')} ${text('LIMIT')}`,
         );
     const results = [];
     for (const query of twoWays) {

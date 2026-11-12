@@ -1,0 +1,70 @@
+# 中級のターニングポイント：社長に出す月次レポート（注文と明細をつなぎ、月ごとに集計。取り消しは除く）
+# 形：src/schema/problem-schema.js ／ 書き方：docs/development-guidelines.md の「問題データの書き方」
+# count(DISTINCT o.id)：明細とつなぐと1つの注文が明細の数だけ行になるので、注文の数は DISTINCT で数える
+id: intermediate-13
+chapterId: intermediate
+order: 13
+title: 社長に出す月次レポート
+kind: turningPoint
+story:
+  before:
+    - speaker: tencho
+      text: 大変！ 明日、社長が店に来て、月次レポートを見るって！
+    - speaker: senpai
+      text: 月次レポートは、いつも表計算で丸1日かかるんだ……。
+    - speaker: senpai
+      text: 注文と明細を突き合わせて、取り消しを手で抜いて……。
+    - speaker: tencho
+      text: 8月から10月まで、月ごとに出してほしいの。
+    - speaker: tencho
+      text: 月と、注文の数と、売上の合計。取り消した注文は抜いて。
+    - speaker: eigyo
+      text: 売上は、明細の数量 × 明細の単価を全部足したものね。
+    - speaker: eigyo
+      text: 月は 2026-08 のように、年と月をハイフンでつないで。
+    - speaker: eigyo
+      text: 列の名前は month・order_count・sales。月の古い順でお願い。
+    - speaker: senpai
+      text: 注文の数は気をつけろよ。明細とつなぐと行が増えるから。
+    - speaker: tencho
+      text: 社長は数字にうるさいの。1円でも違ったら……。
+    - speaker: player
+      text: 注文と明細をつないで、月ごとにまとめます。1つのSQLで。
+  after:
+    - speaker: tencho
+      text: 3か月分、全部そろってる！ 社長に胸を張って出せるわ。
+    - speaker: senpai
+      text: 丸1日の仕事が、1つのSQLで……。
+    - speaker: eigyo
+      text: もう表計算には戻れないわね。
+answer: SELECT to_char(o.ordered_at, 'YYYY-MM') AS month, count(DISTINCT o.id) AS order_count, sum(i.quantity * i.unit_price) AS sales FROM orders o JOIN order_items i ON i.order_id = o.id WHERE o.status <> 'cancelled' GROUP BY month ORDER BY month
+display: |-
+  SELECT to_char(o.ordered_at, 'YYYY-MM') AS month,
+    count(DISTINCT o.id) AS order_count,
+    sum(i.quantity * i.unit_price) AS sales
+  FROM orders o
+    JOIN order_items i ON i.order_id = o.id
+  WHERE o.status <> 'cancelled'
+  GROUP BY month
+  ORDER BY month
+blanks:
+  - answer: count(DISTINCT o.id)
+    wrong:
+      - text: count(o.id)
+        why: 明細とつなぐと、1つの注文が明細の数だけ行になる。注文の数は DISTINCT で重なりを除いて数える。
+  - answer: o.status <> 'cancelled'
+    wrong:
+      - text: o.status = 'cancelled'
+        why: = だと取り消した注文だけが残る。抜くのは <>（等しくない）。
+  - answer: GROUP BY month
+    wrong:
+      - text: GROUP BY o.ordered_at
+        why: ordered_at は注文の日時そのもの。月ごとにまとめるのは、月にした month。
+hints:
+  - 使うのは SELECT・FROM・JOIN・ON・WHERE・GROUP BY・ORDER BY と、to_char・count(DISTINCT)・sum。
+  - 書く順は SELECT → FROM → JOIN … ON → WHERE → GROUP BY → ORDER BY。月は to_char(日時, 'YYYY-MM')。
+  - SELECT to_char(o.???, 'YYYY-MM') AS month, count(DISTINCT o.???) AS order_count, sum(i.??? * i.???) AS sales FROM orders o JOIN order_items i ON ??? WHERE o.status <> '???' GROUP BY ??? ORDER BY ???
+judge:
+  ordered: true
+  checkColumnNames: true
+keywords: [SELECT, TO_CHAR, AS, COUNT, DISTINCT, SUM, FROM, JOIN, 'ON', WHERE, GROUP BY, ORDER BY]

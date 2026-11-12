@@ -1,0 +1,43 @@
+# 中級10問目：INSERT。新しい顧客を1人足す（書き換え系。実行したあとの customers を比べる）
+# 形：src/schema/problem-schema.js ／ 書き方：docs/development-guidelines.md の「問題データの書き方」
+# id は SERIAL で、正しい書き方でも値が変わることがあるので比べない（ignoreColumns）
+id: intermediate-10
+chapterId: intermediate
+order: 10
+title: 新しいお客さん
+kind: normal
+story:
+  before:
+    - speaker: eigyo
+      text: お店に来たお客さんが、会員になってくれたの！
+    - speaker: eigyo
+      text: 名前は Kei Mori さん、地域は south。
+    - speaker: eigyo
+      text: 登録日は 2026-11-01 で、顧客の表に足しておいて。
+    - speaker: senpai
+      text: 会員登録ボタンを押したときの裏も、この1文だな。
+    - speaker: player
+      text: 列を並べて、同じ順に値を書いて行を足します。
+  after:
+    - speaker: eigyo
+      text: 11人目の会員ね。ようこそ、Kei さん！
+    - speaker: senpai
+      text: id は書かなくても、DBが番号を付けてくれるんだな。
+answer: INSERT INTO customers (name, region, joined_on) VALUES ('Kei Mori', 'south', '2026-11-01')
+display: |-
+  INSERT INTO customers (name, region, joined_on)
+  VALUES ('Kei Mori', 'south', '2026-11-01')
+blanks:
+  - answer: VALUES ('Kei Mori', 'south', '2026-11-01')
+    wrong:
+      - text: VALUES ('south', 'Kei Mori', '2026-11-01')
+        why: 値は、上に並べた列と同じ順に書く。name に地域、region に名前が入ってしまう。
+hints:
+  - 使うのは INSERT INTO と VALUES。
+  - 書く順は INSERT INTO テーブル (列, 列, 列) → VALUES (値, 値, 値)。
+  - INSERT INTO ??? (name, region, joined_on) VALUES ('???', '???', '???')
+judge:
+  ordered: false
+  compareTable: customers
+  ignoreColumns: [id]
+keywords: [INSERT INTO, VALUES]

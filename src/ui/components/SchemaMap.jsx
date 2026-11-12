@@ -106,7 +106,6 @@ export function SchemaMap({ tables, relations, newTables, touched, selected, onS
           target: relation.table,
           type: 'smoothstep',
           className: lit ? styles.edgeLit : styles.edge,
-          label: `${relation.refColumn} ← ${relation.column}`,
           focusable: false,
         };
       }),

@@ -1,0 +1,45 @@
+# 中級7問目：明細と商品をつないで、よく注文される商品の上位5つ
+# 形：src/schema/problem-schema.js ／ 書き方：docs/development-guidelines.md の「問題データの書き方」
+# 同じ数の商品があるので、並びの2つ目に名前を入れて並びを1つに決める
+id: intermediate-07
+chapterId: intermediate
+order: 7
+title: よく売れる商品トップ5
+kind: normal
+story:
+  before:
+    - speaker: eigyo
+      text: トップページに「よく売れています」の欄を作るの。
+    - speaker: eigyo
+      text: 注文された数の多い商品を、上から5つ。
+    - speaker: eigyo
+      text: 商品の名前と、注文された数の合計を出して。
+    - speaker: eigyo
+      text: 数の多い順で、同じ数なら名前の順ね。
+    - speaker: player
+      text: 明細に商品の名前をつないで、数を足し合わせます。
+  after:
+    - speaker: eigyo
+      text: グラスのタンブラーが1位なのね。意外！
+    - speaker: tencho
+      text: 明細の表まで使いこなしてる……。
+answer: SELECT p.name, sum(i.quantity) AS sold FROM order_items i JOIN products p ON p.id = i.product_id GROUP BY p.name ORDER BY sold DESC, p.name LIMIT 5
+display: |-
+  SELECT p.name, sum(i.quantity) AS sold
+  FROM order_items i
+    JOIN products p ON p.id = i.product_id
+  GROUP BY p.name
+  ORDER BY sold DESC, p.name
+  LIMIT 5
+blanks:
+  - answer: sum(i.quantity)
+    wrong:
+      - text: count(*)
+        why: count(*) は明細の行の数。1行で2個注文されることもあるので、数は sum で足す。
+hints:
+  - 使うのは SELECT・FROM・JOIN・ON・GROUP BY・ORDER BY・LIMIT と、sum。
+  - 書く順は SELECT → FROM → JOIN … ON → GROUP BY → ORDER BY → LIMIT。
+  - SELECT p.???, sum(i.???) FROM order_items i JOIN products p ON ??? GROUP BY p.??? ORDER BY ??? DESC, p.??? LIMIT ???
+judge:
+  ordered: true
+keywords: [SELECT, SUM, AS, FROM, JOIN, 'ON', GROUP BY, ORDER BY, DESC, LIMIT]

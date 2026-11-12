@@ -80,7 +80,7 @@ sql-typing/
   - `best-text.js`：モードの名前と最高記録の文（`tests/unit/ui/` で単体テスト）
   - `keyword-words.js`：用語辞典の用語（`KEYWORD_WORDS`・`KEYWORD_BY_WORD`。1回だけ読む）
   - `join-colors.js`：JOIN の段階の色分け（つながる行どうしを同じ色。React に依存しない。`tests/unit/ui/` で単体テスト）
-  - `schema-layout.js`：DBの地図の箱の置き方（親を左・子を右。React に依存しない。`tests/unit/ui/` で単体テスト）
+  - `schema-layout.js`：DBの地図の箱の置き方（親を左・子を右、親は子のすぐ左。React に依存しない。`tests/unit/ui/` で単体テスト）
   - `db-jobs.js`：DB を何回も使う仕事（問題の準備・正解の結果づくり・判定・ステップ再生の段階づくり）を1つずつ流す列 `runDbJob`（`tests/unit/ui/` で単体テスト）
 - `components/StepPlayer.jsx`・`StepTable.jsx`：見える化A（ステップ再生）の画面と、1段階の表
 - `components/PlayMode12.jsx`：モード1・2（なぞり書き・打って選ぶ）。`components/PlayMode34.jsx`：モード3・4（書いて判定）
@@ -242,13 +242,18 @@ data/
 ├── characters.yaml
 ├── keywords.yaml
 ├── seeds/
-│   └── beginner.sql
+│   ├── beginner.sql
+│   └── intermediate.sql        # products は beginner.sql と同じ。customers・orders・order_items を足す
 └── problems/
-    └── beginner/
-        ├── 01-select-all.yaml
-        ├── 02-select-columns.yaml
-        ├── …（03〜08）
-        └── 09-turning-point.yaml   # ターニングポイント（kind: turningPoint）
+    ├── beginner/
+    │   ├── 01-select-all.yaml
+    │   ├── 02-select-columns.yaml
+    │   ├── …（03〜08）
+    │   └── 09-turning-point.yaml   # ターニングポイント（kind: turningPoint）
+    └── intermediate/
+        ├── 01-count-sum.yaml
+        ├── …（02〜12。集計・JOIN・サブクエリ・CASE・INSERT・UPDATE・DELETE）
+        └── 13-turning-point.yaml   # 月次レポート
 ```
 
 ### tests/（テストディレクトリ）
@@ -346,19 +351,20 @@ tests/e2e/
 │   └── step-replay-marks.spec.js # 見本のページで、印（消える行・列、まとまる行）の数を確かめる
 ├── progression/
 │   ├── home-story.spec.js     # 一覧・モード選択・依頼の会話・クリア後の会話・星
-│   └── turning-point.spec.js  # ターニングポイントが開く・印・説明・11行の会話・クリア後
+│   ├── turning-point.spec.js  # ターニングポイントが開く・印・説明・11行の会話・クリア後・モード4で中級が開く
+│   └── intermediate.spec.js   # 中級の一覧・UPDATE の問題・中級の DBの地図
 ├── settings/
 │   └── settings.spec.js       # 設定の画面（速さ・見える化B の on/off・学習記録を消す）
 ├── dictionary/
 │   ├── keyword-tip.spec.js    # キーワードにカーソルを当てると説明（モード1・ステップ再生）
-│   └── dictionary.spec.js     # 用語辞典（16語・初めて出てくる問題・幅375pxでタップ）
+│   └── dictionary.spec.js     # 用語辞典（初級16語・中級20語・初めて出てくる問題・幅375pxでタップ）
 ├── map/
 │   └── schema-map.spec.js     # DBの地図（モード選択・モード1・モード4・幅375px）
 ├── device/
 │   └── narrow-screen.spec.js  # 幅375pxでは遊べず、会話は読める
 └── helpers/
     ├── open-play.js           # 一覧から1問目のモードを選び、会話を飛ばして遊ぶ画面を開く
-    └── seed-progress.js       # 学習記録を localStorage に入れてから開く（何問もクリアした状態・設定を変えた状態から始める）
+    └── seed-progress.js       # 学習記録を localStorage に入れてから開く（何問もクリアした状態・設定を変えた状態から始める。中級の n 問目までは `intermediateUpTo`）
 ```
 
 **命名規則**: `<シナリオ>.spec.js`（Vitest のテストと見分けるため `.spec.js` にする）

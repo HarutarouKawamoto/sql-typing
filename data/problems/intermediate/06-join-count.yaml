@@ -1,0 +1,45 @@
+# 中級6問目：LEFT JOIN と GROUP BY。顧客ごとの注文の数（注文のない人は0）
+# 形：src/schema/problem-schema.js ／ 書き方：docs/development-guidelines.md の「問題データの書き方」
+# 間違いの count(*) は、注文のない顧客の NULL の行も1と数える（0 にならない）
+# 列の別名は order_count（テーブル名の orders と同じ名前にすると紛らわしいため）
+id: intermediate-06
+chapterId: intermediate
+order: 6
+title: お得意さまランキング
+kind: normal
+story:
+  before:
+    - speaker: tencho
+      text: お得意さまに、お礼の手紙を出したいの。
+    - speaker: tencho
+      text: お客さんの名前と、注文の数を出して。注文のない人は0で。
+    - speaker: tencho
+      text: 注文の多い順で、同じ数なら名前の順に並べてね。
+    - speaker: senpai
+      text: 会員ページの「ご注文回数」も、この数え方だな。
+    - speaker: player
+      text: 顧客を全部残してつないで、顧客ごとに注文を数えます。
+  after:
+    - speaker: tencho
+      text: いちばんはアイコさんの4回ね。手紙を書かなきゃ。
+    - speaker: senpai
+      text: 0回の人もちゃんと0で出てる。抜けがなくていいな。
+answer: SELECT c.name, count(o.id) AS order_count FROM customers c LEFT JOIN orders o ON o.customer_id = c.id GROUP BY c.name ORDER BY order_count DESC, c.name
+display: |-
+  SELECT c.name, count(o.id) AS order_count
+  FROM customers c
+    LEFT JOIN orders o ON o.customer_id = c.id
+  GROUP BY c.name
+  ORDER BY order_count DESC, c.name
+blanks:
+  - answer: count(o.id)
+    wrong:
+      - text: count(*)
+        why: count(*) は NULL の行も1と数える。注文のない人を0にするには count(o.id)。
+hints:
+  - 使うのは SELECT・FROM・LEFT JOIN・ON・GROUP BY・ORDER BY と、count。
+  - 書く順は SELECT → FROM → LEFT JOIN … ON → GROUP BY → ORDER BY。並びは2つ書く。
+  - SELECT c.???, count(o.???) FROM customers c LEFT JOIN orders o ON ??? GROUP BY c.??? ORDER BY ??? DESC, c.???
+judge:
+  ordered: true
+keywords: [SELECT, COUNT, AS, FROM, LEFT JOIN, 'ON', GROUP BY, ORDER BY, DESC]

@@ -22,7 +22,7 @@ test('7問目までだと、ターニングポイントはまだ開いていな�
   await expect(turningPoint(page)).toBeDisabled();
 });
 
-test('ターニングポイントの会話は11行あり、モード1でクリアすると反応の会話が出る（次の章はまだないので Enter・J は何もしない）', async ({
+test('ターニングポイントの会話は11行あり、モード1でクリアすると反応の会話が出る（次の章はモード3・4でしか開かないので Enter・J は何もしない）', async ({
   page,
 }) => {
   await seedProgress(page, BEFORE_TURNING_POINT);
@@ -47,9 +47,36 @@ test('ターニングポイントの会話は11行あり、モード1でクリ�
   const after = page.getByTestId('after-story');
   await expect(after).toContainText('一発で出た');
   await expect(page.getByTestId('result-table')).toContainText('5行');
-  await expect(after.getByRole('button', { name: '次の問題はまだありません' })).toBeDisabled();
+  await expect(after.getByRole('button', { name: '次の問題はまだ開いていません' })).toBeDisabled();
+  await expect(after).toContainText('モード3・4でクリアすると次の章が開きます');
   await page.keyboard.press('Enter');
   await page.keyboard.press('j');
   await expect(after).toBeVisible();
   await expect(page.getByTestId('typing-area')).toBeVisible();
+});
+
+test('ターニングポイントをモード4でクリアすると、中級の1問目が開き、Enter で進める', async ({
+  page,
+}) => {
+  await seedProgress(page, BEFORE_TURNING_POINT);
+  await page.goto('/');
+  await expect(page.getByTestId('problem-intermediate-01')).toBeDisabled();
+  await turningPoint(page).click();
+  await expect(page.getByTestId('mode-4')).toBeEnabled({ timeout: 30_000 });
+  await page.getByTestId('mode-4').click();
+  await page.getByRole('button', { name: 'スキップ' }).click();
+  await expect(page.getByTestId('table-list')).toContainText('products');
+  const editor = page.getByTestId('sql-editor');
+  await editor.fill(
+    "SELECT name AS item, category, price FROM products WHERE stock > 0 AND supplier IS NOT NULL AND category IN ('kitchen', 'interior') AND price BETWEEN 1000 AND 5000 ORDER BY price DESC LIMIT 5",
+  );
+  await editor.focus();
+  await page.keyboard.press('Control+Enter');
+  await expect(page.getByRole('heading', { name: 'クリア！' })).toBeVisible({ timeout: 15_000 });
+  const next = page.getByTestId('after-story').getByRole('button', { name: /次の問題へ/ });
+  await expect(next).toBeEnabled();
+  await next.click();
+  await expect(page.getByRole('heading', { name: '商品は全部でいくつ？' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('problem-intermediate-01')).toBeEnabled();
 });

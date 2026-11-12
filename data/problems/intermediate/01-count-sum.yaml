@@ -1,0 +1,45 @@
+# 中級1問目：集計関数（COUNT・SUM）。全部の行を1行にまとめる
+# 形：src/schema/problem-schema.js ／ 書き方：docs/development-guidelines.md の「問題データの書き方」
+# 間違いの count(supplier) は、仕入れ先が NULL の商品を数えないので結果が変わる
+id: intermediate-01
+chapterId: intermediate
+order: 1
+title: 商品は全部でいくつ？
+kind: normal
+story:
+  before:
+    - speaker: tencho
+      text: 来月から、お客さんの注文も全部このDBに入れることにしたの。
+    - speaker: tencho
+      text: まずは確認。商品は全部で何種類で、在庫は合わせていくつ？
+    - speaker: senpai
+      text: 管理画面のトップに出る「商品数」「在庫数」の数字と同じだな。
+    - speaker: tencho
+      text: 商品の数と、在庫の合計の2つだけでいいわ。
+    - speaker: player
+      text: 行を数える関数と、足し合わせる関数で1行にまとめます。
+  after:
+    - speaker: tencho
+      text: 30種類で、在庫は377個。一瞬で出たわね。
+    - speaker: senpai
+      text: 前は表計算に貼り付けて数えてたのに……。
+answer: SELECT count(*) AS items, sum(stock) AS total_stock FROM products
+display: |-
+  SELECT count(*) AS items, sum(stock) AS total_stock
+  FROM products
+blanks:
+  - answer: count(*)
+    wrong:
+      - text: count(supplier)
+        why: count(列) は、その列が NULL の行を数えない。仕入れ先のない商品が抜ける。
+  - answer: sum(stock)
+    wrong:
+      - text: max(stock)
+        why: max はいちばん大きい在庫だけ。合計は sum。
+hints:
+  - 使うのは SELECT・FROM と、集計関数の count と sum。
+  - 書く順は SELECT → FROM。SELECT の中に count(*) と sum(列) を並べる。
+  - SELECT count(???), sum(???) FROM ???
+judge:
+  ordered: false
+keywords: [SELECT, COUNT, SUM, AS, FROM]

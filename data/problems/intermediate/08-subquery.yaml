@@ -1,0 +1,49 @@
+# 中級8問目：サブクエリ。平均の値段より高い商品
+# 形：src/schema/problem-schema.js ／ 書き方：docs/development-guidelines.md の「問題データの書き方」
+# 間違いの max(price) では、最高値より高い商品はないので0行になる（結果が変わる）
+id: intermediate-08
+chapterId: intermediate
+order: 8
+title: 平均より高い商品
+kind: normal
+story:
+  before:
+    - speaker: tencho
+      text: うちの商品の「平均の値段」より高いものだけ見たいの。
+    - speaker: senpai
+      text: 平均を出してから、その数字を WHERE に書き写す？
+    - speaker: tencho
+      text: 値段が変わるたびに書き直すのは嫌よ。
+    - speaker: tencho
+      text: 名前と値段を、高い順に出して。
+    - speaker: eigyo
+      text: ネットショップの「こだわりの逸品」ページも、これで作れそう。
+    - speaker: player
+      text: 平均を出すSQLを、WHERE の中に入れてしまいます。
+  after:
+    - speaker: tencho
+      text: 9つね。値段を変えても、このSQLはそのまま使えるのね。
+    - speaker: senpai
+      text: SQLの中にSQL……。入れ子にできるのか。
+answer: SELECT name, price FROM products WHERE price > (SELECT avg(price) FROM products) ORDER BY price DESC
+display: |-
+  SELECT name, price
+  FROM products
+  WHERE price > (SELECT avg(price) FROM products)
+  ORDER BY price DESC
+blanks:
+  - answer: avg(price)
+    wrong:
+      - text: max(price)
+        why: max はいちばん高い値段。それより高い商品はない。平均は avg。
+  - answer: '>'
+    wrong:
+      - text: <
+        why: < だと平均より安い商品になる。高いのは >。
+hints:
+  - 使うのは SELECT・FROM・WHERE・ORDER BY と、かっこの中の SELECT（サブクエリ）と avg。
+  - 書く順は SELECT → FROM → WHERE → ORDER BY。WHERE の右側に (SELECT …) を書く。
+  - SELECT ???, ??? FROM ??? WHERE price > (SELECT avg(???) FROM ???) ORDER BY ??? DESC
+judge:
+  ordered: true
+keywords: [SELECT, FROM, WHERE, AVG, ORDER BY, DESC]

@@ -1,0 +1,48 @@
+# 中級3問目：HAVING。集計したあとのグループを絞る
+# 形：src/schema/problem-schema.js ／ 書き方：docs/development-guidelines.md の「問題データの書き方」
+# bag の在庫の合計がちょうど90なので、間違いの > 90 では bag が消えて結果が変わる
+id: intermediate-03
+chapterId: intermediate
+order: 3
+title: 在庫の多いカテゴリ
+kind: normal
+story:
+  before:
+    - speaker: tencho
+      text: 倉庫が手狭なの。在庫を抱えすぎてるカテゴリはどれ？
+    - speaker: senpai
+      text: 在庫管理の画面の「カテゴリ別の在庫」の裏も、この集計だな。
+    - speaker: tencho
+      text: 在庫の合計が90個以上のカテゴリを知りたいわ。
+    - speaker: tencho
+      text: カテゴリと在庫の合計を、カテゴリのアルファベット順で。
+    - speaker: senpai
+      text: 合計で絞るから、WHERE じゃ書けないぞ。
+    - speaker: player
+      text: まとめたあとのグループは、HAVING で絞ります。
+  after:
+    - speaker: tencho
+      text: 文房具が142個も！ セールで減らしましょう。
+    - speaker: tencho
+      text: WHERE と HAVING の違い、やっとわかった気がするわ。
+answer: SELECT category, sum(stock) AS total FROM products GROUP BY category HAVING sum(stock) >= 90 ORDER BY category
+display: |-
+  SELECT category, sum(stock) AS total
+  FROM products
+  GROUP BY category
+  HAVING sum(stock) >= 90
+  ORDER BY category
+blanks:
+  - answer: HAVING sum(stock) >= 90
+    wrong:
+      - text: HAVING sum(stock) > 90
+        why: '> は90ちょうどを含まない。90個以上は >=。'
+      - text: HAVING count(*) >= 90
+        why: count(*) は商品の数。在庫の合計は sum(stock)。
+hints:
+  - 使うのは SELECT・FROM・GROUP BY・HAVING・ORDER BY と、sum。
+  - 書く順は SELECT → FROM → GROUP BY → HAVING → ORDER BY。
+  - SELECT ???, sum(???) FROM ??? GROUP BY ??? HAVING sum(???) >= ??? ORDER BY ???
+judge:
+  ordered: true
+keywords: [SELECT, SUM, AS, FROM, GROUP BY, HAVING, ORDER BY]

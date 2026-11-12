@@ -19,16 +19,17 @@ describe('layoutTables', () => {
     expect(layoutTables([table('products', 7)], [])).toEqual({ products: { x: 0, y: 0 } });
   });
 
-  it('指される側（親）を左の列、指す側（子）を右の列に置く。同じ列のものは上から章の順に積む', () => {
+  it('親を子のすぐ左の列に置く（線が別の箱の裏を通らないように）。同じ列のものは上から章の順に積む', () => {
     // 中級の形：customers ← orders ← order_items → products
     const positions = layoutTables(
       [table('customers', 4), table('orders', 4), table('order_items', 4), table('products', 7)],
       [fk('orders', 'customers'), fk('order_items', 'orders'), fk('order_items', 'products')],
     );
+    // products は order_items のすぐ左（orders の下）。customers は orders のすぐ左
     expect(positions).toEqual({
       customers: { x: 0, y: 0 },
-      products: { x: 0, y: height(4) },
       orders: { x: columnWidth, y: 0 },
+      products: { x: columnWidth, y: height(4) },
       order_items: { x: columnWidth * 2, y: 0 },
     });
   });
