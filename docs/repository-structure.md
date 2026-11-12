@@ -42,7 +42,8 @@ sql-typing/
 ├── index.html
 ├── package.json
 ├── package-lock.json
-├── vite.config.js
+├── .github/workflows/pages.yml  # main への push でチェック・E2E を流し、GitHub Pages に公開する
+├── vite.config.js              # base: './'（サブフォルダに置く）、公開する HTML の Content Security Policy
 ├── vitest.config.js
 ├── playwright.config.js
 ├── eslint.config.js
@@ -227,7 +228,8 @@ core/
 - `chapter-schema.js`、`character-schema.js`、`keyword-schema.js`
 - `progress-schema.js`: 学習記録（`version` ごと）
 - `cross-checks.js`: ファイルをまたぐ問題データの決まり（問題IDとファイル名、章の並び、ターニングポイントの位置、用語・登場人物の参照、モード2の選択肢）。PGlite を使わない純粋な関数
-- `index.js`: まとめて `export`
+- `index.js`: まとめて `export`（最初に `zod-config.js` を読む）
+- `zod-config.js`: Zod の設定（`jitless`。公開するページの Content Security Policy が `new Function` を許さないため）
 
 **命名規則**: `<対象>-schema.js`。スキーマの変数名は `ProblemSchema` のように PascalCase ＋ `Schema`。JSDoc の型は `/** @typedef {import('zod').infer<typeof ProblemSchema>} Problem */` の形で、スキーマから作る（型とスキーマを二重に書かない）
 

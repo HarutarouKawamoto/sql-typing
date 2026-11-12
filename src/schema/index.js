@@ -1,3 +1,6 @@
+// どのスキーマで検証するよりも先に、Zod の設定をする（スキーマはこの入口から読まれる）
+import './zod-config.js';
+
 export {
   ProblemSchema,
   StorySchema,
