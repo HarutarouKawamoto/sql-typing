@@ -13,17 +13,32 @@ html {
   font-size: 125%;
 }
 
+/*
+ * 合字（リガチャ）をサイト全体で切る。Cascadia Code などは >= を ≥ の1文字に描くので、
+ * 見えた形のままでは打てなくなる（打つのは > と = の2文字）。SQLはヒント・結果の表・上の帯にも出るので、
+ * 場所ごとに付けると漏れる（ヒント③で漏れた）。受け継がれる値なので body に1回書く
+ */
 body {
   margin: 0;
   background: var(--color-bg);
   color: var(--color-text);
   font-family: var(--font-ui);
   line-height: 1.6;
+  font-variant-ligatures: none;
+  font-feature-settings:
+    'calt' 0,
+    'liga' 0;
 }
 
+/* 入力欄はブラウザの既定の文字の指定で body の値を受け継がないので、ここでも切る */
 code,
-pre {
+pre,
+textarea {
   font-family: var(--font-code);
+  font-variant-ligatures: none;
+  font-feature-settings:
+    'calt' 0,
+    'liga' 0;
 }
 
 .app {

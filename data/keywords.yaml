@@ -10,3 +10,73 @@
   meaning: どのテーブルから読むかを決める。実行は FROM から始まる
   example: FROM products
   level: 1
+- word: AS
+  english: 〜として
+  meaning: 結果の列に別の名前を付ける（左が元の列、右が新しい名前）
+  example: SELECT name AS item
+  level: 1
+- word: WHERE
+  english: 〜のところで・〜の場合に
+  meaning: 条件に合う行だけを残す。FROM の次に実行される
+  example: WHERE price >= 1000
+  level: 1
+- word: AND
+  english: そして・かつ
+  meaning: 2つの条件の両方に合う行だけを残す
+  example: WHERE category = 'kitchen' AND stock < 5
+  level: 1
+- word: OR
+  english: または
+  meaning: 2つの条件のどちらかに合えば残す
+  example: WHERE stock = 0 OR supplier IS NULL
+  level: 1
+- word: IN
+  english: 〜の中に
+  meaning: かっこの中に並べた値のどれかと同じなら残す（OR をまとめた書き方）
+  example: WHERE category IN ('kitchen', 'bag')
+  level: 1
+- word: BETWEEN
+  english: 〜の間に
+  meaning: 2つの値の間（両端を含む）にあれば残す。小さい方を先に書く
+  example: WHERE price BETWEEN 500 AND 2000
+  level: 1
+- word: LIKE
+  english: 〜のような
+  meaning: 文字の形で探す。% は「何文字でもよい」の印
+  example: WHERE name LIKE '%Mug%'
+  level: 1
+- word: IS NULL
+  english: 空である
+  meaning: 値が入っていない（NULL の）行を残す。= NULL では見つからない
+  example: WHERE supplier IS NULL
+  level: 1
+- word: IS NOT NULL
+  english: 空ではない
+  meaning: 値が入っている行だけを残す
+  example: WHERE supplier IS NOT NULL
+  level: 1
+- word: ORDER BY
+  english: 〜の順に並べる
+  meaning: 行を並べ替える。何も書かなければ小さい順（ASC）
+  example: ORDER BY price DESC
+  level: 1
+- word: DESC
+  english: descending（下りの）
+  meaning: ORDER BY で大きい順・新しい順に並べる
+  example: ORDER BY price DESC
+  level: 1
+- word: ASC
+  english: ascending（上りの）
+  meaning: ORDER BY で小さい順・古い順に並べる（書かなくても同じ）
+  example: ORDER BY price ASC
+  level: 1
+- word: LIMIT
+  english: 限り・上限
+  meaning: 結果を先頭から決めた行数だけにする。ORDER BY のあとに実行される
+  example: LIMIT 5
+  level: 1
+- word: DISTINCT
+  english: はっきり区別された・別々の
+  meaning: 同じ値の行を1つにまとめる
+  example: SELECT DISTINCT category
+  level: 1

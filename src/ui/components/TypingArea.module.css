@@ -14,6 +14,18 @@
   line-height: 1.7;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+  /* 見えない「打ち終えた形」と、今の表示を同じ場所に重ねる。大きさは大きい方（ふつうは打ち終えた形）に合う */
+  display: grid;
+}
+
+.ghost,
+.content {
+  grid-area: 1 / 1;
+}
+
+.ghost::before {
+  content: attr(data-text);
+  visibility: hidden;
 }
 
 .slot {
@@ -44,10 +56,20 @@
   border-left: 2px solid var(--color-active);
 }
 
-/* 区切りスロット（空白・改行）が今の位置のときも見えるように、最低限の幅をとる */
-.separator.current {
-  display: inline-block;
-  min-width: 0.6ch;
+/*
+ * 改行を含む区切りが今の位置のときの印。行の終わりの改行には幅がなく、背景の色が見えないので、印を重ねて描く。
+ * 箱（inline-block）にすると改行が箱の中に閉じ込められ、次の行が前の行の後ろに付いて入力欄の形が変わる。
+ * 空白の区切りは空白そのものに背景の色が付くので、この印は付けない（付けると2つの印がずれて重なる）
+ */
+.lineBreak.current::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.15em;
+  width: 0.6ch;
+  height: 1.2em;
+  background: color-mix(in srgb, var(--color-active) 25%, transparent);
+  border-radius: 2px;
 }
 
 .missed.typed {

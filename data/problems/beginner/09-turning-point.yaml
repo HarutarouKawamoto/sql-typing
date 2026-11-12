@@ -1,0 +1,70 @@
+# 初級のターニングポイント：これまでの句を全部つかう（モード3・4でクリアすると次の章が開く）
+# 形：src/schema/problem-schema.js ／ 書き方：docs/development-guidelines.md の「問題データの書き方」
+# 機能設計書の表は LIMIT 10 だったが、WHERE のあとに8行しか残らず LIMIT が何もしないので 5 にした
+id: beginner-09
+chapterId: beginner
+order: 9
+title: セール前夜のリスト
+kind: turningPoint
+story:
+  before:
+    - speaker: tencho
+      text: 大変！ 明日のセールの目玉リストが、まだできてないの！
+    - speaker: senpai
+      text: 条件が多すぎて、手作業じゃ間に合わなかった……。
+    - speaker: tencho
+      text: 条件を読み上げるわね。
+    - speaker: tencho
+      text: キッチンかインテリアで、在庫があって、仕入れ先が決まってるもの。
+    - speaker: tencho
+      text: 値段は1000円から5000円まで。
+    - speaker: eigyo
+      text: バナーには名前・カテゴリ・値段を、高い順に5つだけ。
+    - speaker: eigyo
+      text: 名前の列は item にしておいてね。
+    - speaker: senpai
+      text: セールのページは明日の朝に公開なんだ。
+    - speaker: senpai
+      text: 今夜のうちに、このリストがないと……。
+    - speaker: player
+      text: 条件は全部、1つのSQLにまとめられます。
+    - speaker: player
+      text: 任せてください。
+  after:
+    - speaker: senpai
+      text: ……一発で出た。俺が半日かけて終わらなかったのに。
+    - speaker: tencho
+      text: これでセールに間に合うわ！ もう立派なデータ担当ね！
+    - speaker: eigyo
+      text: バナーの画像、すぐ作るね！
+answer: SELECT name AS item, category, price FROM products WHERE stock > 0 AND supplier IS NOT NULL AND category IN ('kitchen', 'interior') AND price BETWEEN 1000 AND 5000 ORDER BY price DESC LIMIT 5
+display: |-
+  SELECT name AS item, category, price
+  FROM products
+  WHERE stock > 0
+    AND supplier IS NOT NULL
+    AND category IN ('kitchen', 'interior')
+    AND price BETWEEN 1000 AND 5000
+  ORDER BY price DESC
+  LIMIT 5
+blanks:
+  - answer: IS NOT NULL
+    wrong:
+      - text: IS NULL
+        why: IS NULL は「仕入れ先が空」のほう。決まっているものは IS NOT NULL。
+  - answer: BETWEEN 1000 AND 5000
+    wrong:
+      - text: BETWEEN 5000 AND 1000
+        why: BETWEEN は小さい値を先に書く。逆にすると1行も残らない。
+  - answer: DESC
+    wrong:
+      - text: ASC
+        why: ASC は安い順。高い順に5つなら DESC。
+hints:
+  - 使う句は SELECT（AS）・FROM・WHERE（AND・IS NOT NULL・IN・BETWEEN）・ORDER BY・LIMIT。
+  - 書く順は SELECT → FROM → WHERE → ORDER BY → LIMIT。WHERE の4つの条件は AND でつなぐ。
+  - SELECT ??? AS ???, ???, ??? FROM ??? WHERE ??? > 0 AND ??? IS NOT NULL AND ??? IN ('???', '???') AND ??? BETWEEN ??? AND ??? ORDER BY ??? DESC LIMIT ???
+judge:
+  ordered: true
+  checkColumnNames: true
+keywords: [SELECT, AS, FROM, WHERE, AND, IS NOT NULL, IN, BETWEEN, ORDER BY, DESC, LIMIT]

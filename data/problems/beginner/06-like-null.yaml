@@ -1,0 +1,46 @@
+# 初級6問目：文字の形で探す（LIKE）と、空を探す（IS NULL）
+# 形：src/schema/problem-schema.js ／ 書き方：docs/development-guidelines.md の「問題データの書き方」
+id: beginner-06
+chapterId: beginner
+order: 6
+title: 仕入れ先の確認
+kind: normal
+story:
+  before:
+    - speaker: tencho
+      text: マグカップの仕入れ先を整理したいの。
+    - speaker: tencho
+      text: 名前に Mug が入る商品と、仕入れ先が空の商品を見せて。
+    - speaker: tencho
+      text: 名前と仕入れ先を並べてくれればいいわ。
+    - speaker: senpai
+      text: 仕入れ先が未登録の商品は、管理画面だと空欄で見つけにくいんだ。
+    - speaker: player
+      text: 文字の形で探す LIKE と、空を探す IS NULL ですね。
+  after:
+    - speaker: tencho
+      text: 未登録が5つも！ 仕入れ先を決めておくわ。
+    - speaker: senpai
+      text: = NULL じゃ見つからないの、知らなかった……。
+answer: SELECT name, supplier FROM products WHERE name LIKE '%Mug%' OR supplier IS NULL
+display: |-
+  SELECT name, supplier
+  FROM products
+  WHERE name LIKE '%Mug%' OR supplier IS NULL
+blanks:
+  - answer: "'%Mug%'"
+    wrong:
+      - text: "'Mug%'"
+        why: 前に % がないと「Mug で始まる」だけになる。Travel Mug が出ない。
+  - answer: IS NULL
+    wrong:
+      - text: = NULL
+        why: NULL は = で比べられない（結果も NULL になる）。空は IS NULL で探す。
+hints:
+  - 使う句は SELECT・FROM・WHERE と、LIKE・OR・IS NULL。
+  - WHERE 列 LIKE '%文字%' OR 列 IS NULL。% は「何文字でもよい」の印。
+  - SELECT ???, ??? FROM ??? WHERE ??? LIKE '%???%' OR ??? IS NULL
+judge:
+  ordered: false
+  require: [LIKE, IS NULL]
+keywords: [SELECT, FROM, WHERE, LIKE, OR, IS NULL]

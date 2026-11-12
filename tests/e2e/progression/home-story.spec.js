@@ -7,6 +7,10 @@ test('一覧に章と問題、星4つが出る。最初は星がない', async (
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 2, name: /初級/ })).toBeVisible();
   await expect(homeProblem(page)).toContainText('在庫表を見せて');
+  // 初級は9問。最初は1問目だけが開いている。最後はターニングポイント
+  await expect(page.locator('[data-testid^="problem-beginner-"]')).toHaveCount(9);
+  await expect(page.getByTestId('problem-beginner-02')).toBeDisabled();
+  await expect(page.getByTestId('problem-beginner-09')).toContainText('ターニングポイント');
   for (const mode of ['1', '2', '3', '4']) {
     await expect(page.getByTestId(`star-beginner-01-${mode}`)).toHaveAttribute(
       'data-cleared',
@@ -60,29 +64,44 @@ test('モードを選ばずに依頼の会話を読み返すと、終えたら�
   await expect(page.getByTestId('mode-1')).toBeVisible();
 });
 
-test('クリアすると反応の会話が出る。次の問題がないときは押せず Enter・J は何もしない、R でもう一度、一覧へで星が付いている', async ({
-  page,
-}) => {
+/** 1問目をなぞり書きでクリアするところまで */
+async function clearFirst(page) {
   await page.goto('/');
   await openModeSelect(page);
   await page.getByTestId('mode-1').click({ timeout: 30_000 });
   await page.getByRole('button', { name: 'スキップ' }).click();
   await expect(page.getByTestId('typing-area')).toBeVisible();
   await page.keyboard.type('SELECT * FROM products');
+  await expect(page.getByTestId('after-story')).toContainText('もう全部出たの');
+}
 
-  const after = page.getByTestId('after-story');
-  await expect(after).toContainText('もう全部出たの');
-  // 初級は今1問だけなので、次の問題はまだない
-  await expect(after.getByRole('button', { name: '次の問題はまだありません' })).toBeDisabled();
-
-  await page.keyboard.press('Enter');
-  await page.keyboard.press('j');
-  await expect(after).toBeVisible();
+test('クリアすると反応の会話が出て、R でもう一度、一覧へで星が付き、次の問題が開いている', async ({
+  page,
+}) => {
+  await clearFirst(page);
   await page.keyboard.press('r');
   await expect(page.getByTestId('after-story')).toHaveCount(0);
   await page.keyboard.type('SELECT * FROM products');
   await page.getByTestId('after-story').getByRole('button', { name: '一覧へ（Esc）' }).click();
   await expect(page.getByTestId('star-beginner-01-1')).toHaveAttribute('data-cleared', 'true');
+  await expect(page.getByTestId('problem-beginner-02')).toBeEnabled();
+  await expect(page.getByTestId('problem-beginner-03')).toBeDisabled();
+});
+
+test('クリアのあとの Enter で、次の問題のモード選択へ進む', async ({ page }) => {
+  await clearFirst(page);
+  await expect(
+    page.getByTestId('after-story').getByRole('button', { name: '次の問題へ（Enter / J）' }),
+  ).toBeEnabled();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { name: '名前と値段だけでいい' })).toBeVisible();
+  await expect(page.getByTestId('mode-1')).toBeVisible();
+});
+
+test('クリアのあとの J でも、次の問題のモード選択へ進む', async ({ page }) => {
+  await clearFirst(page);
+  await page.keyboard.press('j');
+  await expect(page.getByRole('heading', { name: '名前と値段だけでいい' })).toBeVisible();
 });
 
 test('モード選択の Esc で一覧へもどる', async ({ page }) => {

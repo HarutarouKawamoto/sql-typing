@@ -1,13 +1,15 @@
 import { expect } from '@playwright/test';
 
 /**
- * 一覧から1問目を選び、モードを選んで、依頼の会話を飛ばし、遊ぶ画面を開く。
+ * 一覧から問題を選び、モードを選んで、依頼の会話を飛ばし、遊ぶ画面を開く。
+ * 1問目以外は、先に seed-progress.js で開いた状態にしておく。
  * @param {import('@playwright/test').Page} page
  * @param {'1' | '2' | '3' | '4'} mode
+ * @param {string} [problemId]
  */
-export async function openPlay(page, mode) {
+export async function openPlay(page, mode, problemId = 'beginner-01') {
   await page.goto('/');
-  await openModeSelect(page);
+  await openModeSelect(page, problemId);
   const button = page.getByTestId(`mode-${mode}`);
   // データベースの準備ができるまで、モードは選べない
   await expect(button).toBeEnabled({ timeout: 30_000 });
@@ -16,11 +18,12 @@ export async function openPlay(page, mode) {
 }
 
 /**
- * 一覧（今いるページ）から1問目のモード選択を開く。
+ * 一覧（今いるページ）から問題のモード選択を開く。
  * @param {import('@playwright/test').Page} page
+ * @param {string} [problemId]
  */
-export async function openModeSelect(page) {
-  const problem = page.getByTestId('problem-beginner-01');
+export async function openModeSelect(page, problemId = 'beginner-01') {
+  const problem = page.getByTestId(`problem-${problemId}`);
   await expect(problem).toBeEnabled();
   await problem.click();
   await expect(page.getByTestId('mode-1')).toBeVisible();

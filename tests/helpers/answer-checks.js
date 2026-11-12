@@ -4,6 +4,7 @@
  * - 句の途中までのSQLを実行しても止まらない（checkClausePrefixes）
  * - モード2の間違いの選択肢を入れたSQLが、判定で正解にならない（checkWrongChoices）
  * - ordered の問題の並びが1つに決まる（checkOrderDetermined）
+ * - 正解SQLのステップ再生が作れる（checkStepsBuild）
  * PGlite を使わない検証もここに置く（打てる文字か checkTypable、モード2の空欄が遊べるか checkBlanksPlayable）
  *
  * 注意：Node 版の PGlite では打ち切りの時計が動かない（node-backend.js）。
@@ -15,6 +16,7 @@ import { tokenize } from '../../src/core/sql-text.js';
 import { splitSelectList } from '../../src/core/stepper/select-list.js';
 import { buildTarget, untypableSlots } from '../../src/core/typing-engine.js';
 import { locateBlanks } from '../../src/core/blank-typing.js';
+import { buildSteps } from '../../src/core/stepper/index.js';
 
 /**
  * 問題ごとに、章の初期データ＋extraSql の状態にしてから fn を呼ぶ（章・初期データがない問題は飛ばす。別の検証で報告する）
@@ -325,4 +327,23 @@ export async function checkClausePrefixes({ runner, chapters, entries, readSeed 
     }
   }
   return issues;
+}
+
+/**
+ * 正解SQL（表示用SQL）のステップ再生が作れるか。画面では、クリアの結果と書く画面から開ける。
+ * - mismatch（最後の段階が結果と合わない）・error は止める（画面に「作れませんでした」と出てしまう）
+ * - unsupported（JOIN・集計など、まだ段階を作れない形）は止めない（画面は「まだありません」と出す）
+ * - 書き換え系は確かめない（ステップ再生は SELECT だけ）
+ * @param {Parameters<typeof checkAnswersRun>[0]} args
+ * @returns {Promise<string[]>}
+ */
+export async function checkStepsBuild(args) {
+  return forEachPrepared(args, async ({ file, problem }) => {
+    const shown = problem.display ?? problem.answer;
+    const firstWord = tokenize(shown).find((t) => t.type !== 'space' && t.type !== 'comment');
+    if (firstWord?.text.toUpperCase() !== 'SELECT') return [];
+    const built = await buildSteps(shown, args.runner);
+    if (built.ok || built.reason === 'unsupported') return [];
+    return [`${file}: 正解SQLのステップ再生を作れません（${built.reason}：${built.message}）`];
+  });
 }

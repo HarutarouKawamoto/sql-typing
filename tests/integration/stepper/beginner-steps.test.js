@@ -28,7 +28,7 @@ const BEGINNER_ANSWERS = [
   "SELECT name, supplier FROM products WHERE name LIKE '%Mug%' OR supplier IS NULL",
   'SELECT name, price FROM products ORDER BY price DESC LIMIT 5',
   'SELECT DISTINCT category FROM products ORDER BY category',
-  "SELECT name AS item, category, price FROM products WHERE stock > 0 AND supplier IS NOT NULL AND category IN ('kitchen', 'interior') AND price BETWEEN 1000 AND 5000 ORDER BY price DESC LIMIT 10",
+  "SELECT name AS item, category, price FROM products WHERE stock > 0 AND supplier IS NOT NULL AND category IN ('kitchen', 'interior') AND price BETWEEN 1000 AND 5000 ORDER BY price DESC LIMIT 5",
 ];
 
 const labels = (steps) => steps.map((s) => s.label);

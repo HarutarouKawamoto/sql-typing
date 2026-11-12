@@ -1,0 +1,45 @@
+# 初級7問目：並べ替え（ORDER BY）と、上からの行数（LIMIT）
+# 形：src/schema/problem-schema.js ／ 書き方：docs/development-guidelines.md の「問題データの書き方」
+# 並びを比べる問題。初期データの値段はすべて違うので、並びが1つに決まる
+id: beginner-07
+chapterId: beginner
+order: 7
+title: 高い順に5つ
+kind: normal
+story:
+  before:
+    - speaker: eigyo
+      text: トップページの「おすすめ高級品」、どれを載せればいい？
+    - speaker: eigyo
+      text: 名前と値段を、高い順に5つ欲しいの。
+    - speaker: senpai
+      text: ネットショップの「価格の高い順」ボタンも、裏はこれだな。
+    - speaker: player
+      text: 並べ替えてから、上から5行だけ取ります。
+  after:
+    - speaker: eigyo
+      text: 一番上はレザーのショルダーバッグね。完璧！
+    - speaker: tencho
+      text: 並べ替えも一瞬なのね。
+answer: SELECT name, price FROM products ORDER BY price DESC LIMIT 5
+display: |-
+  SELECT name, price
+  FROM products
+  ORDER BY price DESC
+  LIMIT 5
+blanks:
+  - answer: DESC
+    wrong:
+      - text: ASC
+        why: ASC は安い順。高い順に並べるのは DESC。
+  - answer: LIMIT 5
+    wrong:
+      - text: OFFSET 5
+        why: OFFSET は先頭の5行を飛ばす。上から5行だけにするのは LIMIT。
+hints:
+  - 使う句は SELECT・FROM・ORDER BY・LIMIT。
+  - 書く順は SELECT → FROM → ORDER BY → LIMIT。高い順は DESC。
+  - SELECT ???, ??? FROM ??? ORDER BY ??? DESC LIMIT ???
+judge:
+  ordered: true
+keywords: [SELECT, FROM, ORDER BY, DESC, LIMIT]

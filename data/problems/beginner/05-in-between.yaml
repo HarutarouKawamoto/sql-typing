@@ -1,0 +1,47 @@
+# 初級5問目：値の候補（IN）と範囲（BETWEEN）
+# 形：src/schema/problem-schema.js ／ 書き方：docs/development-guidelines.md の「問題データの書き方」
+id: beginner-05
+chapterId: beginner
+order: 5
+title: 特集に合う商品
+kind: normal
+story:
+  before:
+    - speaker: eigyo
+      text: 来月の特集ページ、キッチンとバッグでいくことになったの。
+    - speaker: eigyo
+      text: 値段は500円から2000円まで。名前とカテゴリと値段をちょうだい。
+    - speaker: senpai
+      text: 特集ページに並ぶ商品も、裏ではこういう条件で選んでるんだ。
+    - speaker: senpai
+      text: OR でつないで、値段も >= と <= で……長くなるな。
+    - speaker: player
+      text: IN と BETWEEN を使えば、短く書けます。
+  after:
+    - speaker: eigyo
+      text: 特集ページの候補、もうそろったの！？
+    - speaker: senpai
+      text: IN と BETWEEN、覚えておこう……。
+answer: SELECT name, category, price FROM products WHERE category IN ('kitchen', 'bag') AND price BETWEEN 500 AND 2000
+display: |-
+  SELECT name, category, price
+  FROM products
+  WHERE category IN ('kitchen', 'bag')
+    AND price BETWEEN 500 AND 2000
+blanks:
+  - answer: IN ('kitchen', 'bag')
+    wrong:
+      - text: NOT IN ('kitchen', 'bag')
+        why: NOT IN は「どれでもない」。キッチンとバッグ以外の商品が出てしまう。
+  - answer: BETWEEN 500 AND 2000
+    wrong:
+      - text: BETWEEN 2000 AND 500
+        why: BETWEEN は小さい値を先に書く。逆にすると1行も残らない。
+hints:
+  - 使う句は SELECT・FROM・WHERE と、IN・BETWEEN。
+  - WHERE 列 IN (値, 値) AND 列 BETWEEN 小さい値 AND 大きい値。
+  - SELECT ???, ???, ??? FROM ??? WHERE ??? IN ('???', '???') AND ??? BETWEEN ??? AND ???
+judge:
+  ordered: false
+  require: [IN, BETWEEN]
+keywords: [SELECT, FROM, WHERE, IN, AND, BETWEEN]
