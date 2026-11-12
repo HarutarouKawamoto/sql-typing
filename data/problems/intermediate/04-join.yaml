@@ -1,0 +1,43 @@
+# 中級4問目：JOIN。注文に、注文した顧客の名前をつなぐ
+# 形：src/schema/problem-schema.js ／ 書き方：docs/development-guidelines.md の「問題データの書き方」
+# 間違いの ON c.id = o.id は、注文番号と顧客番号をつないでしまう（結果が変わる）
+id: intermediate-04
+chapterId: intermediate
+order: 4
+title: 注文した人の名前
+kind: normal
+story:
+  before:
+    - speaker: senpai
+      text: 注文の表には、顧客の番号しか入ってないんだ。
+    - speaker: senpai
+      text: これじゃ誰の注文か、いちいち顧客の表を見に行かないと。
+    - speaker: tencho
+      text: 注文番号と、注文した人の名前と、注文の状態を並べて。
+    - speaker: tencho
+      text: 注文番号の順でね。
+    - speaker: player
+      text: 注文の顧客番号と、顧客の番号でつなぎます。
+  after:
+    - speaker: senpai
+      text: 20件全部に名前が付いた！ 見比べなくていいのは楽だな。
+    - speaker: tencho
+      text: 注文管理の画面の一覧も、きっとこうやって作ってるのね。
+answer: SELECT o.id, c.name, o.status FROM orders o JOIN customers c ON c.id = o.customer_id ORDER BY o.id
+display: |-
+  SELECT o.id, c.name, o.status
+  FROM orders o
+    JOIN customers c ON c.id = o.customer_id
+  ORDER BY o.id
+blanks:
+  - answer: ON c.id = o.customer_id
+    wrong:
+      - text: ON c.id = o.id
+        why: o.id は注文の番号。顧客とつなぐのは、注文の中の顧客番号 o.customer_id。
+hints:
+  - 使うのは SELECT・FROM・JOIN・ON・ORDER BY。
+  - 書く順は SELECT → FROM → JOIN … ON → ORDER BY。テーブルに o・c の別名を付ける。
+  - SELECT o.???, c.???, o.??? FROM orders o JOIN customers c ON c.??? = o.??? ORDER BY o.???
+judge:
+  ordered: true
+keywords: [SELECT, FROM, JOIN, 'ON', ORDER BY]

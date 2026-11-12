@@ -16,3 +16,23 @@
     - beginner-07
     - beginner-08
     - beginner-09 # ターニングポイント
+- id: intermediate
+  level: 2
+  title: 中級 月次レポートを任される
+  seed: intermediate.sql
+  tables: [customers, orders, order_items, products]
+  newTables: [customers, orders, order_items]
+  problemIds:
+    - intermediate-01
+    - intermediate-02
+    - intermediate-03
+    - intermediate-04
+    - intermediate-05
+    - intermediate-06
+    - intermediate-07
+    - intermediate-08
+    - intermediate-09
+    - intermediate-10
+    - intermediate-11
+    - intermediate-12
+    - intermediate-13 # ターニングポイント

@@ -1,0 +1,47 @@
+# 中級2問目：GROUP BY。カテゴリごとに数と最高値を出す
+# 形：src/schema/problem-schema.js ／ 書き方：docs/development-guidelines.md の「問題データの書き方」
+# 間違いの GROUP BY price, category は、値段まで分けるのでグループが細かくなる（30行）
+id: intermediate-02
+chapterId: intermediate
+order: 2
+title: カテゴリごとの品ぞろえ
+kind: normal
+story:
+  before:
+    - speaker: eigyo
+      text: カテゴリごとの品ぞろえを、取引先に説明したいの。
+    - speaker: eigyo
+      text: カテゴリと、商品の数と、いちばん高い値段を出して。
+    - speaker: eigyo
+      text: カテゴリはアルファベット順でお願い。
+    - speaker: senpai
+      text: ネットショップの「カテゴリ一覧」の件数も、この形の集計だな。
+    - speaker: player
+      text: カテゴリごとにまとめてから、数と最高値を出します。
+  after:
+    - speaker: eigyo
+      text: バッグは7つで、いちばん高いのは9800円ね。
+    - speaker: tencho
+      text: 4行にきれいにまとまった！
+answer: SELECT category, count(*) AS items, max(price) AS top_price FROM products GROUP BY category ORDER BY category
+display: |-
+  SELECT category, count(*) AS items, max(price) AS top_price
+  FROM products
+  GROUP BY category
+  ORDER BY category
+blanks:
+  - answer: GROUP BY category
+    wrong:
+      - text: GROUP BY price, category
+        why: price まで入れると、値段の違う商品が別のグループになり、まとまらない。
+  - answer: max(price)
+    wrong:
+      - text: min(price)
+        why: min はいちばん安い値段。いちばん高い値段は max。
+hints:
+  - 使うのは SELECT・FROM・GROUP BY・ORDER BY と、count・max。
+  - 書く順は SELECT → FROM → GROUP BY → ORDER BY。まとめる列を SELECT にも書く。
+  - SELECT ???, count(*), max(???) FROM ??? GROUP BY ??? ORDER BY ???
+judge:
+  ordered: true
+keywords: [SELECT, COUNT, MAX, AS, FROM, GROUP BY, ORDER BY]

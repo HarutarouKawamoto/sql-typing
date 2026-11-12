@@ -1,0 +1,49 @@
+# 中級11問目：UPDATE。キッチン用品だけ1割引きにする（書き換え系。実行したあとの products を比べる）
+# 形：src/schema/problem-schema.js ／ 書き方：docs/development-guidelines.md の「問題データの書き方」
+# 「WHERE を付け忘れた UPDATE で全商品が0円」の事件を会話で話す（決定8）
+id: intermediate-11
+chapterId: intermediate
+order: 11
+title: キッチン用品だけ1割引き
+kind: normal
+story:
+  before:
+    - speaker: tencho
+      text: 来週はキッチンフェア。キッチン用品だけ1割引きにするわ。
+    - speaker: senpai
+      text: ……UPDATE か。去年の事件を思い出すな。
+    - speaker: senpai
+      text: 前の担当が WHERE を付け忘れて、全商品を0円にしたんだ。
+    - speaker: senpai
+      text: ネットショップが一晩、全品タダになってた……。
+    - speaker: tencho
+      text: その話はやめて！ 値段は price × 9 ÷ 10 でお願い。
+    - speaker: player
+      text: WHERE でキッチン用品だけに絞ってから、値段を書き換えます。
+  after:
+    - speaker: tencho
+      text: キッチン用品の8つだけ、ちゃんと変わってる！
+    - speaker: senpai
+      text: ほかのカテゴリは無事……。WHERE、大事だな。
+answer: UPDATE products SET price = price * 9 / 10 WHERE category = 'kitchen'
+display: |-
+  UPDATE products
+  SET price = price * 9 / 10
+  WHERE category = 'kitchen'
+blanks:
+  - answer: price * 9 / 10
+    wrong:
+      - text: price - 10
+        why: price - 10 は10円引き。1割引きは price * 9 / 10。
+  - answer: category = 'kitchen'
+    wrong:
+      - text: category <> 'kitchen'
+        why: <> は「キッチン以外」。キッチン以外が全部値下げになる。
+hints:
+  - 使うのは UPDATE・SET・WHERE。
+  - 書く順は UPDATE テーブル → SET 列 = 新しい値 → WHERE 条件。WHERE を忘れると全部の行が変わる。
+  - UPDATE ??? SET price = price * ??? / ??? WHERE ??? = '???'
+judge:
+  ordered: false
+  compareTable: products
+keywords: [UPDATE, SET, WHERE]

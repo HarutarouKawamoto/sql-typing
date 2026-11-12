@@ -842,7 +842,7 @@ export function nextProblemId(chapters, problemId) {}
 | `ReorderIntro` | 見える化B：句のチップが書いた順から実行順へ入れ替わる（1.5秒）。動きは下の「見える化B（ReorderIntro）の動き」 |
 | `JudgePanel` | 判定の結果（不正解の理由・条件違反・打ち切り）、和訳したエラー（よくある原因、英語の原文は折りたたみ）。何回目の実行の結果かも出す |
 | `ResultScreen` | クリア後の記録（速さ・正確さ・ランク／時間・実行回数・ヒント数）、苦手の上位3つ、ステップ再生へのボタン、次の問題へ |
-| `SchemaMap` | DBの地図（React Flow）。テーブルの箱（名前・列名・型・PK・FK、新しいテーブルに NEW）と、外部キーのつながりの線。触っているテーブルを青で光らせ、両方のテーブルを触っている線も光らせる。箱を押すと選ぶ。ホイールの拡大・キーでの削除や選択は切る（ページのスクロール・打つキーを奪わない）。置き方は `src/ui/state/schema-layout.js`：指される側（親）を左の列、指す側（子）を右の列に置き、線を親の右から子の左へ流す（自分を指すつながりは列を決めるのに使わない）。同じ列のものは上から章の順に積む。図は読み上げから隠し（中をキーで動いても何もできないため）、同じ中身（テーブル・列・つながり・使っているか）を読み上げ用の一覧で出す。React Flow は大きいので、地図を開くまで読み込まない（`lazy`） |
+| `SchemaMap` | DBの地図（React Flow）。テーブルの箱（名前・列名・型・PK・FK、新しいテーブルに NEW）と、外部キーのつながりの線。触っているテーブルを青で光らせ、両方のテーブルを触っている線も光らせる。箱を押すと選ぶ。ホイールの拡大・キーでの削除や選択は切る（ページのスクロール・打つキーを奪わない）。置き方は `src/ui/state/schema-layout.js`：指される側（親）を左の列、指す側（子）を右の列に置き、線を親の右から子の左へ流す（自分を指すつながりは列を決めるのに使わない）。親は子のすぐ左の列まで寄せる（中級では products が orders の下に来て、order_items への線がほかの箱の裏を通らない）。線に名前は付けない（箱の FK の印と読み上げ用の一覧でわかる）。同じ列のものは上から章の順に積む。図は読み上げから隠し（中をキーで動いても何もできないため）、同じ中身（テーブル・列・つながり・使っているか）を読み上げ用の一覧で出す。React Flow は大きいので、地図を開くまで読み込まない（`lazy`） |
 | `SchemaMapPanel` | 「DBの地図を見る」（`details`。ふだんは閉じる）。開いたときに `runDbJob` でスキーマを読む（読めたら読み直さない。読めなかったら、閉じて開き直すともう一度読む）。モード選択だけは `prepareDb` で先に DB を問題の初期状態にする（前に遊んだ問題の DB のまま読まない）。DB が起動できなかったときは、その知らせを出す。光るテーブルは、変わったときだけ地図に渡す（書くたびに描き直さない）。章の `tables` にあるテーブルだけ出す（学習者が作ったテーブルは出さない）。「中身を見る」のボタン（キーボードでも選べる）と、選んだテーブルの先頭20行・全部の行数 |
 | `KeywordTipLayer` | キーワードの説明（KeywordTip）。App に1つだけ置き、ページ全体の `data-keyword` の付いた場所を見る（`pointerover`・`pointermove`・`pointerout`・`click`・`keydown`・`focusin`・`focusout`・`scroll`・`resize`）。マウスのカーソルを当てると出し、離れたら消す（同じ語の中を動いても出し直さない。TypingArea は `data-keyword-group` で同じ語を見る）。マウスが動いていないのに来る「当てた」（打った文字の要素の作り直し・画面の切り替えで、止まっているカーソルの下に語が来たとき）は数えない。指で押すと出し、同じ所をもう一度押すか外を押すと消す（マウスのクリックでは変えない）。キーボードで語に移ったとき（`:focus-visible`）も出す。キーを押したら・スクロール・画面の大きさが変わったら消す。説明を出した場所が画面から消えたら消す（出している間だけ0.3秒ごとに見る）。語の近く（画面の下半分なら上）に `position: fixed` で出す。`role="tooltip"`、語の `aria-describedby` で結ぶ。説明の上にマウスを移すことはできない（`pointer-events: none`。打つSQL・ボタンの上に重なっても押せるように。WCAG 1.4.13 の「説明の上に移せる」は満たさない） |
 | `KeywordText` | SQLの文字を描き、用語辞典の語に `data-keyword` と点線の下線を付ける（ステップ再生のSQL・ヒント③・用語辞典の例）。語には Tab で移れる（キーボードで説明を見るため） |
@@ -1099,6 +1099,36 @@ data/
 
 ※ 3 のモード2の間違いの選択肢に `price > 1000` は使わない。ちょうど1000円の商品がないので、正解と同じ結果になる（問題データの検証 `checkWrongChoices` で止まる）。初期データは他の問題・テストが行数を数えているので変えない。
 
+### 中級の章の問題
+
+依頼の会話・空欄・ヒントは問題YAML（`data/problems/intermediate/`）にある。初期データは `data/seeds/intermediate.sql`（2026-11-12）。
+
+| # | 題名 | 正解SQL（形） | 判定 |
+|---|---|---|---|
+| 1 | 商品は全部でいくつ？ | `SELECT count(*) AS items, sum(stock) AS total_stock FROM products` | |
+| 2 | カテゴリごとの品ぞろえ | `SELECT category, count(*) AS items, max(price) AS top_price FROM products GROUP BY category ORDER BY category` | ordered |
+| 3 | 在庫の多いカテゴリ | `… GROUP BY category HAVING sum(stock) >= 90 ORDER BY category`（bag がちょうど90） | ordered |
+| 4 | 注文した人の名前 | `SELECT o.id, c.name, o.status FROM orders o JOIN customers c ON c.id = o.customer_id ORDER BY o.id` | ordered |
+| 5 | まだ注文のないお客さん | `… customers c LEFT JOIN orders o ON o.customer_id = c.id WHERE o.id IS NULL ORDER BY c.name` | ordered, require: [LEFT JOIN] |
+| 6 | お得意さまランキング | `SELECT c.name, count(o.id) AS order_count … LEFT JOIN … GROUP BY c.name ORDER BY order_count DESC, c.name` | ordered |
+| 7 | よく売れる商品トップ5 | `SELECT p.name, sum(i.quantity) AS sold FROM order_items i JOIN products p … GROUP BY p.name ORDER BY sold DESC, p.name LIMIT 5` | ordered |
+| 8 | 平均より高い商品 | `… WHERE price > (SELECT avg(price) FROM products) ORDER BY price DESC` | ordered |
+| 9 | 値段の帯を付けて | `SELECT name, price, CASE WHEN price >= 5000 THEN 'high' WHEN price >= 1000 THEN 'middle' ELSE 'low' END AS band …` | ordered, checkColumnNames |
+| 10 | 新しいお客さん | `INSERT INTO customers (name, region, joined_on) VALUES ('Kei Mori', 'south', '2026-11-01')` | compareTable: customers, ignoreColumns: [id] |
+| 11 | キッチン用品だけ1割引き | `UPDATE products SET price = price * 9 / 10 WHERE category = 'kitchen'`（WHERE を付け忘れて全商品0円の事件を会話で話す） | compareTable: products |
+| 12 | 取り消した注文の片付け | `DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE status = 'cancelled')` | compareTable: order_items |
+| TP | 社長に出す月次レポート | 注文と明細をつなぎ、取り消しを除いて月ごとに注文の数（`count(DISTINCT o.id) AS order_count`）と売上（`sum(i.quantity * i.unit_price)`）。月は `to_char(o.ordered_at, 'YYYY-MM') AS month`、`GROUP BY month ORDER BY month` | ordered, checkColumnNames |
+
+※ 並びを比べる問題で同じ値が出るもの（6・7）は、並びの2つ目に名前を入れて並びを1つに決める。
+
+※ 列の別名はテーブル名と重ねない（`orders` ではなく `order_count`。`FROM orders o … AS orders` は紛らわしい）。
+
+※ ターニングポイントは、決定8の「顧客・注文・商品をつないで」ではなく、注文と明細の2つのテーブルにした。売上は明細の数量 × 明細の単価（値引きの1行があるので、products の price ではなく unit_price）。3つ以上の結合は上級の内容（決定8）。会話に「月は 2026-08 のように」「明細の単価」を入れて、モード4で値の形と使う列が決まるようにした（実装検証）。`to_char` は用語辞典に足した（TO_CHAR）。`<>` は記号なので用語辞典には入れず、ヒントで教える。
+
+※ 5 は `require: [LEFT JOIN]`。結果が同じ NOT EXISTS・RIGHT JOIN は ruleViolation（今回は LEFT JOIN で書く）。`LEFT OUTER JOIN` も2語が続かないので ruleViolation になる（既知の制限）。
+
+※ 9 はちょうど5000円・1000円の商品がないので、`price > 5000` でも正解になる（既知の制限。初級3問目と同じ。products は初級と同じ30行にそろえるので変えない）。モード2の間違いの選択肢には `>` を使わない。
+
 ## パフォーマンス最適化
 
 - **PGlite は裏で先に起動する**：アプリを開いたらすぐ Worker で起動を始め、一覧画面の表示は待たせない
@@ -1143,7 +1173,7 @@ data/
 - `Judge` の純粋な部分：値の比べ方（許容誤差・NaN・Infinity・NULL）、表の比べ方（各 `reason`）、`require`・`forbid` の探し方（ドット付きの語・記号をはさむ語・関数名）
 - `ReorderChips`（`reorder.js`）：書いた順と実行順、空白のまとめ方、長い句の切り方、流さないSQL（句が1つ・分けられない）
 - `TouchedTables`：大文字・小文字、文字列・コメントの中、語の一部、引用符つきの名前、打っている途中
-- DBの地図の置き方（`schema-layout.js`）：中級の形（親を左・子を右、同じ列は積む）、自己結合、輪になったつながり、地図にないテーブルへのつながり
+- DBの地図の置き方（`schema-layout.js`）：中級の形（親を左・子を右、親は子のすぐ左、同じ列は積む）、自己結合、輪になったつながり、地図にないテーブルへのつながり
 - 空欄の答えを空白にする（`maskBlankAnswers`）：改行・字下げ、大文字・小文字の違い、空欄2つ
 - `KeywordSpans`：大文字・小文字、2語・3語のまとめ方、複数語の一部だけの語、文字列・コメント・引用符の中、語の一部。スロットごとの語と組（区切りのスロット・改行をはさむ語）
 - `Dictionary`：レベルごとの並び、初めて出てくる問題、どの問題にも出てこない語
@@ -1164,21 +1194,22 @@ data/
   - `keywords` がすべて用語辞典にある。ターニングポイントが章の最後に1つだけ
   - 中級の初期データの決まり（products が初級と同じ、注文のない顧客、取り消しの注文、3か月、注文されていない商品、値引きの1行）
   - 正解SQL（表示用SQL）のステップ再生が作れる。`mismatch`・`error` は止め、まだ対応していない形（`unsupported`）は止めない（`checkStepsBuild`）
-  - `ordered: true` の問題で、並び順が1つに決まる（`checkOrderDetermined`：ORDER BY の後ろに `ctid`（DISTINCT・GROUP BY のときは行全体）の昇順と降順を足して実行し、結果が同じか比べる。ORDER BY がなければ失敗。WITH・UNION などの形は確かめられないので失敗にする。既知の制限：同じ並びの値の行が前から読んでも後ろから読んでも同じ並びのときは見逃す）
+  - `ordered: true` の問題で、並び順が1つに決まる（`checkOrderDetermined`：ORDER BY の後ろに `ctid`（1つのテーブルの形）か、出す列の番号（`1, 2, …`。DISTINCT・GROUP BY・JOIN の形。サブクエリで包むと ORDER BY のテーブルの別名が見えなくなるため）の昇順と降順を足して実行し、結果が同じか比べる。ORDER BY がなければ失敗。WITH・UNION などの形、列の番号で並べる形で SELECT に `*`・`p.*` があるもの（番号と出す列の数がずれる）は確かめられないので失敗にする。既知の制限：同じ並びの値の行が前から読んでも後ろから読んでも同じ並びのときは見逃す）
 
 ### E2Eテスト（Playwright、`tests/e2e/`）
 - 初級1問目を、モード1〜4のそれぞれで最後まで遊んでクリアできる
 - モード2で間違いの選択肢を打ち切ると説明が出て、やり直せる
 - 一覧から問題・モードを選び、依頼の会話を Enter・クリックで送る／スキップして遊び、クリア後の会話から一覧へもどる（星が付く）。共通の入口は `tests/e2e/helpers/open-play.js`
 - クリアのあとの Enter・J で次の問題のモード選択へ進む。1問目をクリアすると2問目が開く
-- ターニングポイントは8問目までクリアすると開き、印とモード選択の説明が出る。会話は11行。テスト用の記録を localStorage に入れて確かめる（`tests/e2e/helpers/seed-progress.js`）。モード3・4でクリアすると次の章が開くことは、次の章（中級）を足すまで `isUnlocked` の単体テストで確かめる
+- ターニングポイントは8問目までクリアすると開き、印とモード選択の説明が出る。会話は11行。テスト用の記録を localStorage に入れて確かめる（`tests/e2e/helpers/seed-progress.js`）。モード1でクリアしても次の章は開かず、モード4でクリアすると中級の1問目が開く
+- 中級：一覧に13問とターニングポイント、UPDATE の問題（WHERE を付け忘れると不正解）、中級の DBの地図（4つの箱・3本の線・NEW）（`tests/e2e/progression/intermediate.spec.js`）
 - 打つSQL・ヒント③・入力欄が合字（`>=` を ≥ の1文字に描く）を使わない（合字はサイト全体で切る。`global.css`）
 - 打っている途中・モード2の空欄が埋まったときに、入力欄の大きさが変わらない。モード1・2で依頼の会話を開いて見られ、開いたまま打てる（`typing-layout.spec.js`）
 - 見える化A の JOIN：見本のページで、2つの表が並びつながる行が同じ色、つながらない右の行・LEFT JOIN の NULL の印、合体した行数（`step-replay-marks.spec.js`）
 - 見える化B：モード3・4で実行すると、句のチップが書いた順 → 実行順に入れ替わり、そのあと判定の結果が出る（並びはページの中で MutationObserver で記録して確かめる）。句が1つだけ・OS の「動きを減らす」設定では流れない
 - 設定の画面：一覧から開き Esc でもどる。速さと見える化B の on/off が保存される。off なら流れない。学習記録を消すときは確かめ、やめる・Esc では消えず、消すと星が消えて設定は残る（`tests/e2e/settings/settings.spec.js`）
 - キーワードの説明：モード1の打つSQL・ステップ再生のSQLでカーソルを当てると出て、キーを押す・離れると消える。マウスを置いたまま打ち、間違えても勝手にもどらない（動かすと出る）。マウスのクリックでは消えない。モード2で空欄が残っているあいだは出ない。キーボードで語に移ると出る（`tests/e2e/dictionary/keyword-tip.spec.js`）
-- 用語辞典：一覧から開くと16語、初めて出てくる問題からモード選択へ、開いていない問題・出てこない語の表示、Esc、幅375pxでタップすると説明が出てもう一度タップで消える（`dictionary.spec.js`）
+- 用語辞典：一覧から開くと初級16語・中級20語、初めて出てくる問題からモード選択へ、開いていない問題・出てこない語の表示、Esc、幅375pxでタップすると説明が出てもう一度タップで消える（`dictionary.spec.js`）
 - ページを読み込み直しても、クリア状況が残っている
 - 幅375pxの画面では、タイピングを開始できない
 - DBの地図：モード選択から開くと products の箱（列・型・PK・NEW）、押すと先頭20行と全部の行数。幅375pxでも見られる。モード1では光り、モード2では空欄の答えのテーブルは光らない。モード4では書くと光り、消すと消える。地図を開いて箱を押したあとも打てる（`tests/e2e/map/schema-map.spec.js`）

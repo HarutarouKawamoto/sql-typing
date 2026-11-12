@@ -1,0 +1,49 @@
+# 中級5問目：LEFT JOIN と IS NULL。注文のない顧客を探す
+# 形：src/schema/problem-schema.js ／ 書き方：docs/development-guidelines.md の「問題データの書き方」
+# 間違いの JOIN では、注文のない顧客がそもそも残らない（0行になる）
+id: intermediate-05
+chapterId: intermediate
+order: 5
+title: まだ注文のないお客さん
+kind: normal
+story:
+  before:
+    - speaker: eigyo
+      text: 会員登録したのに、まだ一度も注文してない人っている？
+    - speaker: eigyo
+      text: クーポンのメールを送りたいの。
+    - speaker: eigyo
+      text: その人たちの名前を、アルファベット順で教えて。
+    - speaker: senpai
+      text: 普通の JOIN だと、注文のない人は消えちゃうんだよな……。
+    - speaker: player
+      text: 顧客を全部残してつなげば、注文のない人は NULL になります。
+  after:
+    - speaker: eigyo
+      text: 2人ね。さっそくクーポンを送るわ！
+    - speaker: senpai
+      text: NULL を逆に使うのか。うまいな。
+answer: SELECT c.name FROM customers c LEFT JOIN orders o ON o.customer_id = c.id WHERE o.id IS NULL ORDER BY c.name
+display: |-
+  SELECT c.name
+  FROM customers c
+    LEFT JOIN orders o ON o.customer_id = c.id
+  WHERE o.id IS NULL
+  ORDER BY c.name
+blanks:
+  - answer: LEFT JOIN
+    wrong:
+      - text: JOIN
+        why: JOIN は相手のない行を消す。注文のない顧客を残すのは LEFT JOIN。
+  - answer: IS NULL
+    wrong:
+      - text: IS NOT NULL
+        why: IS NOT NULL だと、注文のある顧客が残る。注文がないと o.id は NULL。
+hints:
+  - 使うのは SELECT・FROM・LEFT JOIN・ON・WHERE・ORDER BY と、IS NULL。
+  - 書く順は SELECT → FROM → LEFT JOIN … ON → WHERE → ORDER BY。
+  - SELECT c.??? FROM customers c LEFT JOIN orders o ON o.??? = c.??? WHERE o.??? IS NULL ORDER BY c.???
+judge:
+  ordered: true
+  require: [LEFT JOIN]
+keywords: [SELECT, FROM, LEFT JOIN, 'ON', WHERE, IS NULL, ORDER BY]

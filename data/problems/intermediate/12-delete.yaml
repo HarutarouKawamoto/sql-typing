@@ -1,0 +1,46 @@
+# 中級12問目：DELETE とサブクエリ。取り消した注文の明細を消す（書き換え系。実行したあとの order_items を比べる）
+# 形：src/schema/problem-schema.js ／ 書き方：docs/development-guidelines.md の「問題データの書き方」
+# 取り消しの注文は2件（5と12）で、明細も2行。間違いの NOT IN では、残す明細が消える
+id: intermediate-12
+chapterId: intermediate
+order: 12
+title: 取り消した注文の片付け
+kind: normal
+story:
+  before:
+    - speaker: senpai
+      text: 取り消した注文の明細が残ってて、売上の集計が狂うんだ。
+    - speaker: senpai
+      text: 状態が cancelled の注文の明細を、明細の表から消してくれ。
+    - speaker: senpai
+      text: 注文そのものは記録に残しておきたいから、明細だけな。
+    - speaker: tencho
+      text: 消すのって怖いわね……。間違えないでね。
+    - speaker: player
+      text: 取り消した注文の番号をサブクエリで出して、その明細だけ消します。
+  after:
+    - speaker: senpai
+      text: 消えたのは2行だけ。ほかの明細はそのままだ。
+    - speaker: tencho
+      text: 消す前に、消す行を SELECT で見てから……が大事ね。
+answer: DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE status = 'cancelled')
+display: |-
+  DELETE FROM order_items
+  WHERE order_id IN (SELECT id FROM orders WHERE status = 'cancelled')
+blanks:
+  - answer: IN
+    wrong:
+      - text: NOT IN
+        why: NOT IN だと、取り消していない注文の明細が全部消える。
+  - answer: status = 'cancelled'
+    wrong:
+      - text: status = 'paid'
+        why: paid は支払い済みの注文。消すのは取り消した cancelled。
+hints:
+  - 使うのは DELETE FROM・WHERE と、IN の中のサブクエリ。
+  - 書く順は DELETE FROM テーブル → WHERE 列 IN (SELECT …)。
+  - DELETE FROM ??? WHERE order_id IN (SELECT ??? FROM ??? WHERE status = '???')
+judge:
+  ordered: false
+  compareTable: order_items
+keywords: [DELETE, FROM, WHERE, IN, SELECT]

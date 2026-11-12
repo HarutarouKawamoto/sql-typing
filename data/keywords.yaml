@@ -80,3 +80,104 @@
   meaning: 同じ値の行を1つにまとめる
   example: SELECT DISTINCT category
   level: 1
+# ここから中級
+- word: COUNT
+  english: 数える
+  meaning: 行の数を数える。count(*) は全部の行、count(列) はその列が NULL でない行
+  example: SELECT count(*) FROM products
+  level: 2
+- word: SUM
+  english: 合計
+  meaning: 列の値を足し合わせる
+  example: SELECT sum(stock) FROM products
+  level: 2
+- word: MAX
+  english: 最大（maximum）
+  meaning: 列のいちばん大きい値
+  example: SELECT max(price) FROM products
+  level: 2
+- word: AVG
+  english: 平均（average）
+  meaning: 列の値の平均
+  example: SELECT avg(price) FROM products
+  level: 2
+- word: GROUP BY
+  english: 〜ごとにまとめる
+  meaning: 同じ値の行を1つのグループにまとめ、グループごとに集計する
+  example: GROUP BY category
+  level: 2
+- word: HAVING
+  english: 〜を持っている
+  meaning: 集計したあとのグループを、条件で絞り込む（WHERE は集計の前の行を絞る）
+  example: HAVING count(*) >= 3
+  level: 2
+- word: JOIN
+  english: つなぐ・結合する
+  meaning: 2つのテーブルの行を、ON の条件でつないで1行にする（相手のない行は消える）
+  example: JOIN customers c ON c.id = o.customer_id
+  level: 2
+- word: 'ON'
+  english: 〜の上で・〜について
+  meaning: JOIN で、どの行どうしをつなぐかの条件
+  example: ON c.id = o.customer_id
+  level: 2
+- word: LEFT JOIN
+  english: 左を残してつなぐ
+  meaning: 左のテーブルの行は全部残し、相手のない行は右の列を NULL にする
+  example: customers c LEFT JOIN orders o ON o.customer_id = c.id
+  level: 2
+- word: CASE
+  english: 場合
+  meaning: 条件ごとに違う値を出す。WHEN・THEN・ELSE・END と一緒に使う
+  example: CASE WHEN price >= 5000 THEN 'high' ELSE 'low' END
+  level: 2
+- word: WHEN
+  english: 〜のとき
+  meaning: CASE の中で、条件を書く
+  example: WHEN price >= 5000 THEN 'high'
+  level: 2
+- word: THEN
+  english: そのときは
+  meaning: CASE の中で、WHEN の条件に合ったときの値
+  example: WHEN price >= 5000 THEN 'high'
+  level: 2
+- word: ELSE
+  english: それ以外は
+  meaning: CASE の中で、どの WHEN にも合わなかったときの値
+  example: ELSE 'low'
+  level: 2
+- word: END
+  english: 終わり
+  meaning: CASE の終わり
+  example: CASE WHEN price >= 5000 THEN 'high' ELSE 'low' END
+  level: 2
+- word: TO_CHAR
+  english: 文字に（to character）
+  meaning: 日付や数を、決めた形の文字にする。'YYYY-MM' なら 2026-08 のような年と月
+  example: to_char(ordered_at, 'YYYY-MM')
+  level: 2
+- word: INSERT INTO
+  english: 〜の中に入れる
+  meaning: テーブルに新しい行を足す。列の並びと VALUES の値の並びを合わせる
+  example: INSERT INTO customers (name, region) VALUES ('Kei Mori', 'south')
+  level: 2
+- word: VALUES
+  english: 値
+  meaning: INSERT で足す行の値を、列の並びと同じ順に書く
+  example: VALUES ('Kei Mori', 'south')
+  level: 2
+- word: UPDATE
+  english: 新しくする・更新する
+  meaning: テーブルの行の値を書き換える。WHERE を付けないと全部の行が変わる
+  example: UPDATE products SET price = 0 WHERE id = 3
+  level: 2
+- word: SET
+  english: 決める・置く
+  meaning: UPDATE で、どの列をどの値にするかを書く
+  example: SET price = price * 9 / 10
+  level: 2
+- word: DELETE
+  english: 消す
+  meaning: テーブルの行を消す。WHERE を付けないと全部の行が消える
+  example: DELETE FROM order_items WHERE order_id = 5
+  level: 2

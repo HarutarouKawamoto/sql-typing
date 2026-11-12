@@ -302,11 +302,12 @@ MVPは**初級1章（8問＋ターニングポイント1問）**。この時点�
 
 #### 中級の章
 
-`GROUP BY` / `HAVING` / 集計関数 / `INNER JOIN`・`LEFT JOIN` / サブクエリ / `CASE` / `INSERT`・`UPDATE`・`DELETE`。テーブルに `customers`・`orders` が加わる。
+`GROUP BY` / `HAVING` / 集計関数 / `INNER JOIN`・`LEFT JOIN` / サブクエリ / `CASE` / `INSERT`・`UPDATE`・`DELETE`。テーブルに `customers`・`orders`・`order_items` が加わる。
 
 - 見える化A を中級の句に広げる：`GROUP BY` で同じグループの行が同じ色になって寄る、集計で1グループが1行に縮む、`JOIN` で2つの表の行が線でつながって1行に合体する、`LEFT JOIN` で相手のない行に `NULL` が入る
 - 書き換え系の問題と、`WHERE` を付け忘れた `UPDATE` の事件
 - 中級の内容＋初級の内容を組み合わせた複合問題。ターニングポイントは月次レポート
+- （2026-11-12）中級の初期データ（customers・orders・order_items）、問題12問＋ターニングポイント、用語20語、GROUP BY・HAVING・集計・JOIN のステップ再生を作った
 
 **優先度**: P1(重要)
 
