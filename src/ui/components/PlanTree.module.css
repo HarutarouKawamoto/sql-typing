@@ -1,0 +1,103 @@
+.tree {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.totals,
+.legend {
+  margin: 0;
+}
+
+.legend {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+/* 節が多い木は横に長くなるので、図だけを横にスクロールする（文字を小さくしない） */
+.scroll {
+  overflow-x: auto;
+  padding-bottom: var(--space-2);
+}
+
+.svg {
+  display: block;
+}
+
+.box {
+  fill: var(--color-surface);
+  stroke: var(--color-border);
+  stroke-width: 1.5;
+}
+
+.nodeType {
+  font-family: var(--font-code);
+  font-size: 14px;
+  font-weight: 700;
+  fill: var(--color-text);
+}
+
+.word {
+  font-size: 12px;
+  fill: var(--color-text);
+}
+
+.target {
+  font-family: var(--font-code);
+  font-size: 12px;
+  fill: var(--color-focus-table);
+}
+
+.result {
+  font-size: 12px;
+  fill: var(--color-text-muted);
+}
+
+.edge {
+  fill: none;
+  stroke: var(--color-active);
+  stroke-linecap: butt;
+}
+
+.arrow {
+  fill: var(--color-active);
+}
+
+.edgeLabel {
+  font-size: 12px;
+  fill: var(--color-text-muted);
+}
+
+/* 副問い合わせは、行が流れるのではなく上の節が呼ぶので、点線にして普通の線と分ける */
+.subplan .edge {
+  stroke-dasharray: 6 4;
+}
+
+/*
+ * 実行されなかった節：箱を点線にして薄くする（色の薄さだけに頼らない）。
+ * 文字は薄くしない（「実行されなかった」を読めるように。文字の色は muted でも背景との差は足りる）
+ */
+.idle .box {
+  stroke-dasharray: 6 4;
+  fill: var(--color-bg);
+}
+
+.idle .nodeType,
+.idle .word {
+  fill: var(--color-text-muted);
+}
+
+/* 実行されなかった節から出る線は、線と矢印だけを薄く（行の数の文字は読めるまま） */
+.idleFlow .edge,
+.idleFlow .arrow {
+  opacity: 0.35;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

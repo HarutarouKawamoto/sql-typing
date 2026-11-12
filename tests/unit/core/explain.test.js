@@ -22,6 +22,21 @@ describe('parseExplain', () => {
     expect(planningMs).toBeGreaterThanOrEqual(0);
   });
 
+  it('副問い合わせ（SubPlan）の節には subplan を付ける。外の行が0行なら1回も実行されない（loops 0）', () => {
+    // subplan.json だけは中級の初期データで取った（customers・orders があればよい）
+    const { plan } = parseExplain(fixture('subplan'));
+    expect(plan).toMatchObject({ nodeType: 'Bitmap Heap Scan', subplan: false });
+    const [bitmap, sub] = plan.children;
+    expect(bitmap).toMatchObject({ nodeType: 'Bitmap Index Scan', subplan: false });
+    expect(sub).toMatchObject({ nodeType: 'Aggregate', subplan: true, loops: 0, rows: 0 });
+    expect(sub.children[0]).toMatchObject({
+      nodeType: 'Seq Scan',
+      relation: 'orders',
+      subplan: false,
+      loops: 0,
+    });
+  });
+
   it('解いたもの（配列）も受け取る', () => {
     expect(parseExplain(JSON.parse(fixture('index-scan'))).plan.nodeType).toBe('Index Scan');
   });

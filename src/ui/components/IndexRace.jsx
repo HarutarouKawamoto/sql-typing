@@ -1,23 +1,9 @@
+import { NODE_WORDS, timeText } from '../state/plan-words.js';
 import { useCountUp } from '../state/use-count-up.js';
 import styles from './IndexRace.module.css';
 
 /** カウンターが最後の数になるまでの長さ */
 const COUNT_MS = 1200;
-
-/**
- * かかった時間の文字。ブラウザの PGlite は短い時間を 0 と返すことがあるので、測れないほど短いときはそう書く。
- * @param {number} ms
- */
-const timeText = (ms) => (ms < 0.001 ? '0.001 ms 未満' : `${ms.toFixed(3)} ms`);
-
-/** 読み方の一言 */
-const SCAN_WORDS = {
-  'Seq Scan': '全部の行を、上から順に読む',
-  'Index Scan': '索引で、目的の行だけを探す',
-  'Index Only Scan': '索引だけで答えを出す（テーブルを読まない）',
-  'Bitmap Heap Scan': '索引で場所を集めてから、まとめて読む',
-  'Tid Scan': '行の場所を直接読む',
-};
 
 /**
  * 1つの列（インデックスなし・あり）。
@@ -35,7 +21,7 @@ function Lane({ title, summary, max, testId }) {
           <li key={i}>
             <code className={styles.node}>{scan.nodeType}</code>
             {scan.relation && <span className={styles.muted}>（{scan.relation}）</span>}
-            <span>{SCAN_WORDS[scan.nodeType] ?? ''}</span>
+            <span>{NODE_WORDS[scan.nodeType] ?? ''}</span>
             {scan.index && <span className={styles.muted}>索引：{scan.index}</span>}
           </li>
         ))}

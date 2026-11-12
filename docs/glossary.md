@@ -102,7 +102,8 @@
 | DBの地図 | `SchemaMap` | お店のDBのテーブルとつながりの図（ER図）。今のSQLが触るテーブルを光らせる | 全レベル共通 |
 | 用語辞典 | `Dictionary` / `Keyword` | SQLのキーワードの、英語の意味とSQLでの意味の一覧（`DictionaryScreen`）。キーワードにカーソルを当てる（スマホではタップ）と出る説明（`KeywordTip`、`KeywordTipLayer`）も同じデータを使う | `keywords.yaml`。初めて出てくる問題は問題の `keywords` から作る |
 | インデックス比較 | `indexRace` | 上級：インデックスあり・なしで、読んだ行数と実測時間を左右で比べる（P2） | `EXPLAIN ANALYZE` |
-| 実行計画の木 | `planTree` | 上級：`EXPLAIN` の結果を木の図にし、データの流れを見せる（P2） | |
+| 実行計画の木 | `planTree`（`PlanTree`） | 上級：`EXPLAIN ANALYZE` の結果を木の図にし、データの流れを見せる。葉（テーブルを読む節）が下、結果が上。線の太さは流れる行の数（P2） | `explainQuery`・`layoutPlan` |
+| 節 | `PlanNode` | 実行計画の木の1つの箱（Seq Scan・Hash Join・Sort など）。下の節から行を受け取り、上の節へ返す | 実行されなかった節は loops 0 |
 | トランザクションのタイムライン | `txTimeline` | 上級：2人の同時の注文を2列で並べるシミュレーション（P2） | PGlite は接続が1つ |
 
 ### 作り方（ハーネス）

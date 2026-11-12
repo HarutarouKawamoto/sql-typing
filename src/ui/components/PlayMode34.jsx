@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { isSelectQuery } from '../../core/explain.js';
 import { buildReorderChips } from '../../core/reorder.js';
 import { prefersReducedMotion } from '../state/reduced-motion.js';
 import { useWriteSession } from '../state/use-write-session.js';
@@ -6,6 +7,7 @@ import { escapeAction } from '../state/write-session-machine.js';
 import { HintPanel } from './HintPanel.jsx';
 import { IndexRacePanel } from './IndexRacePanel.jsx';
 import { JudgePanel } from './JudgePanel.jsx';
+import { PlanTreePanel } from './PlanTreePanel.jsx';
 import { ReorderIntro } from './ReorderIntro.jsx';
 import { SchemaMapPanel } from './SchemaMapPanel.jsx';
 import { ResultTable } from './ResultTable.jsx';
@@ -219,6 +221,16 @@ export function PlayMode34({
             query={problem.visual.query}
             changeSql={last.sql}
           />
+        )}
+
+      {/* 上級の見える化：書いた SELECT（問題に query があればそれ）の実行計画の木。エラーと SELECT 以外は出さない */}
+      {problem.visual?.kind === 'plan' &&
+        last !== null &&
+        !busy &&
+        last.result.status !== 'error' &&
+        last.result.status !== 'timeout' &&
+        isSelectQuery(problem.visual.query ?? last.sql) && (
+          <PlanTreePanel key={last.run} runner={runner} query={problem.visual.query ?? last.sql} />
         )}
 
       {showReplay ? (

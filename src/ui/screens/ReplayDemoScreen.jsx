@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { loadSeed } from '../../data/seed-loader.js';
 import { runDbJob } from '../state/db-jobs.js';
 import { IndexRacePanel } from '../components/IndexRacePanel.jsx';
+import { PlanTreePanel } from '../components/PlanTreePanel.jsx';
 import { StepPlayer } from '../components/StepPlayer.jsx';
 import styles from './ReplayDemoScreen.module.css';
 
@@ -64,6 +65,21 @@ export const DEMO_SAMPLES = [
     kind: 'index',
     query: "SELECT * FROM access_logs WHERE session_id = 's-31337'",
     changeSql: 'CREATE INDEX ON access_logs (session_id)',
+  },
+  {
+    title: '上級：実行計画の木（JOIN と集計）',
+    kind: 'plan',
+    query:
+      'SELECT c.region, count(*) AS visits FROM access_logs l ' +
+      'JOIN customers c ON c.id = l.customer_id GROUP BY c.region ORDER BY visits DESC',
+  },
+  {
+    // 外の行が0行なので、行ごとに動く副問い合わせは1回も実行されない（薄く描く節の見本）
+    title: '上級：実行計画の木（実行されなかった節）',
+    kind: 'plan',
+    query:
+      'SELECT c.name, (SELECT count(*) FROM orders o WHERE o.customer_id = c.id) AS orders ' +
+      'FROM customers c WHERE c.id < 0',
   },
 ];
 
@@ -129,6 +145,8 @@ export function ReplayDemoScreen({ runner, speed, onExit }) {
             query={sample.query}
             changeSql={sample.changeSql}
           />
+        ) : sample.kind === 'plan' ? (
+          <PlanTreePanel key={sample.title} runner={runner} query={sample.query} />
         ) : (
           <StepPlayer key={sample.sql} sql={sample.sql} runner={runner} speed={speed} />
         ))}

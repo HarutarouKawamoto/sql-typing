@@ -17,7 +17,7 @@ import { splitSelectList } from '../../src/core/stepper/select-list.js';
 import { buildTarget, untypableSlots } from '../../src/core/typing-engine.js';
 import { locateBlanks } from '../../src/core/blank-typing.js';
 import { buildSteps } from '../../src/core/stepper/index.js';
-import { compareChange } from '../../src/core/explain.js';
+import { compareChange, explainQuery } from '../../src/core/explain.js';
 
 /**
  * 問題ごとに、章の初期データ＋extraSql の状態にしてから fn を呼ぶ（章・初期データがない問題は飛ばす。別の検証で報告する）
@@ -360,17 +360,28 @@ export async function checkStepsBuild(args) {
 }
 
 /**
- * 上級の見える化（visual.kind が index）の問題で、正解SQLを「変えるSQL」として比べたとき、
- * 比べる問い合わせの読む行が減るか（インデックスを作る問題なのに、比較で何も変わらないと見える化の意味がない）。
+ * 上級の見える化がある問題を確かめる。
+ * - index：正解SQLを「変えるSQL」として比べたとき、比べる問い合わせの読む行が減るか（インデックスを作る問題なのに、比較で何も変わらないと見える化の意味がない）
+ * - plan：正解SQL（query があればそれ）の実行計画の木を作れるか
  * @param {Parameters<typeof checkAnswersRun>[0]} args
  * @returns {Promise<string[]>}
  */
 export async function checkVisuals(args) {
-  const targets = args.entries.filter(({ problem }) => problem.visual?.kind === 'index');
+  const targets = args.entries.filter(({ problem }) => problem.visual?.kind !== undefined);
   return forEachPrepared({ ...args, entries: targets }, async ({ file, problem }) => {
+    const visual = /** @type {NonNullable<typeof problem.visual>} */ (problem.visual);
+    if (visual.kind === 'plan') {
+      // 書く画面は、書いた SQL（query があればそれ）の木を出す。正解SQLで木が出せないと、正解しても何も出ない
+      const result = await explainQuery({
+        runner: args.runner,
+        query: visual.query ?? problem.answer,
+      });
+      return result.ok ? [] : [`${file}: 実行計画の木を作れません（${result.message}）`];
+    }
+    if (visual.kind !== 'index') return [];
     const result = await compareChange({
       runner: args.runner,
-      query: /** @type {string} */ (problem.visual?.query),
+      query: /** @type {string} */ (visual.query),
       changeSql: problem.answer,
     });
     if (!result.ok) {
