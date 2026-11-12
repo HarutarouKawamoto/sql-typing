@@ -1,0 +1,163 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.heading {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.lead {
+  margin: 0;
+}
+
+.scenarios,
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.selected {
+  outline: 2px solid var(--color-focus-table);
+  outline-offset: 1px;
+}
+
+.db {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.db div {
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+}
+
+.db dt {
+  color: var(--color-text-muted);
+}
+
+.db dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+/* 左に時間の番号、真ん中に A、右に B。同じ行には片方だけが入る */
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.head,
+.row {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-2);
+  align-items: start;
+}
+
+.head {
+  font-weight: 700;
+}
+
+.empty {
+  margin: 0;
+  padding-left: calc(2rem + var(--space-2));
+  color: var(--color-text-muted);
+}
+
+.time {
+  color: var(--color-text-muted);
+  text-align: right;
+  padding-top: var(--space-1);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border);
+  border-left-width: 4px;
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.wait {
+  border-color: var(--color-active);
+}
+
+.commit {
+  border-color: var(--color-correct);
+}
+
+.rollback {
+  border-color: var(--color-pending);
+}
+
+.sql {
+  font-family: var(--font-code);
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.note {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+}
+
+.next {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-2);
+  padding-left: calc(2rem + var(--space-2));
+}
+
+.nextSide {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  align-items: flex-start;
+}
+
+.outcome {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-left: 4px solid;
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.bad {
+  color: var(--color-miss);
+}
+
+.oversold {
+  border-color: var(--color-miss);
+}
+
+.safe {
+  border-color: var(--color-correct);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

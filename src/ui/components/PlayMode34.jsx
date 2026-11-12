@@ -14,6 +14,7 @@ import { ResultTable } from './ResultTable.jsx';
 import { SqlEditor } from './SqlEditor.jsx';
 import { StoryLines } from './StoryLines.jsx';
 import { StepPlayer } from './StepPlayer.jsx';
+import { TxTimeline } from './TxTimeline.jsx';
 import { WriteResult } from './WriteResult.jsx';
 import styles from './PlayMode34.module.css';
 
@@ -232,6 +233,10 @@ export function PlayMode34({
         isSelectQuery(problem.visual.query ?? last.sql) && (
           <PlanTreePanel key={last.run} runner={runner} query={problem.visual.query ?? last.sql} />
         )}
+
+      {/* 上級の見える化：2人の同時の注文のシミュレーション。DB も書いたSQLも使わないので、1回実行したあとは
+          判定中・エラーのときも出したままにする（実行し直しても、進めた順を消さない） */}
+      {problem.visual?.kind === 'transaction' && last !== null && <TxTimeline />}
 
       {showReplay ? (
         <section className={styles.results} aria-label="ステップ再生">
