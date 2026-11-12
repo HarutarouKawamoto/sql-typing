@@ -13,7 +13,8 @@ async function openSample(page, title, speed = 0.05) {
     timeout: 30_000,
   });
   await page.getByRole('button', { name: title }).click();
-  await expect(page.getByTestId('step-title')).toContainText('段階 1/');
+  // 見出しは DB の準備より先に出る。上級の初期データ（5万行）の準備は、E2E を並べて流すと5秒を超える
+  await expect(page.getByTestId('step-title')).toContainText('段階 1/', { timeout: 30_000 });
 }
 
 const marks = (page, mark) => page.locator(`[data-mark="${mark}"]`);

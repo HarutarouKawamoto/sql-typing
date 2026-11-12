@@ -262,10 +262,14 @@ data/
     │   ├── 02-select-columns.yaml
     │   ├── …（03〜08）
     │   └── 09-turning-point.yaml   # ターニングポイント（kind: turningPoint）
-    └── intermediate/
-        ├── 01-count-sum.yaml
-        ├── …（02〜12。集計・JOIN・サブクエリ・CASE・INSERT・UPDATE・DELETE）
-        └── 13-turning-point.yaml   # 月次レポート
+    ├── intermediate/
+    │   ├── 01-count-sum.yaml
+    │   ├── …（02〜12。集計・JOIN・サブクエリ・CASE・INSERT・UPDATE・DELETE）
+    │   └── 13-turning-point.yaml   # 月次レポート
+    └── advanced/
+        ├── 01-join-four.yaml
+        ├── …（02〜11。自己結合・WITH・ウィンドウ関数・実行計画・CREATE INDEX・CREATE TABLE・FOR UPDATE）
+        └── 12-turning-point.yaml   # セール当日の二重注文
 ```
 
 ### tests/（テストディレクトリ）
@@ -371,7 +375,8 @@ tests/e2e/
 ├── progression/
 │   ├── home-story.spec.js     # 一覧・モード選択・依頼の会話・クリア後の会話・星
 │   ├── turning-point.spec.js  # ターニングポイントが開く・印・説明・11行の会話・クリア後・モード4で中級が開く
-│   └── intermediate.spec.js   # 中級の一覧・UPDATE の問題・中級の DBの地図
+│   ├── intermediate.spec.js   # 中級の一覧・UPDATE の問題・中級の DBの地図
+│   └── advanced.spec.js       # 上級の一覧・インデックス・実行計画・テーブルを作る問題・ターニングポイントとタイムライン
 ├── settings/
 │   └── settings.spec.js       # 設定の画面（速さ・見える化B の on/off・学習記録を消す）
 ├── dictionary/
@@ -383,7 +388,7 @@ tests/e2e/
 │   └── narrow-screen.spec.js  # 幅375pxでは遊べず、会話は読める
 └── helpers/
     ├── open-play.js           # 一覧から1問目のモードを選び、会話を飛ばして遊ぶ画面を開く
-    └── seed-progress.js       # 学習記録を localStorage に入れてから開く（何問もクリアした状態・設定を変えた状態から始める。中級の n 問目までは `intermediateUpTo`）
+    └── seed-progress.js       # 学習記録を localStorage に入れてから開く（何問もクリアした状態・設定を変えた状態から始める。中級の n 問目までは `intermediateUpTo`、上級は `advancedUpTo`）
 ```
 
 **命名規則**: `<シナリオ>.spec.js`（Vitest のテストと見分けるため `.spec.js` にする）

@@ -1,0 +1,56 @@
+# 上級9問目：CREATE TABLE と制約（主キー・NOT NULL・CHECK）
+# 形：src/schema/problem-schema.js ／ 書き方：docs/development-guidelines.md の「問題データの書き方」
+# 作ったテーブルは空なので、compareQuery でカタログから列（名前・型・NOT NULL）と制約（主キー・CHECK）を読んで比べる
+# to_regclass を使い、テーブルがないときもエラーにせず0行（不正解）にする
+# CHECK は式の形（pg_get_constraintdef）で比べるので、意味が同じでも形の違う書き方（discount > 0 AND …、
+# 2つの CHECK に分ける）は不正解になる。そのため会話で BETWEEN 1 AND 50 と形まで決める（>= 1 AND <= 50 は同じ形になる）
+id: advanced-09
+chapterId: advanced
+order: 9
+title: クーポンの表を作る
+kind: normal
+story:
+  before:
+    - speaker: eigyo
+      text: セールでクーポンを配るの。クーポンの表を作って！
+    - speaker: eigyo
+      text: 表の名前は coupons。列は3つよ。
+    - speaker: eigyo
+      text: code は文字（TEXT）で主キー。同じコードは2つ作らない。
+    - speaker: eigyo
+      text: discount は割引の%で整数（INTEGER）。空っぽは困るわ。
+    - speaker: eigyo
+      text: expires_on は期限の日付（DATE）。これも空っぽは困る。
+    - speaker: senpai
+      text: 割引は CHECK で BETWEEN 1 AND 50 と決めておけ。
+    - speaker: player
+      text: 主キー・NOT NULL・CHECK で、決まりも表に書き込みます。
+  after:
+    - speaker: eigyo
+      text: 割引 90% のクーポンは、表が受け付けないのね！
+    - speaker: senpai
+      text: 決まりを表に書いておけば、間違ったデータは入らない。
+answer: CREATE TABLE coupons ( code TEXT PRIMARY KEY, discount INTEGER NOT NULL CHECK (discount BETWEEN 1 AND 50), expires_on DATE NOT NULL )
+display: |-
+  CREATE TABLE coupons (
+    code TEXT PRIMARY KEY,
+    discount INTEGER NOT NULL CHECK (discount BETWEEN 1 AND 50),
+    expires_on DATE NOT NULL
+  )
+blanks:
+  - answer: PRIMARY KEY
+    wrong:
+      - text: UNIQUE
+        why: UNIQUE は同じ値を止めるが、NULL は入る。行を1つに決める主キーは PRIMARY KEY。
+  - answer: BETWEEN 1 AND 50
+    wrong:
+      - text: BETWEEN 0 AND 50
+        why: 0 を入れると、割引 0% のクーポンが作れてしまう。決まりは1から50。
+hints:
+  - 使うのは CREATE TABLE と、列ごとの型（TEXT・INTEGER・DATE）・PRIMARY KEY・NOT NULL・CHECK。
+  - 書く順は CREATE TABLE 名前 ( 列名 型 制約, … )。列の間はカンマで区切る。
+  - CREATE TABLE coupons (code TEXT ???, discount INTEGER NOT NULL CHECK (discount BETWEEN ??? AND ???), expires_on DATE ???)
+judge:
+  ordered: false
+  compareQuery: "SELECT a.attname AS item, format_type(a.atttypid, a.atttypmod) AS detail, a.attnotnull AS not_null FROM pg_attribute a WHERE a.attrelid = to_regclass('coupons') AND a.attnum > 0 AND NOT a.attisdropped UNION ALL SELECT c.contype::text, pg_get_constraintdef(c.oid), NULL FROM pg_constraint c WHERE c.conrelid = to_regclass('coupons') AND c.contype IN ('p', 'c')"
+keywords: [CREATE TABLE, PRIMARY KEY, NOT NULL, CHECK, BETWEEN]

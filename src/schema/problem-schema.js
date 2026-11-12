@@ -56,10 +56,19 @@ export const JudgeRuleSchema = z
     require: z.array(z.string().min(1)).default([]),
     forbid: z.array(z.string().min(1)).default([]),
     compareTable: z.string().min(1).optional(),
+    // 実行したあとに流して結果を比べる SELECT（インデックス・テーブルを作る問題。中身では比べられないので、
+    // カタログから作ったものを読む）。読むだけにするため SELECT に限る
+    compareQuery: sqlText()
+      .refine((sql) => /^\s*SELECT\b/i.test(sql), 'compareQuery は SELECT で始める')
+      .optional(),
     // 書き換え系で比べない列（SERIAL の id など、正しい書き方でも値が変わる列）
     ignoreColumns: z.array(z.string().min(1)).optional(),
   })
-  .strict();
+  .strict()
+  .refine((rule) => !(rule.compareTable && rule.compareQuery), {
+    message: 'compareTable と compareQuery はどちらか1つ',
+    path: ['compareQuery'],
+  });
 
 export const PROBLEM_KINDS = /** @type {const} */ (['normal', 'composite', 'turningPoint']);
 

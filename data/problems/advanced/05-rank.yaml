@@ -1,0 +1,50 @@
+# 上級5問目：ウィンドウ関数 RANK() OVER (PARTITION BY …)（行をまとめずに、グループの中で順位を付ける）
+# 形：src/schema/problem-schema.js ／ 書き方：docs/development-guidelines.md の「問題データの書き方」
+# 値段はすべて違う（beginner.sql の決まり）ので、同じ順位は出ず、並びが1つに決まる
+id: advanced-05
+chapterId: advanced
+order: 5
+title: カテゴリの中での値段の順位
+kind: normal
+story:
+  before:
+    - speaker: tencho
+      text: セールの目玉は、各カテゴリで一番高い品にするわ。
+    - speaker: tencho
+      text: カテゴリの中で、値段の高い順に順位を付けて。
+    - speaker: senpai
+      text: GROUP BY だと1カテゴリ1行になる。全部の品を残すなら OVER だ。
+    - speaker: eigyo
+      text: 列は category・name・price・price_rank でお願い。
+    - speaker: eigyo
+      text: カテゴリのアルファベット順、その中は順位の順で。
+    - speaker: player
+      text: RANK を、カテゴリごとに分けて付けます。
+  after:
+    - speaker: tencho
+      text: 30品全部に、カテゴリの中の順位が付いた！
+    - speaker: senpai
+      text: 行をまとめずに集計できる……ウィンドウ関数、便利だな。
+answer: SELECT category, name, price, rank() OVER (PARTITION BY category ORDER BY price DESC) AS price_rank FROM products ORDER BY category, price_rank
+display: |-
+  SELECT category, name, price,
+    rank() OVER (PARTITION BY category
+      ORDER BY price DESC) AS price_rank
+  FROM products
+  ORDER BY category, price_rank
+blanks:
+  - answer: PARTITION BY category
+    wrong:
+      - text: PARTITION BY supplier
+        why: supplier で分けると、仕入れ先の中での順位になる。分けるのはカテゴリ。
+  - answer: price DESC
+    wrong:
+      - text: price ASC
+        why: ASC は安い順。高い品が1位になるのは DESC。
+hints:
+  - 使うのは SELECT・FROM・ORDER BY と、rank() OVER (PARTITION BY … ORDER BY …)。
+  - rank() OVER の () の中は、PARTITION BY（分ける列）→ ORDER BY（順位を付ける順）。
+  - SELECT category, name, price, rank() OVER (PARTITION BY ??? ORDER BY ??? DESC) AS price_rank FROM products ORDER BY ???, ???
+judge:
+  ordered: true
+keywords: [SELECT, RANK, OVER, PARTITION BY, ORDER BY, DESC, AS, FROM]

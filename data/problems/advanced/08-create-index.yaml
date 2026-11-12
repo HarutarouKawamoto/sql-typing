@@ -1,0 +1,45 @@
+# 上級8問目：CREATE INDEX（セッションの番号で1行を探す問い合わせを速くする）
+# 形：src/schema/problem-schema.js ／ 書き方：docs/development-guidelines.md の「問題データの書き方」
+# インデックスはテーブルの中身を変えないので、compareQuery でカタログからインデックスの列を読んで比べる
+# （インデックスの名前は人によって違うので読まない。WHERE 付きの部分インデックスは一部の行にしか効かないので数えない）
+id: advanced-08
+chapterId: advanced
+order: 8
+title: セッションの検索を速く
+kind: normal
+story:
+  before:
+    - speaker: senpai
+      text: 原因がわかった。お問い合わせの画面だ。
+    - speaker: senpai
+      text: セッションの番号で、ログを1行探す。それが毎回5万行読んでる。
+    - speaker: eigyo
+      text: お客さんが問い合わせるたびに、5万行……。
+    - speaker: senpai
+      text: session_id に索引を作れ。本の後ろの索引と同じだ。
+    - speaker: player
+      text: access_logs の session_id に、インデックスを作ります。
+  after:
+    - speaker: eigyo
+      text: 5万行が1行に！ 問い合わせの画面、一瞬で開くわ。
+    - speaker: senpai
+      text: 索引があれば、全部めくらずに目的のページへ飛べる。
+answer: CREATE INDEX ON access_logs (session_id)
+blanks:
+  - answer: session_id
+    wrong:
+      - text: customer_id
+        why: 探しているのはセッションの番号。customer_id の索引では、session_id で探しても速くならない。
+      - text: path
+        why: path はページの場所。索引は、探すときに使う列（session_id）に作る。
+hints:
+  - 使うのは CREATE INDEX・ON。
+  - 書く順は CREATE INDEX → ON テーブル名 → (列名)。
+  - CREATE INDEX ON ??? (???)
+judge:
+  ordered: false
+  compareQuery: "SELECT t.relname AS table_name, a.attname AS column_name FROM pg_index x JOIN pg_class t ON t.oid = x.indrelid JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY (x.indkey) WHERE t.relname = 'access_logs' AND NOT x.indisprimary AND x.indpred IS NULL"
+visual:
+  kind: index
+  query: "SELECT * FROM access_logs WHERE session_id = 's-31337'"
+keywords: [CREATE INDEX, 'ON']

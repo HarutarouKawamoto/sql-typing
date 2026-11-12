@@ -34,6 +34,16 @@ export function txTimelineReducer(state, action) {
 }
 
 /**
+ * 見本の順で進めるボタンの文。1文で確かめて減らす場面には在庫を読む手順がないので、言い方を変える。
+ * @param {TxScenarioId} scenarioId
+ */
+export function readFirstLabel(scenarioId) {
+  return scenarioId === 'atomic'
+    ? '両方がほぼ同時に UPDATE する順で、最初から最後まで進める'
+    : '両方が先に在庫を読む順で、最初から最後まで進める';
+}
+
+/**
  * 両方が終わったときの結果の文。終わっていなければ null。
  * @param {TxState} state
  */
@@ -53,7 +63,14 @@ export function outcomeText(state) {
   if (state.scenarioId === 'unsafe') {
     return `今回は売りすぎになりませんでした：${result}片方が COMMIT してから、もう片方が在庫を読んだからです。順番がよかっただけで、両方が先に読めば売りすぎになります。`;
   }
-  const waited = state.events.some((e) => e.kind === 'wait' && e.step === 'read');
+  const waited = state.events.some((e) => e.kind === 'wait');
+  if (state.scenarioId === 'atomic') {
+    return `守れた：${result}${
+      waited
+        ? 'UPDATE の WHERE で在庫が残っているかを確かめたので、後から来た方は相手の COMMIT まで待ち、確定した在庫 0 で確かめ直して、1行も変えませんでした。'
+        : '今回は待ちませんでしたが、同時でも UPDATE の WHERE の確かめ直しで、後から来た方は1行も変えません。'
+    }`;
+  }
   return `守れた：${result}${
     waited
       ? 'FOR UPDATE の鍵で、後から読んだ方は相手の COMMIT まで待ち、確定した在庫を見たからです。'

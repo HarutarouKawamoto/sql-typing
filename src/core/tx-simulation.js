@@ -7,7 +7,7 @@
 
 /**
  * @typedef {'A' | 'B'} TxSide
- * @typedef {'unsafe' | 'locked'} TxScenarioId
+ * @typedef {'unsafe' | 'locked' | 'atomic'} TxScenarioId
  * @typedef {'begin' | 'read' | 'update' | 'insert' | 'commit' | 'rollback'} TxStepKind
  * @typedef {{ kind: TxStepKind, sql: string }} TxStep
  * @typedef {{
@@ -40,7 +40,8 @@
  *   stock・orders：DB に確定した値（COMMIT されたものだけ）
  */
 
-const PRODUCT_ID = 4;
+/** 初期データで在庫1個の品（Shoulder Bag Leather） */
+const PRODUCT_ID = 28;
 const CUSTOMER_IDS = { A: 1, B: 2 };
 
 export const TX_SCENARIOS = Object.freeze({
@@ -53,6 +54,12 @@ export const TX_SCENARIOS = Object.freeze({
     id: 'locked',
     title: '鍵あり（SELECT ... FOR UPDATE）',
     lock: true,
+  }),
+  // 在庫を読まずに、UPDATE の WHERE で「残っているか」を確かめる（確かめと減らすことを1文にする）
+  atomic: Object.freeze({
+    id: 'atomic',
+    title: '1文で確かめて減らす（UPDATE ... AND stock > 0）',
+    lock: false,
   }),
 });
 
@@ -71,10 +78,22 @@ const other = (side) => (side === 'A' ? 'B' : 'A');
  */
 function stepsOf(scenarioId, side) {
   const lock = TX_SCENARIOS[scenarioId].lock ? ' FOR UPDATE' : '';
+  /** @type {TxStep[]} */
+  const check =
+    scenarioId === 'atomic'
+      ? [
+          {
+            kind: 'update',
+            sql: `UPDATE products SET stock = stock - 1 WHERE id = ${PRODUCT_ID} AND stock > 0`,
+          },
+        ]
+      : [
+          { kind: 'read', sql: `SELECT stock FROM products WHERE id = ${PRODUCT_ID}${lock}` },
+          { kind: 'update', sql: `UPDATE products SET stock = stock - 1 WHERE id = ${PRODUCT_ID}` },
+        ];
   return [
     { kind: 'begin', sql: 'BEGIN' },
-    { kind: 'read', sql: `SELECT stock FROM products WHERE id = ${PRODUCT_ID}${lock}` },
-    { kind: 'update', sql: `UPDATE products SET stock = stock - 1 WHERE id = ${PRODUCT_ID}` },
+    ...check,
     {
       kind: 'insert',
       sql: `INSERT INTO orders (customer_id, ordered_at, status) VALUES (${CUSTOMER_IDS[side]}, now(), 'paid')`,
@@ -218,14 +237,23 @@ function run(state, side, step, kind, prefix = '') {
     }
     case 'update': {
       if (waitForLock(state, side, step)) return;
-      // 待ったあとの UPDATE は、相手が確定した最新の行で stock - 1 を計算し直す（PostgreSQL と同じ）
+      // 待ったあとの UPDATE は、相手が確定した最新の行で WHERE と stock - 1 を計算し直す（PostgreSQL と同じ）
       const base = s.ownStock ?? state.stock;
+      const resumed = kind === 'resume';
+      if (state.scenarioId === 'atomic' && base < 1) {
+        // 変えた行がないので、行の鍵は残らない（PostgreSQL は書き換えた行にだけ鍵を持ち続ける）
+        if (state.lockOwner === side) state.lockOwner = null;
+        s.pc += 1;
+        s.abort = true;
+        log(
+          `${resumed ? '確定した最新の在庫で確かめ直した：' : ''}在庫 ${base} なので条件に合わず、1行も変わらなかった → 注文をやめる`,
+        );
+        return;
+      }
       s.ownStock = base - 1;
       s.pc += 1;
       log(
-        kind === 'resume'
-          ? `確定した最新の在庫 ${base} から1減らして、在庫を ${s.ownStock} にした（COMMIT まで自分にだけ見える）`
-          : `在庫を ${s.ownStock} にした（COMMIT まで自分にだけ見える）`,
+        `${resumed ? `確定した最新の在庫 ${base} から1減らして、` : ''}在庫を ${s.ownStock} にした（COMMIT まで自分にだけ見える）`,
       );
       return;
     }

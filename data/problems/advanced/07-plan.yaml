@@ -1,0 +1,50 @@
+# 上級7問目：実行計画を見る（5万行のアクセスログを全部読んでいることを、実行計画の木で見る）
+# 形：src/schema/problem-schema.js ／ 書き方：docs/development-guidelines.md の「問題データの書き方」
+# 地域ごとのアクセス数は east・north が 15000、south・west が 10000 で同じなので、2つ目の並びに地域名を入れる
+id: advanced-07
+chapterId: advanced
+order: 7
+title: サイトはなぜ重い？
+kind: normal
+story:
+  before:
+    - speaker: eigyo
+      text: セール前の夜なのに、サイトがもう重いって苦情が！
+    - speaker: senpai
+      text: まずはアクセスログだ。access_logs に5万行ある。
+    - speaker: senpai
+      text: 地域ごとのアクセス数を出して、DB がどう読むか見てみろ。
+    - speaker: eigyo
+      text: 列は region と visits。多い順、同じなら地域名の順で。
+    - speaker: player
+      text: アクセスログとお客さんをつないで、地域ごとに数えます。
+  after:
+    - speaker: senpai
+      text: 実行計画の木を見ろ。一番下で5万行を全部読んでる。
+    - speaker: eigyo
+      text: 何か探すたびに5万行……。そりゃ重いわけね。
+answer: SELECT c.region, count(*) AS visits FROM access_logs l JOIN customers c ON c.id = l.customer_id GROUP BY c.region ORDER BY visits DESC, c.region
+display: |-
+  SELECT c.region, count(*) AS visits
+  FROM access_logs l
+    JOIN customers c ON c.id = l.customer_id
+  GROUP BY c.region
+  ORDER BY visits DESC, c.region
+blanks:
+  - answer: c.id = l.customer_id
+    wrong:
+      - text: c.id = l.id
+        why: l.id はログの行の番号。お客さんとつなぐのは customer_id。
+  - answer: visits DESC, c.region
+    wrong:
+      - text: visits, c.region
+        why: DESC がないと、少ない順になる。多い順は DESC。
+hints:
+  - 使うのは SELECT・FROM・JOIN … ON・GROUP BY・ORDER BY と、count。
+  - 書く順は SELECT → FROM access_logs → JOIN customers ON → GROUP BY → ORDER BY。
+  - SELECT c.region, count(*) AS visits FROM access_logs l JOIN customers c ON c.id = l.??? GROUP BY ??? ORDER BY ??? DESC, ???
+judge:
+  ordered: true
+visual:
+  kind: plan
+keywords: [SELECT, COUNT, AS, FROM, JOIN, 'ON', GROUP BY, ORDER BY, DESC]

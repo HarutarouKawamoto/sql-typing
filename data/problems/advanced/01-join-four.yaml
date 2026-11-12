@@ -1,0 +1,55 @@
+# 上級1問目：4つのテーブルをつなぐ（注文・お客さん・明細・商品）
+# 形：src/schema/problem-schema.js ／ 書き方：docs/development-guidelines.md の「問題データの書き方」
+id: advanced-01
+chapterId: advanced
+order: 1
+title: 支払い済みの注文の中身
+kind: normal
+story:
+  before:
+    - speaker: tencho
+      text: 明日はいよいよ年に1度の大セール！
+    - speaker: tencho
+      text: その前に、支払い済みの注文を全部箱に詰めたいの。
+    - speaker: senpai
+      text: 箱詰めの紙には、注文番号・お客さんの名前・商品名・数量だ。
+    - speaker: senpai
+      text: 商品名の列は item にしてくれ。名前の列が2つになるからな。
+    - speaker: eigyo
+      text: 注文番号の順、同じ注文の中は商品名のアルファベット順でね。
+    - speaker: player
+      text: 注文・お客さん・明細・商品、4つのテーブルをつなぎます。
+  after:
+    - speaker: tencho
+      text: 7つの注文の中身が、1枚にそろった！
+    - speaker: senpai
+      text: 4つのテーブルを一度に……。もう上級だな。
+answer: SELECT o.id, c.name, p.name AS item, i.quantity FROM orders o JOIN customers c ON c.id = o.customer_id JOIN order_items i ON i.order_id = o.id JOIN products p ON p.id = i.product_id WHERE o.status = 'paid' ORDER BY o.id, item
+display: |-
+  SELECT o.id, c.name, p.name AS item, i.quantity
+  FROM orders o
+    JOIN customers c ON c.id = o.customer_id
+    JOIN order_items i ON i.order_id = o.id
+    JOIN products p ON p.id = i.product_id
+  WHERE o.status = 'paid'
+  ORDER BY o.id, item
+blanks:
+  - answer: p.id = i.product_id
+    wrong:
+      - text: p.id = i.order_id
+        why: order_id は注文の番号。商品とつなぐのは、明細の product_id。
+  - answer: o.status = 'paid'
+    wrong:
+      - text: o.status <> 'paid'
+        why: <> は「paid 以外」。発送済み・取り消しの注文が残ってしまう。
+  - answer: o.id, item
+    wrong:
+      - text: item, o.id
+        why: 先に書いた列で先に並ぶ。商品名の順になり、注文がばらばらになる。
+hints:
+  - 使うのは SELECT・FROM・JOIN … ON（3回）・WHERE・ORDER BY。
+  - 書く順は SELECT → FROM → JOIN … ON を3つ → WHERE → ORDER BY。つなぐたびに、ON でどの列どうしが同じかを書く。
+  - SELECT o.id, c.name, p.name AS item, i.quantity FROM orders o JOIN customers c ON c.id = o.??? JOIN order_items i ON i.??? = o.id JOIN products p ON p.id = i.??? WHERE o.status = '???' ORDER BY ???, ???
+judge:
+  ordered: true
+keywords: [SELECT, AS, FROM, JOIN, 'ON', WHERE, ORDER BY]

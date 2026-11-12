@@ -93,6 +93,38 @@ describe('tx-simulation：鍵あり（SELECT ... FOR UPDATE）', () => {
   });
 });
 
+describe('tx-simulation：1文で確かめて減らす（UPDATE ... AND stock > 0）', () => {
+  it('在庫を読む手順がなく、UPDATE の WHERE で在庫を確かめる。場面の商品は初期データで在庫1個の id 28', () => {
+    const state = stepTx(startTx('atomic'), 'A');
+    expect(nextStep(state, 'A')?.sql).toBe(
+      'UPDATE products SET stock = stock - 1 WHERE id = 28 AND stock > 0',
+    );
+  });
+
+  it('後から来た UPDATE は待ち、相手の COMMIT のあと確定した在庫 0 で確かめ直して、1行も変えずにやめる', () => {
+    const end = autoRun(startTx('atomic'), READ_FIRST_ORDER);
+    expect(txOutcome(end)).toEqual({ kind: 'safe', stock: 0, orders: 1 });
+    const resumed = end.events.find((e) => e.side === 'B' && e.kind === 'resume');
+    expect(resumed).toMatchObject({ step: 'update' });
+    expect(resumed?.note).toMatch(/在庫 0 なので条件に合わず、1行も変わらなかった/);
+    expect(end.sides.B.ended).toBe('rollback');
+  });
+
+  it('1行も変えなかった UPDATE は、行の鍵を持ったままにしない（変えた行がないので）', () => {
+    let state = startTx('atomic');
+    for (let i = 0; i < 4; i += 1) state = stepTx(state, 'A'); // A は COMMIT まで
+    state = stepTx(stepTx(state, 'B'), 'B'); // B：BEGIN・UPDATE（在庫 0 で1行も変わらない）
+    expect(state.events.at(-1)?.note).toMatch(/1行も変わらなかった/);
+    expect(state.lockOwner).toBeNull();
+  });
+
+  it('どの順で進めても、在庫は 0 で注文は1つ', () => {
+    for (const end of allEndings(startTx('atomic'))) {
+      expect(txOutcome(end)).toEqual({ kind: 'safe', stock: 0, orders: 1 });
+    }
+  });
+});
+
 describe('tx-simulation：進め方', () => {
   it('stepTx は元の状態を変えない', () => {
     const start = startTx('unsafe');
@@ -125,7 +157,7 @@ describe('tx-simulation：進め方', () => {
   });
 
   it('2つの場面に名前と、A・B の名前がある。知らない場面は例外', () => {
-    expect(Object.keys(TX_SCENARIOS)).toEqual(['unsafe', 'locked']);
+    expect(Object.keys(TX_SCENARIOS)).toEqual(['unsafe', 'locked', 'atomic']);
     expect(() => startTx(/** @type {any} */ ('nothing'))).toThrow();
   });
 

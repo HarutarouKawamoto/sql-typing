@@ -1,0 +1,75 @@
+# 上級のターニングポイント：セール当日の二重注文（在庫が足りるときだけ引く。確かめと引くことを1文にする）
+# 形：src/schema/problem-schema.js ／ 書き方：docs/development-guidelines.md の「問題データの書き方」
+# 注文19は extraSql で、Mug Cup White（在庫0）を1つ・Mug Rack Wood（在庫8）を2つ・限定品 Shoulder Bag Leather（在庫1）を2つにする。
+# 在庫が数量に足りるのは Mug Rack Wood だけ。数量を2以上にしたのは、stock > 0 や stock - 1 のような
+# 「数量を見ない」書き方を不正解にするため（数量がすべて1だと、結果が同じになって正解になってしまう）
+# 同時に来た2つの注文で確かめと引くことを1文にするとなぜ守れるかは、タイムラインの3つ目の場面で見せる
+id: advanced-12
+chapterId: advanced
+order: 12
+title: セール当日の二重注文
+kind: turningPoint
+story:
+  before:
+    - speaker: tencho
+      text: セール開始10分。サイトは速い！ ……でも大変！
+    - speaker: eigyo
+      text: 在庫1個の限定品に、注文が2つ通ってる！
+    - speaker: senpai
+      text: 在庫を SELECT で見てから引く間に、別の注文が割り込んだんだ。
+    - speaker: senpai
+      text: 見るのと引くのが別の文だと、その間に隙ができる。
+    - speaker: tencho
+      text: 今から注文19を出荷するの。明細の数量を在庫から引いて。
+    - speaker: eigyo
+      text: 明細は order_items。数は quantity よ。
+    - speaker: eigyo
+      text: 注文19には、在庫0の品も、限定品の2つも入ってるの。
+    - speaker: senpai
+      text: 在庫が数量に足りない品は引くな。確かめと引くのを1文でやれ。
+    - speaker: tencho
+      text: 足りない品は、お客さんに連絡するから引かないで。
+    - speaker: player
+      text: UPDATE の WHERE に「在庫が足りる」を入れて、1文で引きます。
+  after:
+    - speaker: tencho
+      text: Mug Rack Wood だけ 6 に。足りない2品はそのまま！
+    - speaker: senpai
+      text: 確かめと書き換えが1文なら、同時に来ても割り込まれない。
+    - speaker: eigyo
+      text: サイトも在庫も守った……。セール、乗り切れるわ！
+setup:
+  extraSql: |-
+    UPDATE order_items SET quantity = 2 WHERE order_id = 19 AND product_id = 23;
+    INSERT INTO order_items (order_id, product_id, quantity, unit_price) VALUES (19, 28, 2, 9800);
+answer: UPDATE products p SET stock = p.stock - i.quantity FROM order_items i WHERE i.product_id = p.id AND i.order_id = 19 AND p.stock >= i.quantity
+display: |-
+  UPDATE products p
+  SET stock = p.stock - i.quantity
+  FROM order_items i
+  WHERE i.product_id = p.id
+    AND i.order_id = 19
+    AND p.stock >= i.quantity
+blanks:
+  - answer: p.stock - i.quantity
+    wrong:
+      - text: p.stock + i.quantity
+        why: + だと在庫が増える（返品のときの計算）。出荷では引く。
+  - answer: i.order_id = 19
+    wrong:
+      - text: i.product_id = 19
+        why: product_id は商品の番号。注文19を表すのは order_id。
+  - answer: p.stock >= i.quantity
+    wrong:
+      - text: p.stock >= 0
+        why: 在庫0の品も 0 >= 0 で引かれて、マイナスになる。比べるのは注文の数量。
+hints:
+  - 使うのは UPDATE・SET・FROM・WHERE・AND。FROM で明細の表を足して、つなぎ方は WHERE に書く。
+  - 書く順は UPDATE 表 → SET 列 = 新しい値 → FROM 明細 → WHERE つなぐ条件 AND 注文の番号 AND 在庫が足りる。
+  - UPDATE products p SET stock = p.stock - i.??? FROM order_items i WHERE i.product_id = p.??? AND i.??? = 19 AND p.stock >= i.???
+judge:
+  ordered: false
+  compareTable: products
+visual:
+  kind: transaction
+keywords: [UPDATE, SET, FROM, WHERE, AND]

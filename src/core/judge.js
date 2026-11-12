@@ -17,7 +17,7 @@ import { translateError } from './error-translator.js';
  * @typedef {{ run: (sql: string) => Promise<RunOutcome>, reset: () => Promise<void> }} Runner
  * @typedef {{
  *   ordered: boolean, checkColumnNames?: boolean, require?: string[], forbid?: string[],
- *   compareTable?: string, ignoreColumns?: string[],
+ *   compareTable?: string, compareQuery?: string, ignoreColumns?: string[],
  * }} JudgeRule
  * @typedef {{ answer: string, judge: JudgeRule }} JudgedProblem
  * @typedef {{ ok: true, table: Table } | { ok: false, message: string }} Expected
@@ -232,8 +232,13 @@ function withoutColumns(table, ignoreColumns = []) {
   };
 }
 
+/** 作る系（compareQuery）の不正解の文 */
+const CREATED_DIFFERENT_MESSAGE =
+  '作ったものが、依頼と違います。テーブル・列の名前、型、制約（PRIMARY KEY・NOT NULL・CHECK など）を見直しましょう';
+
 /**
- * SQLを実行して、比べる表を作る。書き換え系（compareTable）は実行後のテーブルの中身。
+ * SQLを実行して、比べる表を作る。書き換え系（compareTable）は実行後のテーブルの中身、
+ * 作る系（compareQuery）は実行後にその SELECT を流した結果。
  * @param {Runner} runner
  * @param {string} sql
  * @param {JudgeRule} rule
@@ -242,12 +247,16 @@ function withoutColumns(table, ignoreColumns = []) {
 async function runForTable(runner, sql, rule) {
   const outcome = await runner.run(sql);
   if (!outcome.ok) return 'timeout' in outcome ? { timeout: true } : { error: outcome.error };
-  if (!rule.compareTable) return { table: outcome.result };
-  const after = await runner.run(`SELECT * FROM ${quoteIdent(rule.compareTable)}`);
+  if (!rule.compareTable && !rule.compareQuery) return { table: outcome.result };
+  const after = await runner.run(
+    rule.compareQuery ?? `SELECT * FROM ${quoteIdent(/** @type {string} */ (rule.compareTable))}`,
+  );
   if (!after.ok) {
     if ('timeout' in after) return { timeout: true };
     // 学習者のSQLがテーブルを消した（DROP TABLE など）
-    if (after.error.code === '42P01') return { tableMissing: rule.compareTable };
+    if (rule.compareTable && after.error.code === '42P01') {
+      return { tableMissing: rule.compareTable };
+    }
     return { error: after.error };
   }
   return { table: withoutColumns(after.result, rule.ignoreColumns) };
@@ -300,13 +309,16 @@ export async function judge({ sql, problem, runner, expected }) {
       };
     }
 
-    // 書き換え系はテーブルの中身なので、並びと列の名前は比べない
+    // 書き換え系・作る系はテーブルの中身・カタログなので、並びと列の名前は比べない
+    const afterward = Boolean(rule.compareTable || rule.compareQuery);
     const difference = compareTables(mine.table, answer.table, {
-      ordered: rule.compareTable ? false : rule.ordered,
-      checkColumnNames: rule.compareTable ? false : rule.checkColumnNames,
+      ordered: afterward ? false : rule.ordered,
+      checkColumnNames: afterward ? false : rule.checkColumnNames,
     });
     if (difference) {
-      return { status: 'wrong', ...difference, mine: mine.table, expected: answer.table };
+      // 作る系の表はカタログを読んだもので、そのままの違いを見せても学習者には意味がわからない
+      const message = rule.compareQuery ? CREATED_DIFFERENT_MESSAGE : difference.message;
+      return { status: 'wrong', ...difference, message, mine: mine.table, expected: answer.table };
     }
     const violation = findRuleViolation(sql, rule);
     if (violation) return { status: 'ruleViolation', message: violation, mine: mine.table };

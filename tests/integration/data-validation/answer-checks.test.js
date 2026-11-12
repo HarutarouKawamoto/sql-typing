@@ -96,6 +96,26 @@ describe('checkAnswersRun', () => {
     ]);
   });
 
+  it('作る系（compareQuery）：正解SQLのあと compareQuery が行を返せば0件、0行・エラー・正解SQLのエラーは見つける', async () => {
+    const indexOf = (compareQuery, answer = 'CREATE INDEX ON products (name)') =>
+      makeProblem({
+        answer,
+        judge: { ordered: false, checkColumnNames: false, require: [], forbid: [], compareQuery },
+      });
+    const columns =
+      "SELECT a.attname FROM pg_index x JOIN pg_attribute a ON a.attrelid = x.indrelid AND a.attnum = ANY (x.indkey) WHERE x.indrelid = to_regclass('products') AND NOT x.indisprimary";
+    expect(await check([indexOf(columns)])).toEqual([]);
+    expect(await check([indexOf(`${columns} AND false`)])).toEqual([
+      expect.stringContaining('compareQuery の結果が0行'),
+    ]);
+    expect(await check([indexOf('SELECT nope FROM products')])).toEqual([
+      expect.stringContaining('compareQuery がエラー'),
+    ]);
+    expect(await check([indexOf(columns, 'CREATE INDEX ON products (nope)')])).toEqual([
+      expect.stringContaining('正解SQLがエラー'),
+    ]);
+  });
+
   it('書き換え系の正解SQLが1行も書き換えないと見つける', async () => {
     const issues = await check([
       makeProblem({ answer: 'UPDATE products SET price = 0 WHERE id = 999' }),

@@ -181,3 +181,53 @@
   meaning: テーブルの行を消す。WHERE を付けないと全部の行が消える
   example: DELETE FROM order_items WHERE order_id = 5
   level: 2
+- word: WITH
+  english: 〜を使って・〜と一緒に
+  meaning: 問い合わせの結果に名前を付け、後ろの SELECT で表のように使う（CTE）。同じ途中の結果を何度も使える
+  example: WITH valid_orders AS (SELECT id FROM orders) SELECT count(*) FROM valid_orders
+  level: 3
+- word: OVER
+  english: 〜にわたって
+  meaning: 集計や順位の関数を、行をまとめずに行ごとに計算する（ウィンドウ関数）。() の中で、計算する範囲と順を決める
+  example: sum(sales) OVER (ORDER BY month)
+  level: 3
+- word: PARTITION BY
+  english: 仕切る・分ける
+  meaning: OVER の中で、計算するまとまりを列の値で分ける。GROUP BY と違い、行は1行にまとまらない
+  example: rank() OVER (PARTITION BY category ORDER BY price DESC)
+  level: 3
+- word: RANK
+  english: 順位・ランク
+  meaning: OVER の ORDER BY の順に、1から順位を付ける。同じ値の行は同じ順位になる
+  example: rank() OVER (ORDER BY price DESC)
+  level: 3
+- word: CREATE INDEX
+  english: 索引を作る
+  meaning: 列に索引（インデックス）を作る。その列で探すとき、全部の行を読まずに目的の行へ行ける
+  example: CREATE INDEX ON access_logs (session_id)
+  level: 3
+- word: CREATE TABLE
+  english: 表を作る
+  meaning: 新しいテーブルを、列の名前・型・制約を決めて作る
+  example: CREATE TABLE coupons (code TEXT PRIMARY KEY)
+  level: 3
+- word: PRIMARY KEY
+  english: 主な鍵
+  meaning: 行を1つに決める列（主キー）。同じ値と NULL は入れられない
+  example: code TEXT PRIMARY KEY
+  level: 3
+- word: NOT NULL
+  english: NULL ではない
+  meaning: その列に NULL（空っぽ）を入れられないようにする制約
+  example: expires_on DATE NOT NULL
+  level: 3
+- word: CHECK
+  english: 確かめる
+  meaning: 入れる値が条件に合うかを確かめる制約。合わない値の INSERT・UPDATE はエラーになる
+  example: CHECK (discount BETWEEN 1 AND 50)
+  level: 3
+- word: FOR UPDATE
+  english: 書き換えるために
+  meaning: SELECT で読んだ行に鍵をかける。COMMIT か ROLLBACK まで、ほかの人の UPDATE・FOR UPDATE は待つ
+  example: SELECT stock FROM products WHERE id = 28 FOR UPDATE
+  level: 3
