@@ -58,12 +58,13 @@ sql-typing/
 **役割**: 画面の表示、キー入力・クリックの受付、アニメーション、画面の状態の管理
 
 **配置ファイル**:
-- `screens/*.jsx`: 1つの画面（`HomeScreen.jsx`、`ModeSelect.jsx`、`StoryScreen.jsx`、`PlayScreen.jsx`、`ReplayDemoScreen.jsx`。あとで `DictionaryScreen.jsx`、`SettingsScreen.jsx`）
+- `screens/*.jsx`: 1つの画面（`HomeScreen.jsx`、`ModeSelect.jsx`、`StoryScreen.jsx`、`PlayScreen.jsx`、`ReplayDemoScreen.jsx`、`SettingsScreen.jsx`。あとで `DictionaryScreen.jsx`）
 - `components/*.jsx`: 画面の部品（`TypingArea.jsx`、`ChoiceList.jsx`、`SqlEditor.jsx`、`StepPlayer.jsx`、`ResultTable.jsx`、`SchemaMap.jsx` など）
 - `components/*.module.css`: 部品と同じ名前の CSS Modules
 - `state/*.js`: Context・reducer・独自フック。
   - `database.js`：アプリに1つだけの SqlRunner と、起動の状態を返す `useDatabaseStatus`
-  - `progress.js`：学習記録を読み、遊んだ結果を記録して保存する `useProgress`
+  - `progress.js`：学習記録を読み、遊んだ結果・設定を記録して保存する `useProgress`（設定画面から記録を消す `clearAll`）
+  - `reduced-motion.js`：OS の「動きを減らす」設定がオンか（オンなら見える化B を流さない）
   - `use-typing-session.js`：なぞり書きの1回分（keydown を1か所で受ける・時計・打ちながらの実行）
   - `typing-keys.js`：React に依存しない部品（キーの判定 `classifyKeyEvent`、修飾キーのない Enter `isPlainEnter`、クリアの結果のキー `classifyResultKey`、ボタン・入力欄の中か `isInteractiveTarget`・`isTextEntryTarget`、最新の1つだけ実行する `createLatestOnlyRunner`）。`tests/unit/ui/` で単体テストする
   - `use-step-replay.js`：ステップ再生の進み方をタイマーと React につなぐ
@@ -73,7 +74,7 @@ sql-typing/
   - `write-session-machine.js`：書く画面の決まり（時計・実行の回数・判定中は次を受けない・ヒントの数・クリア。React に依存しない reducer。`tests/unit/ui/` で単体テスト）
   - `editor-keys.js`：入力欄のキーの判定（Ctrl+Enter・Tab）とスペース2つの入れ方（React に依存しない。`tests/unit/ui/` で単体テスト）
   - `local-date.js`：学習記録の日付（その人のタイムゾーンの `YYYY-MM-DD`）
-  - `navigation.js`：画面の切り替え（一覧・モード選択・会話・遊ぶ）の reducer（React に依存しない。`tests/unit/ui/` で単体テスト）
+  - `navigation.js`：画面の切り替え（一覧・設定・モード選択・会話・遊ぶ）の reducer（React に依存しない。`tests/unit/ui/` で単体テスト）
   - `use-problems.js`：全章の問題を1回だけ読み、ターニングポイントの ID の集合を返す
   - `use-narrow-screen.js`：画面の幅が 768px 未満か
   - `best-text.js`：モードの名前と最高記録の文（`tests/unit/ui/` で単体テスト）
@@ -83,7 +84,9 @@ sql-typing/
 - `components/TypingArea.jsx`・`ChoiceList.jsx`：打つSQL（モード2の空欄は「？」の箱で隠す）と、モード2の選択肢
 - `components/SqlEditor.jsx`・`HintPanel.jsx`・`JudgePanel.jsx`・`WriteResult.jsx`：書く画面の入力欄・ヒント・判定の結果・クリアの結果
 - `components/StoryPanel.jsx`・`StoryLines.jsx`・`AfterStory.jsx`：会話を1行ずつ送る部品、会話の行の描き方、クリア後の会話と次への道
+- `components/ReorderIntro.jsx`：見える化B（句のチップが書いた順から実行順へ入れ替わる）
 - `screens/ReplayDemoScreen.jsx`：ステップ再生の見本（`/?demo`）
+- `screens/SettingsScreen.jsx`：設定（見える化B の on/off・ステップ再生の速さ・学習記録を消す）
 - `styles/`: `tokens.css`（色・余白などの CSS 変数。ライト／ダーク）、`global.css`
 
 **命名規則**:
@@ -121,6 +124,7 @@ ui/
 - `choice-engine.js`: ChoiceEngine（モード2の空欄で、選択肢を打って選ぶ）
 - `blank-typing.js`: 空欄つきのなぞり書き（空欄の外は TypingEngine、中は ChoiceEngine。空欄がなければ TypingEngine と同じなので、モード1もこれで動かす）
 - `clause-splitter.js`: ClauseSplitter
+- `reorder.js`: 見える化B のチップ（`buildReorderChips`。句の書いた順と実行順）
 - `judge.js`: Judge
 - `scoring.js`: Scoring（速さ・正確さ・ランク・苦手の集計）
 - `error-translator.js`: ErrorTranslator
@@ -145,6 +149,7 @@ core/
 ├── choice-engine.js
 ├── blank-typing.js
 ├── clause-splitter.js
+├── reorder.js
 ├── judge.js
 ├── scoring.js
 ├── error-translator.js
@@ -241,6 +246,7 @@ tests/unit/
 │   ├── choice-engine.test.js
 │   ├── blank-typing.test.js
 │   ├── clause-splitter.test.js
+│   ├── reorder.test.js
 │   ├── scoring.test.js
 │   ├── judge-compare.test.js  # Judge の純粋な部分（値・表の比べ方、require・forbid の探し方）
 │   └── error-translator.test.js
@@ -304,19 +310,21 @@ tests/e2e/
 ├── play-modes/
 │   ├── mode1-trace.spec.js
 │   ├── mode2-choice.spec.js
-│   ├── mode3-4-write.spec.js
+│   ├── mode3-4-write.spec.js  # 見える化B（句の入れ替わり）も
 │   └── typing-layout.spec.js  # 打っている途中に入力欄の大きさが変わらない・依頼の会話を見返せる
 ├── visualization/
 │   ├── step-replay.spec.js    # 見える化A（ステップ再生）
 │   └── step-replay-marks.spec.js # 見本のページで、印（消える行・列、まとまる行）の数を確かめる
 ├── progression/
 │   ├── home-story.spec.js     # 一覧・モード選択・依頼の会話・クリア後の会話・星
-│   └── turning-point.spec.js  # ターニングポイントが開く・印・説明・10行の会話・クリア後
+│   └── turning-point.spec.js  # ターニングポイントが開く・印・説明・11行の会話・クリア後
+├── settings/
+│   └── settings.spec.js       # 設定の画面（速さ・見える化B の on/off・学習記録を消す）
 ├── device/
 │   └── narrow-screen.spec.js  # 幅375pxでは遊べず、会話は読める
 └── helpers/
     ├── open-play.js           # 一覧から1問目のモードを選び、会話を飛ばして遊ぶ画面を開く
-    └── seed-progress.js       # 学習記録を localStorage に入れてから開く（何問もクリアした状態から始める）
+    └── seed-progress.js       # 学習記録を localStorage に入れてから開く（何問もクリアした状態・設定を変えた状態から始める）
 ```
 
 **命名規則**: `<シナリオ>.spec.js`（Vitest のテストと見分けるため `.spec.js` にする）
@@ -329,7 +337,7 @@ tests/e2e/
 - `fixtures/`：テスト用の小さなデータ（`broken-problem.yaml`：わざと決まりを破った問題）
 - `make-runner.js`：Node 版の SqlRunner を作る。`data/seeds/` の初期データを読む
 - `answer-checks.js`：PGlite を使う問題データの検証（正解SQLが実行でき0行でない）
-- `memory-storage.js`：localStorage の作り物（`failOnSet` で書けない環境の真似もできる）
+- `memory-storage.js`：localStorage の作り物（`failOnSet` で書けない環境の真似もできる。`key`・`length` でキーを順に見られる）
 - `answer-checks.js` の `checkClausePrefixes`：見える化C のため、SELECT の問題の句の途中までのSQLを実行しても止まらないことを確かめる
 - `answer-checks.js` の `checkWrongChoices`：間違いの選択肢を入れたSQLが、判定（Judge）で正解にも `ruleViolation` にもならないことを確かめる
 - `answer-checks.js` の `checkOrderDetermined`：`ordered: true` の問題で、並び順が1つに決まることを確かめる

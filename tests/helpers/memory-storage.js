@@ -1,5 +1,5 @@
 /**
- * localStorage の作り物（getItem / setItem / removeItem だけ）。
+ * localStorage の作り物（getItem / setItem / removeItem と、キーを順に見る key / length）。
  * failOnSet: true にすると setItem で例外を投げる（容量いっぱい・プライベートモードの真似）。
  * @param {{ initial?: Record<string, string>, failOnSet?: boolean }} [options]
  */
@@ -14,6 +14,10 @@ export function createMemoryStorage({ initial = {}, failOnSet = false } = {}) {
     },
     removeItem: (key) => {
       data.delete(key);
+    },
+    key: (index) => [...data.keys()][index] ?? null,
+    get length() {
+      return data.size;
     },
   };
 }

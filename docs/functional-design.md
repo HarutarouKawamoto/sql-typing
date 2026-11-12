@@ -427,6 +427,23 @@ export function splitClauses(sql) {}
 - 括弧の中（サブクエリ）と文字列の中のキーワードは数えない
 - `DISTINCT` は `SELECT` 句の一部として扱い、`Stepper` で別の段階にする
 
+#### ReorderChips（見える化B の材料、`reorder.js`）
+
+**責務**:
+- 書いたSQLを句のチップ（句の種類・短くした句の文字・書いた順・実行順）にする。画面（`ReorderIntro`）はこれを書いた順 → 実行順に並べ替えて見せる
+
+**インターフェース**:
+```js
+/**
+ * @param {string} sql
+ * @param {number} [maxLength=28] - チップの文字の上限（超えたら maxLength-1 文字で切って「…」）
+ * @returns {ReorderChip[] | null} 書いた順。句に分けられない・句が1つだけ（入れ替わりがない）なら null
+ */
+export function buildReorderChips(sql, maxLength) {}
+/** @typedef {{ kind: ClauseKind, label: string, writtenOrder: number, execOrder: number }} ReorderChip */
+```
+- 句に分けるのは ClauseSplitter（括弧・文字列の中のキーワードでは分けない）。チップの文字は、句の中の空白・改行を1つの空白にまとめる
+
 #### Stepper（見える化A の中身を作る）
 
 **責務**:
@@ -685,6 +702,7 @@ export function loadKeywords() {}                  // Keyword[]
 **責務**:
 - localStorage の学習記録を読み書きする
 - 壊れていたら初期状態にし、そのことを知らせる
+- 設定を変える・学習記録を消す（設定画面）
 - 書き出し・読み込み（P1）
 
 **インターフェース**:
@@ -696,7 +714,15 @@ export function createEmptyProgress() {}
 export function loadProgress(storage, now) {}
 /** @returns {{ ok: boolean }} 書けなくても例外にしない */
 export function saveProgress(storage, progress) {}
-export function clearProgress(storage) {} // P1（設定画面）で作る
+/** 設定を変えた新しい Progress を返す（元は変えない）。形の違う値は例外（画面の作り間違い） */
+export function updateSettings(progress, patch) {}
+/**
+ * 学習記録をすべて消す（設定画面）。壊れていて退避した古い記録（sql-typing:progress:broken-…）も消し、
+ * 設定だけ残した空の記録を保存する。古い記録を探すのに storage.key・length を使う（なければ探さない）。
+ * 書けない（容量いっぱいなど）ときは記録のキーを消す（読み込み直しで古い記録がもどらないように。設定は既定にもどる）
+ * @returns {{ progress: Progress, ok: boolean, saved: boolean }} ok：記録が消えた。saved：空の記録を書けた。例外にしない
+ */
+export function clearProgress(storage, settings) {}
 /** 遊んだ結果を記録に入れた新しい Progress を返す（元は変えない） */
 export function recordPlay(progress, { problemId, mode, cleared, date, best, mistakes, typed }) {}
 /**
@@ -715,7 +741,7 @@ export function nextProblemId(chapters, problemId) {}
 | コンポーネント | 責務 |
 |---|---|
 | `App` | 画面の切り替え（`src/ui/state/navigation.js` の reducer）、学習記録・データベースの状態・全章の問題（`use-problems.js`）を画面に渡す、画面幅の判定（`use-narrow-screen.js`。768px未満はタイピングを開けない） |
-| `HomeScreen` | 章と問題の一覧、番号・題名・ターニングポイントの印・星4つ、開いていない問題は題名だけ（🔒）で選べない。データベースの準備の状態。問題を読み終えるまでは一覧を出さない（進む条件がターニングポイントで変わるため） |
+| `HomeScreen` | 右上の「設定」ボタン。章と問題の一覧、番号・題名・ターニングポイントの印・星4つ、開いていない問題は題名だけ（🔒）で選べない。データベースの準備の状態。問題を読み終えるまでは一覧を出さない（進む条件がターニングポイントで変わるため） |
 | `ModeSelect` | 問題のモードを選ぶ。4つのモードのボタン（星・最高記録）、1〜4のキー、Esc で一覧。データベースの準備中・起動の失敗（「ページを読み込み直してください」）・幅の狭い画面（「PCで遊んでください」）では選べない。「依頼の会話を読む」で読み返し |
 | `StoryScreen` | 依頼の会話の画面（遊ぶ前と、読み返し）。Esc で一覧 |
 | `StoryPanel` | 会話を1行ずつ表示。Enter / クリックで送る（ボタンにフォーカスがあるときの Enter はボタンに任せる）。スキップ。最後の行の次で「始める」（最後の行では、行のクリックでは始めない。うっかり始めないように） |
@@ -725,7 +751,7 @@ export function nextProblemId(chapters, problemId) {}
 | `PlayMode12` | モード1・2（打つモード）：依頼の会話（開いて見る。ふだんは閉じる）・TypingArea・ChoiceList（モード2）・結果（TypingResult）・結果の表 ⇄ ステップ再生 |
 | `TypingArea` | モード1・2：薄い正解SQLの上に打った文字を重ねて表示。miss の赤い光り。モード2のまだ埋まっていない空欄は「？」の箱1つで描く（答えの文字数がわからないように）。打ち終えた形の幅と高さをいつも取っておき、打っている途中・空欄が埋まったときに大きさが変わらない（本人の指摘。2026-11-12）。今の位置が改行を含む区切りのときは、行の並びに影響しない印を重ねて描く（空白の区切りは空白そのものの背景の色だけ。重ねると2つの印がずれる） |
 | `ChoiceList` | モード2：今の空欄の選択肢。打った文字に合う候補は打った分を光らせ、合わなくなったものは薄く、選んだ間違いは打ち消し線。間違いを選んだら「なぜ違うか」を出す。空欄の中の miss で揺れる |
-| `PlayMode34` | モード3・4（書いて判定）：依頼の会話とテーブルの一覧、SqlEditor・HintPanel・JudgePanel／WriteResult、書いたSQLの結果の表 ⇄ ステップ再生 |
+| `PlayMode34` | モード3・4（書いて判定）：依頼の会話とテーブルの一覧、SqlEditor・HintPanel・JudgePanel／WriteResult、書いたSQLの結果の表 ⇄ ステップ再生。実行したら、設定が on なら判定の結果の場所に ReorderIntro を流し、終わってから結果を見せる |
 | `SqlEditor` | モード3・4：複数行の入力欄（`textarea`）。Ctrl+Enter（⌘+Enter）で実行。Tab でスペース2つ（Shift+Tab などは入力欄の外へ移る）。日本語入力がオンなら知らせる |
 | `HintPanel` | モード3：ヒントを1つずつ開く（①使う句 ②句の順番 ③骨組み） |
 | `WriteResult` | モード3・4のクリアの結果：時間・実行した回数・（モード3）開いたヒントの数 |
@@ -733,13 +759,13 @@ export function nextProblemId(chapters, problemId) {}
 | `StepPlayer` | 見える化A：buildSteps を呼ぶ、SQLの句に実行順の番号を付けて今の句を光らせる、再生・一時停止・進む・戻る・最初から、段階の一言の説明 |
 | `StepTable` | 見える化A の1段階の表：印の場面（消える行・まとまる行・消える列）と変化の場面、行数の変化、AS の「元 → 新」 |
 | `ReplayDemoScreen` | ステップ再生の見本（`/?demo`）。初級の形のSQLを選んでステップ再生を見る |
-| `ReorderIntro` | 見える化B：句のチップが書いた順から実行順へ入れ替わる（1.5秒） |
+| `ReorderIntro` | 見える化B：句のチップが書いた順から実行順へ入れ替わる（1.5秒）。動きは下の「見える化B（ReorderIntro）の動き」 |
 | `JudgePanel` | 判定の結果（不正解の理由・条件違反・打ち切り）、和訳したエラー（よくある原因、英語の原文は折りたたみ）。何回目の実行の結果かも出す |
 | `ResultScreen` | クリア後の記録（速さ・正確さ・ランク／時間・実行回数・ヒント数）、苦手の上位3つ、ステップ再生へのボタン、次の問題へ |
 | `SchemaMap` | DBの地図（React Flow）。触っているテーブルを光らせる。新しいテーブルの印。箱を押すと先頭20行 |
 | `KeywordTip` | SQLの中のキーワードにカーソルを当てたら説明を出す |
 | `DictionaryScreen` | 用語辞典。レベル別の一覧、初めて出てくる問題へのリンク |
-| `SettingsScreen` | 見える化Bの on/off、再生の速さ、学習記録を消す |
+| `SettingsScreen` | 見える化Bの on/off、ステップ再生の速さ（0.5・1・2倍）、学習記録を消す（確かめを1回はさむ。設定は学習の記録ではなく好みなので残す。本人の決定。2026-11-12）。変えたらすぐ保存する。Esc は確かめが出ていれば閉じ、出ていなければ一覧へ。確かめを出したら「やめる」に、閉じたら「学習記録を消す」にフォーカスを移す。消したあとは「消しました」、消せない環境では「消せませんでした」を、先に置いた `role="status"` に出す。消したら一覧の「記録を読み込めなかった」の知らせも閉じる（`useProgress` の `clearAll`） |
 
 ## ユースケース図
 
@@ -790,8 +816,10 @@ sequenceDiagram
     participant R as SqlRunner
 
     U->>P: SQLを書いて Ctrl+Enter
-    opt 見える化Bが on
-        P-->>U: 書いた順 → 実行順の並び替え（1.5秒）
+    par 判定と同時に
+        opt 見える化Bが on（動きを減らす設定でない・句が2つ以上）
+            P-->>U: 書いた順 → 実行順の並び替え（1.5秒。終わるまで結果は見せない）
+        end
     end
     P->>J: judge(書いたSQL, 問題)
     J->>R: reset → run(書いたSQL) / 正解の結果と比べる
@@ -815,7 +843,7 @@ sequenceDiagram
 4. 時計は最初の入力（か最初の実行）で始まり、正解だった実行を押したときで止まる（判定にかかった時間は数えない）。記録は時間・実行した回数・（モード3）開いたヒントの数。最高記録はヒントが少ない回 → 同じなら時間が短い回（上の「最高記録の選び方」）
 5. クリアのあとは入力欄が読み取りだけになり、Enter でもう一度（書いたSQL・時計・回数は最初から。Ctrl などの修飾キーつきの Enter は数えない）、Esc でもどる。書きかけのSQLがあるときの Esc は、1回目は「書きかけのSQLは消えます」と確かめ、もう一度 Esc でもどる（ほかのキーで確かめを閉じて続ける。本人の決定。2026-11-12）。書きかけがないとき・クリアのあとはすぐもどる
 6. ターニングポイントは、この流れでクリアしたときだけ章のクリアになる
-7. 見える化B（実行順の並び替え）は、まだ流れない（別の作業）
+7. 見える化B（実行順の並び替え）：設定が on なら、実行したときに判定の結果の場所で流す。判定は同時に始め、動きが終わるまで判定の結果・クリアの結果・結果の表は見せず、次の実行も受けない（判定中と同じ扱い）。時計は実行を押したときで止まるので、動きの時間は数えない。句が1つだけ・句に分けられないSQL・OS の「動きを減らす」設定のときは流さない
 
 ### ユースケース3：モード2（打って選ぶ）の空欄
 
@@ -865,6 +893,7 @@ stateDiagram-v2
 - クリアの結果のキー（本人の決定。2026-11-12）：Enter・J で次の問題へ（次があって開いているときだけ。ボタンにフォーカスがあるときの Enter はボタンに任せる）、R でもう一度。修飾キーつき（Ctrl+R の読み込み直し、実行の Ctrl+Enter を続けて押したとき）・長押し・入力欄の中では何もしない。キーは AfterStory が受ける（`typing-keys.js` の `classifyResultKey`）。それまでの「Enter でもう一度」はやめた
 - クリア後の会話（Result → StoryAfter）は、別の画面にせず結果の下に出す
 - 遊ぶ画面・会話の画面・モード選択の Esc は一覧へ
+- 設定の画面は一覧の「設定」から開く（遊んでいる途中には開けない。navigation の `openSettings` は一覧のときだけ）。Esc は、学習記録を消す確かめが出ていれば確かめを閉じ、出ていなければ一覧へ
 - 会話のあいだに幅が 768px 未満になったら、会話を終えても遊ぶ画面へ進まず、モード選択（遊べないことを知らせる）にもどる。遊んでいる途中に狭くなったときは、そのまま遊べる
 - 一覧の問題のボタンの読み上げの名前は「番号. 題名、ターニングポイント、クリア n/4、まだ開いていません」（🔒・★☆ の記号は読ませない）
 
@@ -929,6 +958,16 @@ stateDiagram-v2
 - **見本のページ**（`/?demo`、入口からはリンクしない）：初級の形のSQL（WHERE・AS・DISTINCT と ORDER BY・ORDER BY と LIMIT・AND）を選んでステップ再生を見られる。`&speed=0.05` のように速さも変えられる。印の見た目を目と E2E で確かめるため（1問目には消える行・まとまる行がない）
 - 印の付いた行・列には `data-mark`（`removing`・`merging`・`merging-keep`・`removing-column`）を付け、E2E で数える
 - 表示用の行は50行まで（結果の表と同じ）。OS の「動きを減らす」設定では動きを付けない
+
+### 見える化B（ReorderIntro）の動き
+
+- 句のチップを縦に並べる。チップは番号（今の並びの順）と句の文字（`buildReorderChips`）。見出しは「書いた順」→「DBが実行する順」
+- 0〜0.4秒：書いた順。0.4秒で実行順に並べ替え、0.7秒かけて動かす（Motion の `layout`。句の種類を key にする）。1.5秒で終わり、判定の結果に替わる
+- 動きは、セッションが判定を始めたときだけ流す（`useWriteSession` の `run(sql, onStart)` の onStart で始める。判定しない実行で動きだけ流れないように）
+- 動きの間はクリア後の会話（AfterStory）を出さないので、R・Enter・J は最大1.5秒効かない（結果を見せる前に次へ進ませない）。Esc はふだんどおり
+- 構文エラーになるSQLでも、句に分けられれば流れる（判定と同時に流すので、エラーかどうかは動きを始める時点でわからない）
+- 設定（`reorderAnimation`）が off・OS の「動きを減らす」設定（`src/ui/state/reduced-motion.js`）・句が1つだけ・句に分けられないSQL のときは流さない
+- E2E のため `data-testid="reorder-intro"`・`data-arranged`（入れ替わったか）、チップに `data-kind`
 
 ## ファイル構造（データ）
 
@@ -1016,7 +1055,8 @@ data/
 - `Scoring`：cpm・正確さ・ランクの境目の値
 - `ErrorTranslator`：表のすべてのコード、原文の形で出し分けるもの、2つ以上の文、未知のコード
 - `Judge` の純粋な部分：値の比べ方（許容誤差・NaN・Infinity・NULL）、表の比べ方（各 `reason`）、`require`・`forbid` の探し方（ドット付きの語・記号をはさむ語・関数名）
-- `ProgressStore`：壊れたデータからの復帰、`isUnlocked`（ターニングポイントはモード3・4だけで次の章が開く、ターニングポイントのない章）、`nextProblemId`
+- `ReorderChips`（`reorder.js`）：書いた順と実行順、空白のまとめ方、長い句の切り方、流さないSQL（句が1つ・分けられない）
+- `ProgressStore`：壊れたデータからの復帰、設定の変更（`updateSettings`）、記録を消す（`clearProgress`：設定は残す・退避した古い記録も消す・書けないときは記録のキーを消す・消せもしないとき）、`isUnlocked`（ターニングポイントはモード3・4だけで次の章が開く、ターニングポイントのない章）、`nextProblemId`
 - 画面の切り替え（`navigation.js`）、モード名と最高記録の文（`best-text.js`）
 
 ### 統合テスト（Vitest + PGlite（Node 版）、`tests/integration/`）
@@ -1040,5 +1080,7 @@ data/
 - ターニングポイントは8問目までクリアすると開き、印とモード選択の説明が出る。会話は11行。テスト用の記録を localStorage に入れて確かめる（`tests/e2e/helpers/seed-progress.js`）。モード3・4でクリアすると次の章が開くことは、次の章（中級）を足すまで `isUnlocked` の単体テストで確かめる
 - 打つSQL・ヒント③・入力欄が合字（`>=` を ≥ の1文字に描く）を使わない（合字はサイト全体で切る。`global.css`）
 - 打っている途中・モード2の空欄が埋まったときに、入力欄の大きさが変わらない。モード1・2で依頼の会話を開いて見られ、開いたまま打てる（`typing-layout.spec.js`）
+- 見える化B：モード3・4で実行すると、句のチップが書いた順 → 実行順に入れ替わり、そのあと判定の結果が出る（並びはページの中で MutationObserver で記録して確かめる）。句が1つだけ・OS の「動きを減らす」設定では流れない
+- 設定の画面：一覧から開き Esc でもどる。速さと見える化B の on/off が保存される。off なら流れない。学習記録を消すときは確かめ、やめる・Esc では消えず、消すと星が消えて設定は残る（`tests/e2e/settings/settings.spec.js`）
 - ページを読み込み直しても、クリア状況が残っている
 - 幅375pxの画面では、タイピングを開始できない

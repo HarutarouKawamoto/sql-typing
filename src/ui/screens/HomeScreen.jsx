@@ -17,6 +17,7 @@ const MODES = /** @type {const} */ (['1', '2', '3', '4']);
  *   recoveredNotice: boolean,
  *   onDismissRecovered: () => void,
  *   onOpen: (problemId: string) => void,
+ *   onOpenSettings: () => void,
  * }} props
  */
 export function HomeScreen({
@@ -29,12 +30,23 @@ export function HomeScreen({
   recoveredNotice,
   onDismissRecovered,
   onOpen,
+  onOpenSettings,
 }) {
   return (
     <div className={styles.home}>
-      <header>
-        <h1 className={styles.title}>SQL Typing</h1>
-        <p className={styles.subtitle}>打って、動きを見て、覚えるSQL</p>
+      <header className={styles.header}>
+        <div>
+          <h1 className={styles.title}>SQL Typing</h1>
+          <p className={styles.subtitle}>打って、動きを見て、覚えるSQL</p>
+        </div>
+        <button
+          type="button"
+          className={styles.settings}
+          onClick={onOpenSettings}
+          data-testid="open-settings"
+        >
+          設定
+        </button>
       </header>
       {recoveredNotice && (
         <p className={styles.notice} role="alert">

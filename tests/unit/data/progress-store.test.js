@@ -8,6 +8,8 @@ import {
   markStepReplayFinished,
   isUnlocked,
   nextProblemId,
+  updateSettings,
+  clearProgress,
 } from '../../../src/data/progress-store.js';
 import { createMemoryStorage } from '../../helpers/memory-storage.js';
 
@@ -310,5 +312,92 @@ describe('進む条件', () => {
     expect(nextProblemId(CHAPTERS, 'beginner-03')).toBe('intermediate-01');
     expect(nextProblemId(CHAPTERS, 'intermediate-02')).toBeNull();
     expect(nextProblemId(CHAPTERS, 'missing-01')).toBeNull();
+  });
+});
+
+describe('updateSettings', () => {
+  it('設定を変えた新しい記録を返す（元は変えない・ほかの設定は残す）', () => {
+    const progress = createEmptyProgress();
+    const next = updateSettings(progress, { replaySpeed: 2 });
+    expect(next.settings).toEqual({ reorderAnimation: true, replaySpeed: 2 });
+    expect(progress.settings.replaySpeed).toBe(1);
+    expect(updateSettings(next, { reorderAnimation: false }).settings).toEqual({
+      reorderAnimation: false,
+      replaySpeed: 2,
+    });
+  });
+
+  it('形の違う値は入れない（例外）', () => {
+    expect(() => updateSettings(createEmptyProgress(), { replaySpeed: 3 })).toThrow();
+  });
+});
+
+describe('clearProgress', () => {
+  const played = () =>
+    recordPlay(createEmptyProgress(), {
+      problemId: 'beginner-01',
+      mode: '1',
+      cleared: true,
+      date: '2026-11-12',
+      mistakes: { ',': 2 },
+      typed: { ',': 5 },
+    });
+
+  it('記録を消し、設定だけ残した空の記録を保存して返す', () => {
+    const storage = createMemoryStorage();
+    const progress = updateSettings(played(), { reorderAnimation: false, replaySpeed: 0.5 });
+    saveProgress(storage, progress);
+    const { progress: cleared, ok, saved } = clearProgress(storage, progress.settings);
+    expect({ ok, saved }).toEqual({ ok: true, saved: true });
+    expect(cleared).toEqual({
+      ...createEmptyProgress(),
+      settings: { reorderAnimation: false, replaySpeed: 0.5 },
+    });
+    expect(loadProgress(storage, NOW).progress).toEqual(cleared);
+  });
+
+  it('壊れていて退避した古い記録も消す。ほかのキーは消さない', () => {
+    const storage = createMemoryStorage({
+      initial: {
+        [`${PROGRESS_KEY}:broken-2026-11-01T00:00:00.000Z`]: '{',
+        [`${PROGRESS_KEY}:broken-2026-11-02T00:00:00.000Z`]: '[]',
+        'other-app': 'keep',
+      },
+    });
+    clearProgress(storage, createEmptyProgress().settings);
+    expect([...storage.data.keys()].sort()).toEqual(['other-app', PROGRESS_KEY]);
+  });
+
+  it('キーを順に見られない storage でも、記録は消せる', () => {
+    const { key: _key, ...storage } = createMemoryStorage();
+    Object.defineProperty(storage, 'length', { value: undefined });
+    const { ok } = clearProgress(storage, createEmptyProgress().settings);
+    expect(ok).toBe(true);
+  });
+
+  it('書けない（容量いっぱい）ときは記録のキーを消す。記録は消えたので ok: true、設定は保存されないので saved: false', () => {
+    const storage = createMemoryStorage({
+      initial: { [PROGRESS_KEY]: JSON.stringify(played()) },
+      failOnSet: true,
+    });
+    const settings = { reorderAnimation: false, replaySpeed: 2 };
+    const { progress, ok, saved } = clearProgress(storage, settings);
+    expect({ ok, saved }).toEqual({ ok: true, saved: false });
+    expect(storage.data.has(PROGRESS_KEY)).toBe(false);
+    expect(progress).toEqual({ ...createEmptyProgress(), settings });
+  });
+
+  it('書けず消せもしないときは、例外にせず ok: false', () => {
+    const storage = {
+      getItem: () => null,
+      setItem: () => {
+        throw new Error('SecurityError');
+      },
+      removeItem: () => {
+        throw new Error('SecurityError');
+      },
+    };
+    const { ok, saved } = clearProgress(storage, createEmptyProgress().settings);
+    expect({ ok, saved }).toEqual({ ok: false, saved: false });
   });
 });

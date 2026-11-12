@@ -54,6 +54,81 @@ test('モード3：ヒントを開き、間違えてから正解するとクリ�
   expect(errors).toEqual([]);
 });
 
+test('見える化B：実行すると句のチップが書いた順から実行順に入れ替わり、そのあと判定の結果が出る', async ({
+  page,
+}) => {
+  await startWrite(page, 'ヒントなしで書く');
+  // 動きは1.5秒で終わるので、ページの中で見張って、変わるたびの並びを記録する（Playwright の往復の遅さに左右されない）
+  await page.evaluate(() => {
+    window.__introLog = [];
+    new MutationObserver(() => {
+      const intro = document.querySelector('[data-testid="reorder-intro"]');
+      if (!intro) return;
+      const snapshot = {
+        arranged: intro.dataset.arranged,
+        caption: intro.querySelector('p')?.textContent,
+        kinds: [...intro.querySelectorAll('[data-testid="reorder-chip"]')].map(
+          (chip) => chip.dataset.kind,
+        ),
+      };
+      const last = window.__introLog.at(-1);
+      if (JSON.stringify(last) !== JSON.stringify(snapshot)) window.__introLog.push(snapshot);
+    }).observe(document.body, { childList: true, subtree: true, attributes: true });
+  });
+  await write(page, 'SELECT name\nFROM products\nWHERE price >= 1000');
+  const intro = page.getByTestId('reorder-intro');
+
+  // 流している間は判定の結果を見せず、次の実行も受けない
+  await expect(intro).toBeVisible();
+  await expect(page.getByTestId('judge-panel')).toHaveCount(0);
+  await page.keyboard.press('Control+Enter');
+
+  await expect(page.getByTestId('judge-panel')).toHaveAttribute('data-status', 'wrong');
+  await expect(intro).toHaveCount(0);
+  await expect(page.getByTestId('meter')).toContainText('実行 1回');
+
+  const log = await page.evaluate(() => window.__introLog);
+  expect(log[0]).toEqual({
+    arranged: 'false',
+    caption: '書いた順',
+    kinds: ['SELECT', 'FROM', 'WHERE'],
+  });
+  expect(log).toContainEqual({
+    arranged: 'true',
+    caption: 'DBが実行する順',
+    kinds: ['FROM', 'WHERE', 'SELECT'],
+  });
+});
+
+test('見える化B：OS の「動きを減らす」設定では流れない', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await startWrite(page, 'ヒントなしで書く');
+  await page.evaluate(() => {
+    window.__reorderSeen = false;
+    new MutationObserver(() => {
+      if (document.querySelector('[data-testid="reorder-intro"]')) window.__reorderSeen = true;
+    }).observe(document.body, { childList: true, subtree: true });
+  });
+  await write(page, 'SELECT name FROM products');
+  await expect(page.getByTestId('judge-panel')).toHaveAttribute('data-status', 'wrong');
+  expect(await page.evaluate(() => window.__reorderSeen)).toBe(false);
+});
+
+test('見える化B：句が1つだけのSQLでは流れない。正解なら動きのあとにクリアの結果が出る', async ({
+  page,
+}) => {
+  await startWrite(page, 'ヒントなしで書く');
+  await write(page, 'SELECT 1');
+  await expect(page.getByTestId('judge-panel')).toHaveAttribute('data-status', 'wrong');
+  await expect(page.getByTestId('reorder-intro')).toHaveCount(0);
+
+  await write(page, 'SELECT * FROM products');
+  await expect(page.getByTestId('reorder-intro')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'クリア！' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'クリア！' })).toBeVisible();
+  await expect(page.getByTestId('reorder-intro')).toHaveCount(0);
+});
+
 test('モード3：ヒントは3つまで開ける', async ({ page }) => {
   await startWrite(page, 'ヒントありで書く');
   for (let i = 0; i < 3; i += 1) {

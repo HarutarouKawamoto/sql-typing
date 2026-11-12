@@ -50,6 +50,22 @@ describe('navigationReducer', () => {
     expect(go(play, { type: 'next', problemId: null })).toBe(HOME);
   });
 
+  it('一覧から設定へ。設定からは home で一覧へ。一覧のほかからは設定へ行かない', () => {
+    const settings = go(HOME, { type: 'openSettings' });
+    expect(settings).toEqual({ screen: 'settings' });
+    expect(go(settings, { type: 'home' })).toBe(HOME);
+    const mode = { screen: 'mode', problemId: 'beginner-01' };
+    expect(go(mode, { type: 'openSettings' })).toBe(mode);
+  });
+
+  it('設定の画面では、問題につながる動き（modeSelect・chooseMode・storyDone）は何もしない', () => {
+    const settings = { screen: 'settings' };
+    expect(go(settings, { type: 'modeSelect' })).toBe(settings);
+    expect(go(settings, { type: 'chooseMode', mode: '1' })).toBe(settings);
+    expect(go(settings, { type: 'storyDone' })).toBe(settings);
+    expect(go(settings, { type: 'readStory' })).toBe(settings);
+  });
+
   it('その画面で意味のない動き（一覧での chooseMode・storyDone など）は何もしない', () => {
     expect(go(HOME, { type: 'chooseMode', mode: '1' })).toBe(HOME);
     expect(go(HOME, { type: 'storyDone' })).toBe(HOME);

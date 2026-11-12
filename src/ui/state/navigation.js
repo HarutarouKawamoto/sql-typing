@@ -2,6 +2,7 @@
  * 画面の切り替え（React に依存しない reducer。単体テストする）。
  * 元：docs/functional-design.md の画面遷移図
  *   一覧 → モード選択 → 依頼の会話 → 遊ぶ（クリアの結果とクリア後の会話は遊ぶ画面の中）→ 次の問題のモード選択／一覧
+ * - 設定は一覧からだけ開き、home で一覧にもどる
  * - 会話の読み返し（モードを選ばずに読む。幅の狭い画面でも読める）は、終えたらモード選択に戻る
  * - 意味のない動き（一覧での storyDone など）は何もしない
  */
@@ -9,11 +10,13 @@
 /**
  * @typedef {'1' | '2' | '3' | '4'} Mode
  * @typedef {{ screen: 'home' }
+ *   | { screen: 'settings' }
  *   | { screen: 'mode', problemId: string }
  *   | { screen: 'story', problemId: string, mode: Mode | null }
  *   | { screen: 'play', problemId: string, mode: Mode }} Navigation
  *   story の mode が null なら読み返し
  * @typedef {{ type: 'openProblem', problemId: string }
+ *   | { type: 'openSettings' }
  *   | { type: 'chooseMode', mode: Mode }
  *   | { type: 'readStory' }
  *   | { type: 'storyDone' }
@@ -34,6 +37,8 @@ export function navigationReducer(state, action) {
   switch (action.type) {
     case 'openProblem':
       return { screen: 'mode', problemId: action.problemId };
+    case 'openSettings':
+      return state.screen === 'home' ? { screen: 'settings' } : state;
     case 'chooseMode':
       return state.screen === 'mode'
         ? { screen: 'story', problemId: state.problemId, mode: action.mode }
@@ -49,7 +54,7 @@ export function navigationReducer(state, action) {
         : { screen: 'play', problemId: state.problemId, mode: state.mode };
     case 'modeSelect':
       // 今の問題のモード選択へ（会話のあと、幅が狭くなっていたら遊ぶ画面へ進ませない）
-      return state.screen === 'home' ? state : { screen: 'mode', problemId: state.problemId };
+      return 'problemId' in state ? { screen: 'mode', problemId: state.problemId } : state;
     case 'home':
       return HOME;
     case 'next':
