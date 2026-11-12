@@ -67,7 +67,7 @@ graph TB
 
 ### お店のDB（PGliteの中のテーブル）
 
-DBの値は英語と数字だけ（決定13）。初級では `products` だけを使う。中級では `customers`・`orders`・`order_items` を足す（2026-11-12 に `data/seeds/intermediate.sql` を作った）。上級のテーブルは形だけ決めておく。
+DBの値は英語と数字だけ（決定13）。初級では `products` だけを使う。中級では `customers`・`orders`・`order_items` を足す（2026-11-12 に `data/seeds/intermediate.sql` を作った）。上級では `access_logs` を足す（`data/seeds/advanced.sql`）。上級の問題は products・中級のテーブルもそのまま使う（在庫1個の Shoulder Bag Leather（id 28）がトランザクションの場面になる）。
 
 ```sql
 -- 初級
@@ -202,6 +202,7 @@ erDiagram
  * @property {string[]} [require]         - 必ず使うキーワード（例 ['BETWEEN']）
  * @property {string[]} [forbid]          - 使ってはいけないキーワード
  * @property {string} [compareTable]      - 書き換え系（P1）：実行後にこのテーブルの中身を比べる
+ * @property {string} [compareQuery]      - 作る系（上級）：実行後にこの SELECT を流した結果を比べる（CREATE INDEX・CREATE TABLE は中身では比べられないので、カタログから作ったものを読む）。SELECT だけ。compareTable と一緒には書けない
  * @property {string[]} [ignoreColumns]   - 書き換え系で比べない列（SERIAL の id など、正しい書き方でも値が変わる列）
  */
 ```
@@ -559,10 +560,10 @@ export async function explainQuery({ runner, query }) {} // { ok: true, summary 
 
 #### TxSimulation（トランザクションのタイムライン、`tx-simulation.js`）
 
-PGlite は接続が1つで、2つのトランザクションを同時に動かせないので、PostgreSQL（READ COMMITTED）の見え方と行の鍵を、在庫1個の1行（products の id 4）だけについて真似る。DB は使わない。
+PGlite は接続が1つで、2つのトランザクションを同時に動かせないので、PostgreSQL（READ COMMITTED）の見え方と行の鍵を、在庫1個の1行（products の id 28、Shoulder Bag Leather。初期データでも在庫1個）だけについて真似る。DB は使わない。
 
 ```js
-export const TX_SCENARIOS; // { unsafe：鍵なし（SELECT で見てから UPDATE）, locked：鍵あり（SELECT ... FOR UPDATE） }
+export const TX_SCENARIOS; // { unsafe：鍵なし（SELECT で見てから UPDATE）, locked：鍵あり（SELECT ... FOR UPDATE）, atomic：1文で確かめて減らす（UPDATE ... AND stock > 0） }
 export function startTx(scenarioId) {} // 在庫 1・注文 0・鍵なし
 export function nextStep(state, side) {} // 'A' | 'B' の次の手順 { kind, sql }。終わっていれば null
 export function canStep(state, side) {} // 終わっていない・待っていない
@@ -571,7 +572,7 @@ export function autoRun(state, order) {} // order の順に進める。番の側
 export function txOutcome(state) {} // null | { kind: 'oversold' | 'safe', stock, orders }
 export const READ_FIRST_ORDER; // 両方が先に在庫を読む順
 ```
-- 手順：BEGIN → 在庫を読む（locked は FOR UPDATE）→ UPDATE で1減らす → INSERT で注文 → COMMIT。読んだ在庫が1未満なら、読んだあとは ROLLBACK
+- 手順：BEGIN → 在庫を読む（locked は FOR UPDATE）→ UPDATE で1減らす → INSERT で注文 → COMMIT。読んだ在庫が1未満なら、読んだあとは ROLLBACK。atomic は在庫を読まず、BEGIN → `UPDATE ... WHERE id = 28 AND stock > 0` → INSERT → COMMIT。UPDATE は鍵を取り、確定した最新の在庫（自分の変更があればそれ）が1未満なら1行も変えずに ROLLBACK へ（PostgreSQL は待ったあと、最新の行で WHERE を確かめ直す）。1行も変えなかったときは行の鍵を外す（書き換えた行にだけ鍵が残るため）
 - 見え方：自分の変更（`ownStock`・`ownOrders`）は自分にだけ見え、COMMIT で確定した値（`stock`・`orders`）になる。読む手順は、自分の変更があればそれ、なければ確定した値を見る
 - 行の鍵：UPDATE と FOR UPDATE は鍵を取る。相手が持っていれば待ち（`wait` の event）、相手の COMMIT・ROLLBACK で鍵が外れると、その手順がすぐ進む（`resume` の event）。待ったあとの UPDATE は、確定した最新の在庫から1減らす（PostgreSQL が待ったあと最新の行で計算し直すのと同じ）。だから鍵なしで両方が先に読むと、在庫は -1 になる
 - event：`{ side, kind: 'run' | 'wait' | 'resume', step, sql, note, seen? }`（時間の順）
@@ -605,7 +606,7 @@ export async function judge(args) {}
 
 **判定の順番**:
 1. SQLが空（空白・コメントだけ）なら `wrong / empty`
-2. DBを問題の初期状態に戻し、書いたSQLを実行する。エラーなら `error`（ErrorTranslator で和訳）、5秒を超えたら `timeout`。書き換え系（`compareTable`）は実行後のテーブルの中身を読み、テーブルがなくなっていれば `wrong / tableMissing`
+2. DBを問題の初期状態に戻し、書いたSQLを実行する。エラーなら `error`（ErrorTranslator で和訳）、5秒を超えたら `timeout`。書き換え系（`compareTable`）は実行後のテーブルの中身を読み、テーブルがなくなっていれば `wrong / tableMissing`。作る系（`compareQuery`）は実行後にその SELECT を流した結果を読む。どちらも並びと列の名前は比べない。作る系の不正解の文は、カタログの行を見せず「作ったものが、依頼と違います。…見直しましょう」にする（読んだカタログの行は学習者には意味がわからないため）
 3. 正解の結果と比べる（正解の結果は問題を開いたときに `computeExpected` で一度だけ作ってとっておく）
 4. 列の数を比べる → 違えば `wrong / columnCount`
 5. `checkColumnNames` が true なら列名を比べる（大文字・小文字は無視）→ `wrong / columnNames`
@@ -885,7 +886,7 @@ export function nextProblemId(chapters, problemId) {}
 | `IndexRacePanel` | `runDbJob` で `compareChange` を呼び、`IndexRace` を出す枠。書く画面（モード3・4）では、問題に `visual: { kind: 'index', query }` があり、判定がエラー・打ち切りでなければ、学習者のSQLを変えるSQLとして比べる。正解でも不正解でも実行のたびに比べ直す（関係のない列にインデックスを作ると読む行が減らないことも見せるため。比べる間の約2秒は、次の判定がその後ろに並ぶ）。読み上げの枠（`role="status"`）は先に置き、結果が出たら「読んだ行は N 行から M 行になりました」を入れる。見本のページの「上級：インデックスで1行を探す」 |
 | `PlanTree` | 上級の見える化「実行計画の木」（SVG）。置き方は `plan-layout.js`（葉が下・根が上、親は最初と最後の子の真ん中。箱は 240×104）。節の箱は5行：節の種類（`Hash Join` など）・一言（`plan-words.js` の `NODE_WORDS`。「探す表を引いて、つなぐ」など。インデックスの比較と同じ言葉）・テーブルと別名・索引・「N行を返す（M回）」。SVG の文字は折り返さないので、箱に入らない文字は後ろを「…」にし（`fitText`。英数字は日本語の約0.6文字分で数える）、全文は箱の `title` で見られる。線は子 → 親で、太さは流れる行の数の対数（`edgeWidth`。1行と5万行が両方見えるように、1〜10）、根元に「N行」（線が曲がっていく方と反対の側）、先に線の太さに合わせた矢印。子が2つ以上なら、矢印が1点に重ならないよう親の箱の下の辺の中で左右にずらす（`toOffset`）。実行されなかった節（loops 0）は点線の箱で「実行されなかった」と書き（文字は薄くしない）、そこから出る線と矢印は薄く。副問い合わせ（`subplan`）の線は点線で「副問い合わせ N行」。上に「テーブルから読んだ行・かかった時間」と、線・点線の読み方。横に長い木は図だけを横にスクロールする。図は `aria-hidden` で、同じ中身を入れ子の一覧（見た目は隠す。「〇〇 の下の節」）で読み上げる |
 | `PlanTreePanel` | `runDbJob` で `explainQuery` を呼び、`PlanTree` を出す枠。書く画面（モード3・4）では、問題に `visual: { kind: 'plan' }` があり、判定がエラー・打ち切りでなく、出すSQL（`visual.query`、なければ学習者のSQL）が SELECT のとき、実行のたびに作り直す。読み上げの枠（`role="status"`）は先に置き、木ができたら「テーブルから N 行を読みました」（N は3桁ごとに区切る）を入れる。見本のページの「上級：実行計画の木（JOIN と集計）」「上級：実行計画の木（実行されなかった節）」 |
-| `TxTimeline` | 上級の見える化「トランザクションの2列タイムライン」。場面の切り替え（鍵なし・鍵あり、`aria-pressed`）、DB に確定した在庫・注文と行の鍵、時間の順のタイムライン（番号・A・B の3列。手順の SQL と一言。待ちは黄色、COMMIT は緑、ROLLBACK は灰色の枠）、各側の「次を実行」ボタン（次の SQL を添える。待っている・終わったときは押せず、理由を書く）、「両方が先に在庫を読む順で、最初から最後まで進める」「やり直す」、両方が終わったら結果の文（`tx-timeline-state.js` の `outcomeText`：売りすぎ／鍵で守れた（待った・待たなかった）／鍵なしで順番がよかっただけ（「守れた」とは書かない））。状態は `txTimelineReducer`。上に「在庫が残り1個になった場面」「READ COMMITTED と同じく相手の COMMIT 前の変更は見えない」「DB は使わないシミュレーション」と書く（初期データの id 4 の在庫は1ではないため）。「次を実行」ボタンには、次の SQL か押せない理由（待っている・終わり）を `aria-describedby` で付け、押したボタンが押せなくなったらフォーカスをもう片方へ移す。読み上げの枠（`role="status"`）に、最後の手順と結果。書く画面（モード3・4）では、問題に `visual: { kind: 'transaction' }` があれば、1回実行したあとは出したままにする（DB も書いたSQLも使わないので、判定中・エラーでも消さず、進めた順を残す）。見本のページの「上級：トランザクション（在庫1個に2人が注文）」 |
+| `TxTimeline` | 上級の見える化「トランザクションの2列タイムライン」。場面の切り替え（鍵なし・鍵あり・1文で確かめて減らす、`aria-pressed`）、DB に確定した在庫・注文と行の鍵、時間の順のタイムライン（番号・A・B の3列。手順の SQL と一言。待ちは黄色、COMMIT は緑、ROLLBACK は灰色の枠）、各側の「次を実行」ボタン（次の SQL を添える。待っている・終わったときは押せず、理由を書く）、「両方が先に在庫を読む順で、最初から最後まで進める」（1文で確かめて減らす場面は在庫を読む手順がないので「両方がほぼ同時に UPDATE する順で」。`readFirstLabel`）「やり直す」、両方が終わったら結果の文（`tx-timeline-state.js` の `outcomeText`：売りすぎ／鍵で守れた（待った・待たなかった）／1文の UPDATE の条件で守れた（待った・待たなかった）／鍵なしで順番がよかっただけ（「守れた」とは書かない））。状態は `txTimelineReducer`。上に「限定品 Shoulder Bag Leather（id 28）は在庫1個」「READ COMMITTED と同じく相手の COMMIT 前の変更は見えない」「DB は使わないシミュレーション」と書く。「次を実行」ボタンには、次の SQL か押せない理由（待っている・終わり）を `aria-describedby` で付け、押したボタンが押せなくなったらフォーカスをもう片方へ移す。読み上げの枠（`role="status"`）に、最後の手順と結果。書く画面（モード3・4）では、問題に `visual: { kind: 'transaction' }` があれば、1回実行したあとは出したままにする（DB も書いたSQLも使わないので、判定中・エラーでも消さず、進めた順を残す）。見本のページの「上級：トランザクション（在庫1個に2人が注文）」 |
 | `JudgePanel` | 判定の結果（不正解の理由・条件違反・打ち切り）、和訳したエラー（よくある原因、英語の原文は折りたたみ）。何回目の実行の結果かも出す |
 | `ResultScreen` | クリア後の記録（速さ・正確さ・ランク／時間・実行回数・ヒント数）、苦手の上位3つ、ステップ再生へのボタン、次の問題へ |
 | `SchemaMap` | DBの地図（React Flow）。テーブルの箱（名前・列名・型・PK・FK、新しいテーブルに NEW）と、外部キーのつながりの線。触っているテーブルを青で光らせ、両方のテーブルを触っている線も光らせる。箱を押すと選ぶ。ホイールの拡大・キーでの削除や選択は切る（ページのスクロール・打つキーを奪わない）。置き方は `src/ui/state/schema-layout.js`：指される側（親）を左の列、指す側（子）を右の列に置き、線を親の右から子の左へ流す（自分を指すつながりは列を決めるのに使わない）。親は子のすぐ左の列まで寄せる（中級では products が orders の下に来て、order_items への線がほかの箱の裏を通らない）。線に名前は付けない（箱の FK の印と読み上げ用の一覧でわかる）。同じ列のものは上から章の順に積む。図は読み上げから隠し（中をキーで動いても何もできないため）、同じ中身（テーブル・列・つながり・使っているか）を読み上げ用の一覧で出す。React Flow は大きいので、地図を開くまで読み込まない（`lazy`） |
@@ -1175,6 +1176,37 @@ data/
 
 ※ 9 はちょうど5000円・1000円の商品がないので、`price > 5000` でも正解になる（既知の制限。初級3問目と同じ。products は初級と同じ30行にそろえるので変えない）。モード2の間違いの選択肢には `>` を使わない。
 
+### 上級の章の問題
+
+依頼の会話・空欄・ヒントは問題YAML（`data/problems/advanced/`）にある。初期データは `data/seeds/advanced.sql`（中級と同じテーブルに access_logs 5万行）。テーマは「セール当日を乗り切る」。
+
+| # | 題名 | 正解SQL（形） | 判定 |
+|---|---|---|---|
+| 1 | 支払い済みの注文の中身 | 注文・お客さん・明細・商品の4つを JOIN、`WHERE o.status = 'paid' ORDER BY o.id, item` | ordered |
+| 2 | もっと安い代わりの品 | 自己結合 `FROM products a JOIN products b ON b.category = a.category AND b.price < a.price WHERE a.name = 'Travel Mug'` | ordered |
+| 3 | 取り消しを除いた注文の数 | `WITH valid_orders AS (…) SELECT c.name, count(*) AS order_count … GROUP BY c.name` | |
+| 4 | 売上が平均より多い地域 | `WITH region_sales AS (…) … WHERE sales > (SELECT avg(sales) FROM region_sales)` | |
+| 5 | カテゴリの中での値段の順位 | `rank() OVER (PARTITION BY category ORDER BY price DESC) AS price_rank` | ordered |
+| 6 | 月ごとの売上と累計 | `WITH monthly AS (…) SELECT month, sales, sum(sales) OVER (ORDER BY month) AS running_total` | |
+| 7 | サイトはなぜ重い？ | access_logs と customers をつなぎ、地域ごとのアクセス数 | ordered、visual: plan |
+| 8 | セッションの検索を速く | `CREATE INDEX ON access_logs (session_id)` | compareQuery（インデックスの列）、visual: index |
+| 9 | クーポンの表を作る | `CREATE TABLE coupons (code TEXT PRIMARY KEY, discount INTEGER NOT NULL CHECK (discount BETWEEN 1 AND 50), expires_on DATE NOT NULL)` | compareQuery（列と制約） |
+| 10 | 在庫を読むときに鍵をかける | `SELECT name, stock FROM products WHERE id = 28 FOR UPDATE` | require: [FOR UPDATE]、visual: transaction |
+| 11 | カテゴリごとの売上1位（複合） | WITH を2つ（商品ごとの売上・カテゴリの中の順位）、`WHERE sales_rank = 1` | |
+| TP | セール当日の二重注文 | `UPDATE products p SET stock = p.stock - i.quantity FROM order_items i WHERE i.product_id = p.id AND i.order_id = 19 AND p.stock >= i.quantity` | compareTable: products、visual: transaction、setup.extraSql（注文19の数量） |
+
+※ WITH を使う問題（3・4・6・11）は `ordered: false`。`checkOrderDetermined` は WITH の形の並びを確かめられないため。並べる ORDER BY は書いておく。
+
+※ WITH・CREATE TABLE の表示用SQLは `(` のあとで改行するので、正解SQLも `( SELECT … )` と括弧の内側に空白を入れる（`checkBlanks` は改行と字下げを空白1つとして比べる）。
+
+※ 8 の compareQuery は、access_logs の主キー以外の、WHERE の付かないインデックスの（テーブル名・列名）。インデックスの名前は人によって違うので読まない。`CREATE UNIQUE INDEX` も同じ列なら正解（session_id はすべて違う）。WHERE 付きの部分インデックスは一部の行にしか効かないので数えない（不正解）。`ANY (x.indkey)` は列の順を見ないので、複数の列のインデックスの問題を足すときは順も読む。
+
+※ 9 の compareQuery は、`pg_attribute` の列（名前・型・NOT NULL）と `pg_constraint` の主キー・CHECK（`pg_get_constraintdef`。`BETWEEN 1 AND 50` と `>= 1 AND <= 50` は同じ形になる）。`to_regclass` で、テーブルがないときもエラーにせず0行（不正解）。CHECK は式の形で比べるので、意味が同じでも形の違う書き方（`discount > 0 AND …`、CHECK を2つに分ける）は不正解になる（既知の制限。比べる SELECT では値を入れて試せない）。そのため会話で「CHECK で BETWEEN 1 AND 50」と形まで決める。
+
+※ 10 は1人で実行すると FOR UPDATE があってもなくても結果が同じなので `require`。2人のときの違いはタイムラインで見せる。モード2の空欄は `id = 28` だけ（FOR UPDATE を空欄にすると、間違いの選択肢でも結果が同じになり `checkWrongChoices` で止まる）。FOR UPDATE はモード1・3・4で打つ。
+
+※ ターニングポイントの注文19は、`setup.extraSql` で Mug Cup White（在庫0）を1つ・Mug Rack Wood（在庫8）を2つ・限定品 Shoulder Bag Leather（在庫1）を2つにする。在庫が数量に足りるのは Mug Rack Wood だけ（8 → 6）。数量を2以上にしたのは、`stock > 0` や `stock - 1` のような数量を見ない書き方を不正解にするため（実装検証。数量がすべて1だと結果が同じになって正解になった）。「確かめと引くことを1文にすると、同時に来ても割り込まれない」ことは、タイムラインの3つ目の場面（atomic）で見せる。2つ以上の文（BEGIN; …; COMMIT）は1回で実行できない（`SqlRunner` は1文だけ）ので、トランザクションの問題は1文で書ける形にした。
+
 ## パフォーマンス最適化
 
 - **PGlite は裏で先に起動する**：アプリを開いたらすぐ Worker で起動を始め、一覧画面の表示は待たせない
@@ -1221,6 +1253,7 @@ data/
 - `TouchedTables`：大文字・小文字、文字列・コメントの中、語の一部、引用符つきの名前、打っている途中
 - 実行計画の木の置き方（`plan-layout.js`）：節が1つ、葉が下・根が上・親は子の真ん中、子が1つの鎖、子が3つ（矢印のずれ）、深さの違う葉、副問い合わせの線、線の太さ（対数・上限）。節の文字（`plan-words.js`）：別名・回数・実行されなかった節・時間、はみ出す文字の縮め方
 - `TxSimulation`（`tx-simulation.js`）：鍵なしで両方が先に読むと在庫 -1・注文2つ、待っている側は進めず相手の COMMIT で進む（最新の在庫で減らし、一言にそう書く）、`autoRun` は番の側が待っていればもう片方を進める、A が先に終われば B は ROLLBACK、COMMIT までは相手に見えない、鍵なしは順番で結果が変わる、鍵ありはどの順でも在庫 0・注文1つ（全部の順を試す）、元の状態を変えない。画面の状態（`tx-timeline-state.js`）：やり直す・場面を変える・見本の順、結果の文（売りすぎ・鍵で待った・鍵で待たなかった・鍵なしで順番がよかった）
+- `TxSimulation` の atomic：在庫を読む手順がない、後から来た UPDATE は待ち確定した在庫 0 で確かめ直して1行も変えない、1行も変えなかった UPDATE は鍵を残さない、どの順でも在庫 0・注文1つ。結果の文（待った・待たなかった）とボタンの文（`readFirstLabel`）
 - DBの地図の置き方（`schema-layout.js`）：中級の形（親を左・子を右、親は子のすぐ左、同じ列は積む）、自己結合、輪になったつながり、地図にないテーブルへのつながり
 - 空欄の答えを空白にする（`maskBlankAnswers`）：改行・字下げ、大文字・小文字の違い、空欄2つ
 - `KeywordSpans`：大文字・小文字、2語・3語のまとめ方、複数語の一部だけの語、文字列・コメント・引用符の中、語の一部。スロットごとの語と組（区切りのスロット・改行をはさむ語）
@@ -1230,7 +1263,7 @@ data/
 - 画面の切り替え（`navigation.js`）、モード名と最高記録の文（`best-text.js`）
 
 ### 統合テスト（Vitest + PGlite（Node 版）、`tests/integration/`）
-- `Judge`：正解・別解（`IN` と `OR` の書き換え）・行数違い・順番違い・列名違い・列の並び順違い・`require` 違反・エラー・2つ以上の文・タイムアウト（作り物の SqlRunner）・判定のあと DB が初期状態に戻ること・書き換え系（`compareTable`・`ignoreColumns`・テーブルを消したとき）・空のSQL
+- `Judge`：正解・別解（`IN` と `OR` の書き換え）・行数違い・順番違い・列名違い・列の並び順違い・`require` 違反・エラー・2つ以上の文・タイムアウト（作り物の SqlRunner）・判定のあと DB が初期状態に戻ること・書き換え系（`compareTable`・`ignoreColumns`・テーブルを消したとき）・作る系（`compareQuery`：同じ列のインデックスは名前が違っても correct、違う列・作らない SQL は wrong で文は「作ったもの」、テーブルを作らなければ tableMissing ではなく wrong、判定のあと消えている）・空のSQL
 - `compareChange`：インデックスなし5万行 → あり1行、比べたあと初期状態に戻る、関係のないインデックス、変えるSQL・問い合わせのエラー。`explainQuery`：JOIN と集計の計画、SELECT 以外・WITH・エラーを断る、小文字の select（`tests/integration/explain/compare-change.test.js`）
 - `SchemaInfo`：初級の products の列・型・主キー、外部キーのつながり、2つの列の主キー・外部キー、別のテーブルの同じ名前の制約、public 以外のスキーマ・ビュー、先頭20行と行数、変わった名前のテーブルの引用
 - `Stepper`（JOIN）：INNER・LEFT・相手のない左の行・3つのテーブルと GROUP BY・自己結合・LEFT JOIN と count・LIMIT・作れない形（`join-steps.test.js`）
@@ -1243,6 +1276,7 @@ data/
   - 間違いの選択肢を入れたSQLが、判定で正解にならず、`ruleViolation` にもならない（結果が正解と変わる。`checkWrongChoices`）
   - `keywords` がすべて用語辞典にある。ターニングポイントが章の最後に1つだけ
   - 中級の初期データの決まり（products が初級と同じ、注文のない顧客、取り消しの注文、3か月、注文されていない商品、値引きの1行）
+  - 作る系（`judge.compareQuery`）の問題は、正解SQLのあと compareQuery が1行以上を返し、エラーにならない（`checkAnswersRun`。テストあり。作る系は行を書き換えないので、書き換えた行の数では確かめられない）。上級は初期状態に戻すたびに5万行を入れ直すので、選択肢の確かめ（`checkWrongChoices`）の時間の上限を5分にした
   - 上級の見える化（`visual.kind: index`）の問題は、正解SQLを変えるSQLとして比べたとき、比べる問い合わせの読む行が減る。`visual.kind: plan` の問題は、正解SQL（`query` があればそれ）の実行計画の木が作れる（`checkVisuals`）
   - 正解SQL（表示用SQL）のステップ再生が作れる。`mismatch`・`error` は止め、まだ対応していない形（`unsupported`）は止めない（`checkStepsBuild`）
   - `ordered: true` の問題で、並び順が1つに決まる（`checkOrderDetermined`：ORDER BY の後ろに `ctid`（1つのテーブルの形）か、出す列の番号（`1, 2, …`。DISTINCT・GROUP BY・JOIN の形。サブクエリで包むと ORDER BY のテーブルの別名が見えなくなるため）の昇順と降順を足して実行し、結果が同じか比べる。ORDER BY がなければ失敗。WITH・UNION などの形、列の番号で並べる形で SELECT に `*`・`p.*` があるもの（番号と出す列の数がずれる）は確かめられないので失敗にする。既知の制限：同じ並びの値の行が前から読んでも後ろから読んでも同じ並びのときは見逃す）
@@ -1254,6 +1288,7 @@ data/
 - クリアのあとの Enter・J で次の問題のモード選択へ進む。1問目をクリアすると2問目が開く
 - ターニングポイントは8問目までクリアすると開き、印とモード選択の説明が出る。会話は11行。テスト用の記録を localStorage に入れて確かめる（`tests/e2e/helpers/seed-progress.js`）。モード1でクリアしても次の章は開かず、モード4でクリアすると中級の1問目が開く
 - 中級：一覧に13問とターニングポイント、UPDATE の問題（WHERE を付け忘れると不正解）、中級の DBの地図（4つの箱・3本の線・NEW）（`tests/e2e/progression/intermediate.spec.js`）
+- 上級：一覧に12問とターニングポイント。インデックスの問題（違う列は不正解、session_id で5万行 → 1行）、実行計画の問題（書いた SELECT の木）、テーブルを作る問題（列の順・CHECK の書き方が違ってもクリア）、ターニングポイント（在庫の条件がないと不正解、タイムラインの3つ目の場面で守れる）（`tests/e2e/progression/advanced.spec.js`）
 - 打つSQL・ヒント③・入力欄が合字（`>=` を ≥ の1文字に描く）を使わない（合字はサイト全体で切る。`global.css`）
 - 打っている途中・モード2の空欄が埋まったときに、入力欄の大きさが変わらない。モード1・2で依頼の会話を開いて見られ、開いたまま打てる（`typing-layout.spec.js`）
 - 上級の見える化（インデックス）：見本のページで、なし5万行・あり1行、カウンター、読み方の一言（`tests/e2e/visualization/index-race.spec.js`）

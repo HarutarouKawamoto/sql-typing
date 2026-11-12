@@ -107,6 +107,7 @@
 | トランザクションのタイムライン | `txTimeline`（`TxTimeline`） | 上級：2人の同時の注文を2列で並べるシミュレーション。学習者が A と B の SQL を好きな順に1つずつ実行する（P2） | PGlite は接続が1つ。`tx-simulation.js` |
 | 行の鍵 | `lockOwner` | `UPDATE`・`SELECT ... FOR UPDATE` が行に取る鍵（行ロック）。相手が持っていれば COMMIT・ROLLBACK まで待つ | |
 | 売りすぎ | `oversold` | 同時の注文で、在庫がマイナスになり、在庫より多く注文が入ること | 鍵なしで両方が先に在庫を読むと起きる |
+| 作る系の判定 | `compareQuery` | `CREATE INDEX`・`CREATE TABLE` の問題で、実行したあとに流す SELECT の結果（カタログから読んだ、作ったもの）を比べる判定 | 書き換え系は `compareTable` |
 
 ### 作り方（ハーネス）
 

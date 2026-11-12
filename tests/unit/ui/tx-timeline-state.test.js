@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { autoRun, startTx } from '../../../src/core/tx-simulation.js';
-import { outcomeText, txTimelineReducer } from '../../../src/ui/state/tx-timeline-state.js';
+import {
+  outcomeText,
+  readFirstLabel,
+  txTimelineReducer,
+} from '../../../src/ui/state/tx-timeline-state.js';
 
 describe('txTimelineReducer', () => {
   it('step で1つ進み、reset で同じ場面の最初にもどる', () => {
@@ -41,6 +45,23 @@ describe('outcomeText', () => {
     const end = txTimelineReducer(startTx('locked'), { type: 'readFirstOrder' });
     expect(outcomeText(end)).toMatch(/^守れた：DB の在庫は 0、注文は 1 つです。B（Ben） は在庫 0/);
     expect(outcomeText(end)).toMatch(/FOR UPDATE の鍵/);
+  });
+
+  it('1文で確かめて減らしたときは、UPDATE の条件で守れたと書く', () => {
+    const end = txTimelineReducer(startTx('atomic'), { type: 'readFirstOrder' });
+    expect(outcomeText(end)).toMatch(/^守れた：DB の在庫は 0、注文は 1 つです。/);
+    expect(outcomeText(end)).toMatch(/UPDATE の WHERE/);
+  });
+
+  it('1文で確かめて減らす場面で待たずに終わったときも、条件の確かめ直しで守れると書く', () => {
+    const end = autoRun(startTx('atomic'), ['A', 'A', 'A', 'A']);
+    expect(outcomeText(end)).toMatch(/^守れた：/);
+    expect(outcomeText(end)).toMatch(/今回は待ちませんでしたが/);
+  });
+
+  it('見本の順のボタンの文は、在庫を読む手順のない場面では「先に UPDATE する」', () => {
+    expect(readFirstLabel('unsafe')).toMatch(/両方が先に在庫を読む順/);
+    expect(readFirstLabel('atomic')).toMatch(/両方がほぼ同時に UPDATE する順/);
   });
 
   it('鍵なしで順番がよかっただけのときは、「守れた」と書かず、順番のおかげだと書く', () => {

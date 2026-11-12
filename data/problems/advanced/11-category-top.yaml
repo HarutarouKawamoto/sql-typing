@@ -1,0 +1,80 @@
+# 上級11問目（複合）：WITH を2つ・結合・RANK() OVER で、カテゴリごとの売上1位の商品
+# 形：src/schema/problem-schema.js ／ 書き方：docs/development-guidelines.md の「問題データの書き方」
+# WITH の形は checkOrderDetermined で並びを確かめられないので ordered: false
+id: advanced-11
+chapterId: advanced
+order: 11
+title: カテゴリごとの売上1位
+kind: composite
+story:
+  before:
+    - speaker: tencho
+      text: セールのチラシの表紙は、各カテゴリの売れ筋1位よ。
+    - speaker: eigyo
+      text: 売上は明細の数量 × 単価。取り消しの注文は抜いて。
+    - speaker: senpai
+      text: 商品ごとの売上を出して、カテゴリの中で順位を付けて……。
+    - speaker: senpai
+      text: 1位だけ残す。WITH を2段にすると読みやすいぞ。
+    - speaker: eigyo
+      text: 列は category・name・sales。カテゴリのアルファベット順で。
+    - speaker: player
+      text: 結合・集計・順位・絞り込み。全部1つのSQLにまとめます。
+  after:
+    - speaker: tencho
+      text: 4つのカテゴリの顔がそろった！ チラシ、入稿するわ。
+    - speaker: senpai
+      text: 上級で習ったこと、全部入りだな……。
+answer: WITH product_sales AS ( SELECT p.category, p.name, sum(i.quantity * i.unit_price) AS sales FROM order_items i JOIN orders o ON o.id = i.order_id JOIN products p ON p.id = i.product_id WHERE o.status <> 'cancelled' GROUP BY p.category, p.name ), ranked AS ( SELECT category, name, sales, rank() OVER (PARTITION BY category ORDER BY sales DESC) AS sales_rank FROM product_sales ) SELECT category, name, sales FROM ranked WHERE sales_rank = 1 ORDER BY category
+display: |-
+  WITH product_sales AS (
+    SELECT p.category, p.name,
+      sum(i.quantity * i.unit_price) AS sales
+    FROM order_items i
+      JOIN orders o ON o.id = i.order_id
+      JOIN products p ON p.id = i.product_id
+    WHERE o.status <> 'cancelled'
+    GROUP BY p.category, p.name
+  ),
+  ranked AS (
+    SELECT category, name, sales,
+      rank() OVER (PARTITION BY category
+        ORDER BY sales DESC) AS sales_rank
+    FROM product_sales
+  )
+  SELECT category, name, sales
+  FROM ranked
+  WHERE sales_rank = 1
+  ORDER BY category
+blanks:
+  - answer: PARTITION BY category
+    wrong:
+      - text: PARTITION BY name
+        why: 商品名で分けると、どの商品も自分だけの中で1位になる。分けるのはカテゴリ。
+  - answer: sales_rank = 1
+    wrong:
+      - text: sales_rank <= 2
+        why: <= 2 だと2位まで残る。チラシの表紙は1位だけ。
+hints:
+  - 使うのは WITH（2つ）・SELECT・FROM・JOIN … ON・WHERE・GROUP BY・ORDER BY と、sum・rank() OVER (PARTITION BY …)。
+  - 書く順は WITH product_sales AS (商品ごとの売上), ranked AS (順位を付ける) → SELECT … FROM ranked WHERE 順位 = 1 → ORDER BY。
+  - WITH product_sales AS (SELECT p.category, p.name, sum(i.quantity * i.unit_price) AS sales FROM order_items i JOIN orders o ON o.id = i.order_id JOIN products p ON p.id = i.product_id WHERE o.status <> 'cancelled' GROUP BY p.category, p.name), ranked AS (SELECT category, name, sales, rank() OVER (PARTITION BY ??? ORDER BY ??? DESC) AS sales_rank FROM ???) SELECT category, name, sales FROM ranked WHERE ??? = 1 ORDER BY category
+judge:
+  ordered: false
+keywords:
+  [
+    WITH,
+    AS,
+    SELECT,
+    SUM,
+    FROM,
+    JOIN,
+    'ON',
+    WHERE,
+    GROUP BY,
+    RANK,
+    OVER,
+    PARTITION BY,
+    ORDER BY,
+    DESC,
+  ]

@@ -1,0 +1,59 @@
+# 上級6問目：SUM() OVER (ORDER BY …)（累計。WITH で月ごとの売上を作ってから）
+# 形：src/schema/problem-schema.js ／ 書き方：docs/development-guidelines.md の「問題データの書き方」
+# WITH の形は checkOrderDetermined で並びを確かめられないので ordered: false
+id: advanced-06
+chapterId: advanced
+order: 6
+title: 月ごとの売上と累計
+kind: normal
+story:
+  before:
+    - speaker: tencho
+      text: セールで、今年の目標に届くかしら。
+    - speaker: tencho
+      text: 月ごとの売上と、その月までの合計を並べて見たいの。
+    - speaker: eigyo
+      text: 売上は明細の数量 × 単価。取り消しの注文は抜いて。
+    - speaker: eigyo
+      text: 月は 2026-08 のように、年と月をハイフンでつないで。
+    - speaker: eigyo
+      text: 列は month・sales・running_total、月の古い順よ。
+    - speaker: senpai
+      text: 月ごとの売上を WITH で作って、そこに累計を足せ。
+    - speaker: player
+      text: SUM を OVER で、月の順に足していきます。
+  after:
+    - speaker: tencho
+      text: 3か月で 81,490円。セールで一気に伸ばすわよ！
+    - speaker: senpai
+      text: OVER に ORDER BY を入れると、上から順に足していくんだな。
+answer: WITH monthly AS ( SELECT to_char(o.ordered_at, 'YYYY-MM') AS month, sum(i.quantity * i.unit_price) AS sales FROM orders o JOIN order_items i ON i.order_id = o.id WHERE o.status <> 'cancelled' GROUP BY month ) SELECT month, sales, sum(sales) OVER (ORDER BY month) AS running_total FROM monthly ORDER BY month
+display: |-
+  WITH monthly AS (
+    SELECT to_char(o.ordered_at, 'YYYY-MM') AS month,
+      sum(i.quantity * i.unit_price) AS sales
+    FROM orders o
+      JOIN order_items i ON i.order_id = o.id
+    WHERE o.status <> 'cancelled'
+    GROUP BY month
+  )
+  SELECT month, sales,
+    sum(sales) OVER (ORDER BY month) AS running_total
+  FROM monthly
+  ORDER BY month
+blanks:
+  - answer: sum(sales) OVER
+    wrong:
+      - text: count(sales) OVER
+        why: count は行の数。売上の累計は sum で足す。
+  - answer: (ORDER BY month)
+    wrong:
+      - text: ()
+        why: () だと全部の月の合計が、どの行にも同じく入る。順に足すには ORDER BY。
+hints:
+  - 使うのは WITH … AS (…)・SELECT・FROM・JOIN … ON・WHERE・GROUP BY・ORDER BY と、to_char・sum・OVER。
+  - 書く順は WITH monthly AS (月ごとの売上) → SELECT month, sales, sum(sales) OVER (ORDER BY month) … → FROM monthly → ORDER BY。
+  - WITH monthly AS (SELECT to_char(o.ordered_at, '???') AS month, sum(i.quantity * i.unit_price) AS sales FROM orders o JOIN order_items i ON i.order_id = o.id WHERE o.status <> 'cancelled' GROUP BY month) SELECT month, sales, ???(sales) OVER (ORDER BY ???) AS running_total FROM monthly ORDER BY month
+judge:
+  ordered: false
+keywords: [WITH, AS, SELECT, TO_CHAR, SUM, FROM, JOIN, 'ON', WHERE, GROUP BY, OVER, ORDER BY]

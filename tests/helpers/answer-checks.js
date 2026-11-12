@@ -276,6 +276,20 @@ export async function checkAnswersRun({ runner, chapters, entries, readSeed }) {
       continue;
     }
     const outcome = await runner.run(problem.answer);
+    if (outcome.ok && problem.judge.compareQuery) {
+      // 作る系（CREATE INDEX など）は行を書き換えないので、比べる SELECT が行を返すかで確かめる
+      const after = await runner.run(problem.judge.compareQuery);
+      if (!after.ok) {
+        issues.push(
+          `${file}: compareQuery がエラーになります（${'error' in after ? after.error.message : '時間切れ'}）`,
+        );
+      } else if (after.result.rows.length === 0) {
+        issues.push(
+          `${file}: 正解SQLのあと、compareQuery の結果が0行です（作ったものを読めていない）`,
+        );
+      }
+      continue;
+    }
     if (!outcome.ok && 'timeout' in outcome) {
       issues.push(`${file}: 正解SQLが時間内に終わりません`);
     } else if (!outcome.ok) {

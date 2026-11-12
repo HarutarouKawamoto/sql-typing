@@ -205,6 +205,8 @@ try { await runner.run(sql); } catch (e) {}
 - **モード2の間違いの選択肢はエラーにしない**：間違いを選んだときに「結果がどう変わるか」を why で説明できるものにする。エラーになる選択肢は、why の説明が実際と食い違いやすい（中級10問目で、型の違う値の入れ替えがエラーになり why と合わなかった）。エラーそのものを教えたいとき（`'` の付け忘れなど）だけ使う
 - **ヒント3段階**：①使う句 ②句の順番 ③骨組み（値や条件だけを `???` にしたSQL）
 - **順番が1つに決まること**：`ordered: true` の問題は、並び順が同じ値の行で入れ替わらないように初期データを用意する（`checkOrderDetermined` で止まる）
+- **作る系の判定（`judge.compareQuery`）**：`CREATE INDEX`・`CREATE TABLE` のように行を書き換えない問題は、`compareQuery` に「作ったものをカタログから読む SELECT」を書く。人によって違う名前（インデックスの名前・制約の名前）は読まない。テーブルを読むときは `to_regclass('名前')` を使い、ないときもエラーにしない
+- **WITH の問題**：`ordered: false` にする（`checkOrderDetermined` は WITH の形の並びを確かめられない）。表示用SQLで `(` のあとを改行するなら、正解SQLも `( SELECT … )` と括弧の内側に空白を入れる（`checkBlanks` は改行と字下げを空白1つとして比べる）
 - **書き換え系の比べない列**：`INSERT` の問題で SERIAL の `id` のように、正しい書き方でも値が変わる列は `judge.ignoreColumns` に書く
 - **上級の見える化（`visual`）**：インデックスを作る問題は `visual: { kind: index, query: <比べる SELECT> }` を書く。query は SELECT だけ（EXPLAIN ANALYZE は実際に実行するため。形の確かめで止まる）。正解SQLで query の読む行が減ることを `checkVisuals` が確かめる。実行計画の木を見せる問題は `visual: { kind: plan }`（学習者の SELECT の木。決まった問い合わせの木を見せるなら `query` も書く）。正解SQL（`query`）の木が作れることを `checkVisuals` が確かめる。トランザクションの問題は `visual: { kind: transaction }`（DB を使わないシミュレーションを出す。`query` は書かない）
 - **新しいキーワード**：問題で初めて使うキーワードは、同じ作業の中で `data/keywords.yaml` に追加する

@@ -1,0 +1,42 @@
+# 上級10問目：SELECT … FOR UPDATE（在庫を読むときに行に鍵をかける）
+# 形：src/schema/problem-schema.js ／ 書き方：docs/development-guidelines.md の「問題データの書き方」
+# 1人で実行すると FOR UPDATE があってもなくても結果は同じなので、require で FOR UPDATE を求める。
+# 2人が同時に注文したときの違いは、トランザクションのタイムライン（visual: transaction）で見せる
+id: advanced-10
+chapterId: advanced
+order: 10
+title: 在庫を読むときに鍵をかける
+kind: normal
+story:
+  before:
+    - speaker: tencho
+      text: 限定品の Shoulder Bag Leather、在庫は1個だけなの。
+    - speaker: senpai
+      text: 2人が同時に買うと、2人とも在庫1を見て、両方売れる。
+    - speaker: senpai
+      text: 在庫を読むときに、行に鍵をかけろ。FOR UPDATE だ。
+    - speaker: tencho
+      text: id は 28。名前と在庫を読んでね。
+    - speaker: player
+      text: 鍵をかけて読みます。後から来た人は、鍵が外れるまで待ちます。
+  after:
+    - speaker: senpai
+      text: 下のタイムラインで、2人の順番を入れ替えて試してみろ。
+    - speaker: tencho
+      text: 鍵があると、後の人は在庫 0 を見て買うのをやめるのね！
+answer: SELECT name, stock FROM products WHERE id = 28 FOR UPDATE
+blanks:
+  - answer: id = 28
+    wrong:
+      - text: id = 27
+        why: 27 は Eco Bag Fold。鍵をかけるのは、限定品の 28 の行。
+hints:
+  - 使うのは SELECT・FROM・WHERE・FOR UPDATE。
+  - 書く順は SELECT → FROM → WHERE → FOR UPDATE（最後に付ける）。
+  - SELECT name, stock FROM products WHERE id = ??? FOR ???
+judge:
+  ordered: false
+  require: [FOR UPDATE]
+visual:
+  kind: transaction
+keywords: [SELECT, FROM, WHERE, FOR UPDATE]

@@ -1,0 +1,53 @@
+# 上級3問目：WITH（途中の結果に名前を付けて、表のように使う）
+# 形：src/schema/problem-schema.js ／ 書き方：docs/development-guidelines.md の「問題データの書き方」
+# WITH の形は checkOrderDetermined で並びを確かめられないので ordered: false（ORDER BY は書いておく）
+id: advanced-03
+chapterId: advanced
+order: 3
+title: 取り消しを除いた注文の数
+kind: normal
+story:
+  before:
+    - speaker: tencho
+      text: セールの招待状を、よく買ってくれるお客さんに送りたいの。
+    - speaker: tencho
+      text: お客さんごとに、注文の数を数えて。取り消しは除いてね。
+    - speaker: senpai
+      text: 「取り消しを除いた注文」は、この先も何度も使うぞ。
+    - speaker: senpai
+      text: WITH で valid_orders と名前を付けておけ。
+    - speaker: eigyo
+      text: 列は name と order_count。多い順、同じなら名前順で。
+    - speaker: player
+      text: 先に valid_orders を作ってから、お客さんとつなぎます。
+  after:
+    - speaker: tencho
+      text: Aiko さんが4回！ 招待状は一番いい紙にしましょう。
+    - speaker: senpai
+      text: 名前を付けておくと、SQL が読みやすくなるな。
+answer: WITH valid_orders AS ( SELECT id, customer_id FROM orders WHERE status <> 'cancelled' ) SELECT c.name, count(*) AS order_count FROM valid_orders v JOIN customers c ON c.id = v.customer_id GROUP BY c.name ORDER BY order_count DESC, c.name
+display: |-
+  WITH valid_orders AS (
+    SELECT id, customer_id FROM orders WHERE status <> 'cancelled'
+  )
+  SELECT c.name, count(*) AS order_count
+  FROM valid_orders v
+    JOIN customers c ON c.id = v.customer_id
+  GROUP BY c.name
+  ORDER BY order_count DESC, c.name
+blanks:
+  - answer: status <> 'cancelled'
+    wrong:
+      - text: status = 'cancelled'
+        why: = だと、取り消した注文だけを数えてしまう。除くのは <>。
+  - answer: valid_orders v
+    wrong:
+      - text: orders v
+        why: orders は取り消しも入った元の表。WITH で作った valid_orders から読む。
+hints:
+  - 使うのは WITH … AS (…)・SELECT・FROM・JOIN … ON・GROUP BY・ORDER BY・count。
+  - 書く順は WITH 名前 AS (SELECT …) → SELECT → FROM 名前 → JOIN … ON → GROUP BY → ORDER BY。
+  - WITH valid_orders AS (SELECT id, customer_id FROM orders WHERE status <> '???') SELECT c.name, count(*) AS order_count FROM ??? v JOIN customers c ON c.id = v.??? GROUP BY ??? ORDER BY ??? DESC, ???
+judge:
+  ordered: false
+keywords: [WITH, AS, SELECT, FROM, WHERE, COUNT, JOIN, 'ON', GROUP BY, ORDER BY, DESC]

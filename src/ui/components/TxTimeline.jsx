@@ -1,6 +1,11 @@
 import { useEffect, useId, useReducer, useRef } from 'react';
 import { canStep, nextStep, startTx, TX_SCENARIOS } from '../../core/tx-simulation.js';
-import { outcomeText, TX_SIDE_NAMES, txTimelineReducer } from '../state/tx-timeline-state.js';
+import {
+  outcomeText,
+  readFirstLabel,
+  TX_SIDE_NAMES,
+  txTimelineReducer,
+} from '../state/tx-timeline-state.js';
 import styles from './TxTimeline.module.css';
 
 /** @typedef {import('../../core/tx-simulation.js').TxSide} TxSide */
@@ -44,8 +49,8 @@ export function TxTimeline() {
     >
       <h2 className={styles.heading}>見える化：トランザクションのタイムライン</h2>
       <p className={styles.lead}>
-        セールの限定品（products の id 4）の在庫が、残り1個になった場面です。{TX_SIDE_NAMES.A} と{' '}
-        {TX_SIDE_NAMES.B} が同時に注文します。下のボタンで、A と B の SQL
+        セールの限定品 Shoulder Bag Leather（products の id 28）は、在庫が1個です。{TX_SIDE_NAMES.A}{' '}
+        と {TX_SIDE_NAMES.B} が同時に注文します。下のボタンで、A と B の SQL
         を好きな順に1つずつ実行してください。 PostgreSQL の標準（READ COMMITTED）と同じく、相手が
         COMMIT するまで、相手の変更は見えません（DB は使わないシミュレーションです）。
       </p>
@@ -164,7 +169,7 @@ export function TxTimeline() {
 
       <div className={styles.controls}>
         <button type="button" onClick={() => dispatch({ type: 'readFirstOrder' })}>
-          両方が先に在庫を読む順で、最初から最後まで進める
+          {readFirstLabel(state.scenarioId)}
         </button>
         <button type="button" onClick={() => dispatch({ type: 'reset' })}>
           やり直す

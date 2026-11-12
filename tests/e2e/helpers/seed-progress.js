@@ -41,3 +41,13 @@ export const intermediateUpTo = (n) => [
     mode: /** @type {const} */ ('1'),
   })),
 ];
+
+/** 中級までを全部（ターニングポイントはモード3で）クリアし、上級の1〜n問目をモード1でクリアした状態 */
+export const advancedUpTo = (n) => [
+  ...intermediateUpTo(12),
+  { problemId: 'intermediate-13', mode: /** @type {const} */ ('3') },
+  ...Array.from({ length: n }, (_, i) => ({
+    problemId: `advanced-${String(i + 1).padStart(2, '0')}`,
+    mode: /** @type {const} */ ('1'),
+  })),
+];

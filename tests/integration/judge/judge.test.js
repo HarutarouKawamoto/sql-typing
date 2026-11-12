@@ -170,6 +170,53 @@ describe('judge：DB を戻す・書き換え系', () => {
   });
 });
 
+/** products に作ったインデックスの列（主キーは除く）。インデックスの名前は人によって違うので比べない */
+const INDEX_COLUMNS =
+  "SELECT t.relname AS table_name, a.attname AS column_name FROM pg_index x JOIN pg_class t ON t.oid = x.indrelid JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY (x.indkey) WHERE t.relname = 'products' AND NOT x.indisprimary";
+
+describe('judge：compareQuery（作ったものを SELECT で確かめる）', () => {
+  const problem = problemOf('CREATE INDEX ON products (category)', { compareQuery: INDEX_COLUMNS });
+
+  it('同じ列にインデックスを作れば、名前を付けても correct', async () => {
+    expect(
+      (await judgeWith('CREATE INDEX idx_category ON products (category)', problem)).status,
+    ).toBe('correct');
+  });
+
+  it('違う列・インデックスを作らない SQL は wrong', async () => {
+    expect(await judgeWith('CREATE INDEX ON products (price)', problem)).toMatchObject({
+      status: 'wrong',
+      reason: 'values',
+    });
+    expect((await judgeWith('SELECT 1', problem)).status).toBe('wrong');
+  });
+
+  it('作る系の不正解は、カタログの行ではなく「作ったものが違う」と伝える', async () => {
+    const result = await judgeWith('CREATE INDEX ON products (price)', problem);
+    expect(result.status === 'wrong' && result.message).toMatch(/作ったもの/);
+  });
+
+  it('テーブルを作る問題：作らなければ tableMissing ではなく wrong（to_regclass で0行）', async () => {
+    const table = problemOf('CREATE TABLE coupons (code TEXT PRIMARY KEY)', {
+      compareQuery:
+        "SELECT a.attname, format_type(a.atttypid, a.atttypmod) FROM pg_attribute a WHERE a.attrelid = to_regclass('coupons') AND a.attnum > 0 AND NOT a.attisdropped",
+    });
+    expect(await judgeWith('SELECT 1', table)).toMatchObject({
+      status: 'wrong',
+      reason: 'rowCount',
+    });
+    expect((await judgeWith('create table coupons (code text primary key)', table)).status).toBe(
+      'correct',
+    );
+  });
+
+  it('判定のあと、作ったインデックスは消えている（初期状態に戻る）', async () => {
+    await judgeWith('CREATE INDEX ON products (category)', problem);
+    const left = await runner.run(INDEX_COLUMNS);
+    expect(left.ok && left.result.rows).toEqual([]);
+  });
+});
+
 describe('judge：検証で見つかった取り違え', () => {
   it('空のSQLは wrong / empty', async () => {
     const problem = problemOf('SELECT name FROM products');

@@ -1,0 +1,62 @@
+# 上級4問目：WITH を2回使う（地域ごとの売上を作り、その平均と比べる）
+# 形：src/schema/problem-schema.js ／ 書き方：docs/development-guidelines.md の「問題データの書き方」
+# WITH の形は checkOrderDetermined で並びを確かめられないので ordered: false
+id: advanced-04
+chapterId: advanced
+order: 4
+title: 売上が平均より多い地域
+kind: normal
+story:
+  before:
+    - speaker: eigyo
+      text: セールの広告、売上の多い地域に絞って出したいの。
+    - speaker: eigyo
+      text: 地域ごとの売上を出して、平均より多い地域だけ残して。
+    - speaker: eigyo
+      text: 売上は明細の数量 × 単価。取り消しの注文は抜いてね。
+    - speaker: senpai
+      text: 地域ごとの売上を WITH で region_sales にしておけ。
+    - speaker: senpai
+      text: その平均も、同じ region_sales から出せる。
+    - speaker: eigyo
+      text: 列は region と sales、売上の多い順で。
+    - speaker: player
+      text: region_sales を1回作って、2回使います。
+  after:
+    - speaker: eigyo
+      text: east と north ね。広告はこの2つに集中！
+    - speaker: senpai
+      text: 同じ途中の結果を2回使えるのが、WITH の強みだな。
+answer: WITH region_sales AS ( SELECT c.region, sum(i.quantity * i.unit_price) AS sales FROM orders o JOIN customers c ON c.id = o.customer_id JOIN order_items i ON i.order_id = o.id WHERE o.status <> 'cancelled' GROUP BY c.region ) SELECT region, sales FROM region_sales WHERE sales > (SELECT avg(sales) FROM region_sales) ORDER BY sales DESC
+display: |-
+  WITH region_sales AS (
+    SELECT c.region,
+      sum(i.quantity * i.unit_price) AS sales
+    FROM orders o
+      JOIN customers c ON c.id = o.customer_id
+      JOIN order_items i ON i.order_id = o.id
+    WHERE o.status <> 'cancelled'
+    GROUP BY c.region
+  )
+  SELECT region, sales
+  FROM region_sales
+  WHERE sales > (SELECT avg(sales) FROM region_sales)
+  ORDER BY sales DESC
+blanks:
+  - answer: o.status <> 'cancelled'
+    wrong:
+      - text: o.status = 'cancelled'
+        why: = だと、取り消した注文だけの売上になる。抜くのは <>。
+  - answer: avg(sales)
+    wrong:
+      - text: max(sales)
+        why: max は一番多い地域の売上。それより多い地域はないので、1行も残らない。
+      - text: min(sales)
+        why: min は一番少ない地域の売上。比べる相手は平均（avg）。
+hints:
+  - 使うのは WITH … AS (…)・SELECT・FROM・JOIN … ON・WHERE・GROUP BY・ORDER BY と、sum・avg。
+  - 書く順は WITH region_sales AS (地域ごとの売上) → SELECT … FROM region_sales → WHERE sales > (SELECT avg(…) FROM region_sales) → ORDER BY。
+  - WITH region_sales AS (SELECT c.region, sum(i.??? * i.???) AS sales FROM orders o JOIN customers c ON c.id = o.customer_id JOIN order_items i ON i.order_id = o.id WHERE o.status <> '???' GROUP BY ???) SELECT region, sales FROM region_sales WHERE sales > (SELECT ???(sales) FROM ???) ORDER BY sales DESC
+judge:
+  ordered: false
+keywords: [WITH, AS, SELECT, SUM, FROM, JOIN, 'ON', WHERE, GROUP BY, AVG, ORDER BY, DESC]

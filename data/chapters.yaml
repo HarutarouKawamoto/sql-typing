@@ -36,3 +36,22 @@
     - intermediate-11
     - intermediate-12
     - intermediate-13 # ターニングポイント
+- id: advanced
+  level: 3
+  title: 上級 セール当日を乗り切る
+  seed: advanced.sql
+  tables: [customers, orders, order_items, products, access_logs]
+  newTables: [access_logs]
+  problemIds:
+    - advanced-01
+    - advanced-02
+    - advanced-03
+    - advanced-04
+    - advanced-05
+    - advanced-06
+    - advanced-07
+    - advanced-08
+    - advanced-09
+    - advanced-10
+    - advanced-11
+    - advanced-12 # ターニングポイント

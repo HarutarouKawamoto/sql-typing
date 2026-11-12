@@ -40,6 +40,15 @@ describe('ProblemSchema', () => {
     expect(visual({ kind: 'other' })).toBe(false);
   });
 
+  it('judge.compareQuery：SELECT だけ。compareTable と一緒には書けない', () => {
+    const base = makeProblem();
+    const rule = (extra) =>
+      ProblemSchema.safeParse({ ...base, judge: { ordered: false, ...extra } }).success;
+    expect(rule({ compareQuery: 'SELECT attname FROM pg_attribute' })).toBe(true);
+    expect(rule({ compareQuery: 'DELETE FROM t' })).toBe(false);
+    expect(rule({ compareQuery: 'SELECT 1', compareTable: 'products' })).toBe(false);
+  });
+
   it('通常の問題は依頼の会話が9行で失敗する', () => {
     const problem = makeProblem();
     problem.story.before = lines(9);

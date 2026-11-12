@@ -1,0 +1,47 @@
+# 上級2問目：自己結合（同じテーブルを2回使い、行どうしを比べる）
+# 形：src/schema/problem-schema.js ／ 書き方：docs/development-guidelines.md の「問題データの書き方」
+id: advanced-02
+chapterId: advanced
+order: 2
+title: もっと安い代わりの品
+kind: normal
+story:
+  before:
+    - speaker: eigyo
+      text: Travel Mug が、セール前から売り切れそうなの。
+    - speaker: eigyo
+      text: 同じカテゴリで、もっと安い品を代わりに案内したいわ。
+    - speaker: senpai
+      text: products の行どうしを比べるのか。同じ表を2回使うな。
+    - speaker: eigyo
+      text: 名前と値段を、安い順にお願い。
+    - speaker: player
+      text: products に a と b の名前を付けて、自分自身とつなぎます。
+  after:
+    - speaker: eigyo
+      text: 6つも候補が出た！ 案内のメール、すぐ書けるわ。
+    - speaker: senpai
+      text: 自分自身とつなぐ……自己結合ってやつか。
+answer: SELECT b.name, b.price FROM products a JOIN products b ON b.category = a.category AND b.price < a.price WHERE a.name = 'Travel Mug' ORDER BY b.price
+display: |-
+  SELECT b.name, b.price
+  FROM products a
+    JOIN products b ON b.category = a.category AND b.price < a.price
+  WHERE a.name = 'Travel Mug'
+  ORDER BY b.price
+blanks:
+  - answer: b.category = a.category
+    wrong:
+      - text: b.category <> a.category
+        why: <> だと、違うカテゴリの品が並ぶ。代わりに案内するのは同じカテゴリ。
+  - answer: b.price < a.price
+    wrong:
+      - text: b.price > a.price
+        why: '> だと、Travel Mug より高い品になる。探しているのは安い品。'
+hints:
+  - 使うのは SELECT・FROM・JOIN … ON・AND・WHERE・ORDER BY。同じテーブルに a・b の2つの名前を付ける。
+  - 書く順は SELECT → FROM products a → JOIN products b ON … AND … → WHERE（a を Travel Mug に）→ ORDER BY。
+  - SELECT b.name, b.price FROM products a JOIN products b ON b.??? = a.??? AND b.price ??? a.price WHERE a.name = '???' ORDER BY ???
+judge:
+  ordered: true
+keywords: [SELECT, FROM, JOIN, 'ON', AND, WHERE, ORDER BY]
