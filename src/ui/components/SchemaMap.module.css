@@ -1,0 +1,122 @@
+.map {
+  height: 18rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.node {
+  min-width: 13rem;
+  font-size: 0.8rem;
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.touched {
+  border-color: var(--color-focus-table);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-focus-table) 35%, transparent);
+}
+
+.selected {
+  outline: 2px dashed var(--color-text-muted);
+  outline-offset: 3px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.touched .header {
+  color: var(--color-surface);
+  background: var(--color-focus-table);
+}
+
+.tableName {
+  font-family: var(--font-code);
+  font-weight: bold;
+}
+
+.usedMark {
+  margin-left: auto;
+  padding: 0 var(--space-1);
+  font-size: 0.7rem;
+  font-weight: bold;
+  color: var(--color-focus-table);
+  background: var(--color-surface);
+  border-radius: var(--radius);
+}
+
+.newMark {
+  padding: 0 var(--space-1);
+  font-size: 0.7rem;
+  font-weight: bold;
+  color: var(--color-bg);
+  background: var(--color-active);
+  border-radius: var(--radius);
+}
+
+.columns {
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  list-style: none;
+}
+
+.column {
+  display: flex;
+  gap: var(--space-1);
+  align-items: baseline;
+  font-family: var(--font-code);
+}
+
+.columnName {
+  flex: 1;
+}
+
+.keyMark {
+  font-size: 0.65rem;
+  font-weight: bold;
+  color: var(--color-active);
+}
+
+.type {
+  color: var(--color-text-muted);
+}
+
+/* 見える線だけに当てる（当たり判定用の透明な線は太いまま） */
+.edge :global(.react-flow__edge-path) {
+  stroke: var(--color-text-muted);
+}
+
+.edgeLit :global(.react-flow__edge-path) {
+  stroke: var(--color-focus-table);
+  stroke-width: 3;
+}
+
+/* つなげない地図なので、線のつなぎ口（Handle）の点は見せない。線の端の位置にだけ使う */
+.handle {
+  opacity: 0;
+}
+
+/* 幅の狭い画面では図が縮むので、高さを足して文字を読めるようにする */
+@media (max-width: 767px) {
+  .map {
+    height: 26rem;
+  }
+}
+
+/* 読み上げにだけ出す（図と同じ中身） */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

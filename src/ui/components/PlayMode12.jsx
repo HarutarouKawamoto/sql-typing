@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { maskBlankAnswers } from '../../core/blank-typing.js';
 import { computeTypingStats, topWeakPoints } from '../../core/scoring.js';
 import { localDate } from '../state/local-date.js';
 import { useTypingSession } from '../state/use-typing-session.js';
@@ -7,6 +8,7 @@ import { StepPlayer } from './StepPlayer.jsx';
 import { TypingArea } from './TypingArea.jsx';
 import { TypingResult } from './TypingResult.jsx';
 import { ChoiceList } from './ChoiceList.jsx';
+import { SchemaMapPanel } from './SchemaMapPanel.jsx';
 import { StoryLines } from './StoryLines.jsx';
 import styles from './PlayMode12.module.css';
 
@@ -23,6 +25,7 @@ const GUIDES = {
  * 結果の「ステップ再生を見る」で、表の欄がステップ再生（見える化A）に変わる。
  * @param {{
  *   problem: import('../../schema/problem-schema.js').Problem,
+ *   chapter: import('../../schema/chapter-schema.js').Chapter,
  *   mode: '1' | '2',
  *   keywords: string[],
  *   runner: import('../../data/sql-runner/sql-runner.js').SqlRunner,
@@ -36,6 +39,7 @@ const GUIDES = {
  */
 export function PlayMode12({
   problem,
+  chapter,
   mode,
   keywords,
   runner,
@@ -47,6 +51,11 @@ export function PlayMode12({
   afterClear = null,
 }) {
   const displaySql = problem.display ?? problem.answer;
+  // DBの地図で光らせるSQL。モード2は空欄の答えを抜く（空欄にテーブル名があっても、地図で答えがわからないように）
+  const mapSql = useMemo(
+    () => (mode === '2' ? maskBlankAnswers(displaySql, problem.blanks) : displaySql),
+    [mode, displaySql, problem.blanks],
+  );
   const [summary, setSummary] = useState(null);
   const [showReplay, setShowReplay] = useState(false);
   const session = useTypingSession({
@@ -101,6 +110,7 @@ export function PlayMode12({
         <summary className={styles.requestSummary}>依頼の会話を見る</summary>
         <StoryLines lines={problem.story.before} />
       </details>
+      <SchemaMapPanel runner={runner} chapter={chapter} sql={mapSql} databaseStatus="ready" />
       {/* 打っている間に目が行く入力エリアを真ん中に大きく。表はすぐ下に置き、打った瞬間の変化が視線を少し下げるだけで見えるようにする */}
       <section className={styles.stage} aria-label="打つところ">
         <p className={styles.guide}>{GUIDES[mode]}</p>

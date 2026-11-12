@@ -399,6 +399,8 @@ export function locateBlanks(target, blanks) {} // [{ start, end, blank }]（表
 export function createBlankTypingState(target, blanks, randomFn) {} // { typing, ranges, active, choice, filled, wrongChoices }
 /** @returns {{ state, result: 'ok'|'miss'|'ignored'|'decidedCorrect'|'decidedWrong', inBlank, clauseEnded?, done?, why?, text? }} */
 export function pressBlankKey(state, target, key, randomFn) {}
+/** 表示用SQLの空欄の答えの文字を空白にしたもの（長さと改行は変えない）。DBの地図で、モード2の空欄の答えのテーブルを光らせないため */
+export function maskBlankAnswers(displaySql, blanks) {}
 ```
 
 - 空欄の始まりに来たら、その空欄の選択肢を並べる（先頭が空欄なら最初から）
@@ -592,6 +594,16 @@ export function translateError(pgError) {}
 
 2つ以上の文（SqlRunner の `multipleStatements`）は「1回に実行できるSQLは1つです」。当てはまらないコードは「エラーが起きました」＋英語の原文を出す（原因は空）。英語の原文は、どのエラーでも折りたたんで見られるようにする。
 
+#### TouchedTables（DBの地図で光らせるテーブル、`touched-tables.js`）
+
+```js
+/** @returns {string[]} tableNames のうち sql に出てくるもの（tableNames の順） */
+export function touchedTables(sql, tableNames) {}
+```
+- 字句（`sql-text.js` の `tokenize`）だけで見るので、打っている途中・エラーになるSQLでも使える。文字列・コメントの中は数えない
+- 引用符なしの語は小文字にして比べ、`"..."` は中身そのままで比べる（PostgreSQL と同じ）
+- 列名と同じ名前のテーブルは、列として出ても当たる（字句だけで見るため。初級〜上級のテーブル名と列名は重ならない）
+
 #### Scoring
 
 **責務**: モード1・2の速さ・正確さとランクを計算する。苦手の記録を集める。
@@ -681,6 +693,24 @@ export class SqlRunner {
 
 **PG のエラーの見分け方**：`code` が SQLSTATE の形（数字と大文字の5文字）のものだけを PG のエラーとする（Node の `ENOENT` などを学習者のエラーと取り違えないため）。
 
+#### SchemaInfo（DBの地図の中身、`schema-info.js`）
+
+```js
+/**
+ * @typedef {{ name: string, type: string, primaryKey: boolean }} SchemaColumn
+ * @typedef {{ table: string, columns: SchemaColumn[] }} SchemaTable
+ * @typedef {{ table: string, column: string, refTable: string, refColumn: string }} SchemaRelation
+ * @returns {Promise<{ tables: SchemaTable[], relations: SchemaRelation[] }>} テーブルは名前の順、列は定義の順
+ */
+export async function loadSchema(runner) {}
+/** テーブルの先頭の行と全部の行数（地図でテーブルを選んだとき） */
+export async function loadTablePreview(runner, table, limit = 20) {} // { result, total }
+```
+- 列は `information_schema.columns`（`public` の表だけ。ビューは出さない）
+- 主キー・外部キーは `pg_constraint`。列の並び（`conkey`・`confkey`）を同じ番号で対応させる（`information_schema` で結ぶと、2つの列のキーが掛け合わさり、別のテーブルの同じ名前の制約が混ざるため）。指す先が `public` 以外のテーブルのつながりは出さない
+- 型は地図に収まるよう短くする（`integer`→`int`、`character varying`→`varchar`、`timestamp without time zone`→`timestamp`、`boolean`→`bool` など）
+- テーブル名は `"` で囲み、中の `"` は2つにして組み立てる。読めなければ例外（呼ぶ側が「読めませんでした」と出す）
+
 #### ProblemLoader
 
 **責務**:
@@ -742,16 +772,16 @@ export function nextProblemId(chapters, problemId) {}
 |---|---|
 | `App` | 画面の切り替え（`src/ui/state/navigation.js` の reducer）、学習記録・データベースの状態・全章の問題（`use-problems.js`）を画面に渡す、画面幅の判定（`use-narrow-screen.js`。768px未満はタイピングを開けない） |
 | `HomeScreen` | 右上の「設定」ボタン。章と問題の一覧、番号・題名・ターニングポイントの印・星4つ、開いていない問題は題名だけ（🔒）で選べない。データベースの準備の状態。問題を読み終えるまでは一覧を出さない（進む条件がターニングポイントで変わるため） |
-| `ModeSelect` | 問題のモードを選ぶ。4つのモードのボタン（星・最高記録）、1〜4のキー、Esc で一覧。データベースの準備中・起動の失敗（「ページを読み込み直してください」）・幅の狭い画面（「PCで遊んでください」）では選べない。「依頼の会話を読む」で読み返し |
+| `ModeSelect` | 問題のモードを選ぶ。4つのモードのボタン（星・最高記録）、1〜4のキー、Esc で一覧。データベースの準備中・起動の失敗（「ページを読み込み直してください」）・幅の狭い画面（「PCで遊んでください」）では選べない。「依頼の会話を読む」で読み返し。「DBの地図を見る」（幅の狭い画面でも見られる。開いたら DB をこの問題の初期状態にしてから読む。光らせるテーブルはない：モード4の答えのヒントにしない） |
 | `StoryScreen` | 依頼の会話の画面（遊ぶ前と、読み返し）。Esc で一覧 |
 | `StoryPanel` | 会話を1行ずつ表示。Enter / クリックで送る（ボタンにフォーカスがあるときの Enter はボタンに任せる）。スキップ。最後の行の次で「始める」（最後の行では、行のクリックでは始めない。うっかり始めないように） |
 | `StoryLines` | 会話の行を、話している人の名前（登場人物の色）と並べる（StoryPanel・AfterStory・モード3・4の依頼で共有） |
 | `AfterStory` | クリアの結果の下に出す、反応の会話と「次の問題へ（Enter / J）」「もう一度（R）」「一覧へ（Esc）」。結果を出しているときのキーはここで受ける。ターニングポイントをモード1・2でクリアし、次の章がまだ開いていないときは、モード3・4で次の章が開くと添える |
-| `PlayScreen` | 1問を遊ぶ画面。モードによって中身を切り替える |
-| `PlayMode12` | モード1・2（打つモード）：依頼の会話（開いて見る。ふだんは閉じる）・TypingArea・ChoiceList（モード2）・結果（TypingResult）・結果の表 ⇄ ステップ再生 |
+| `PlayScreen` | 1問を遊ぶ画面。モードによって中身を切り替える。問題と章を読み、章（DBの地図に出すテーブル）をモードの中身に渡す |
+| `PlayMode12` | モード1・2（打つモード）：依頼の会話（開いて見る。ふだんは閉じる）・DBの地図（開いて見る。表示用SQLが使うテーブルを光らせる。モード2は空欄の答えを抜いたSQLで光らせる）・TypingArea・ChoiceList（モード2）・結果（TypingResult）・結果の表 ⇄ ステップ再生 |
 | `TypingArea` | モード1・2：薄い正解SQLの上に打った文字を重ねて表示。miss の赤い光り。モード2のまだ埋まっていない空欄は「？」の箱1つで描く（答えの文字数がわからないように）。打ち終えた形の幅と高さをいつも取っておき、打っている途中・空欄が埋まったときに大きさが変わらない（本人の指摘。2026-11-12）。今の位置が改行を含む区切りのときは、行の並びに影響しない印を重ねて描く（空白の区切りは空白そのものの背景の色だけ。重ねると2つの印がずれる） |
 | `ChoiceList` | モード2：今の空欄の選択肢。打った文字に合う候補は打った分を光らせ、合わなくなったものは薄く、選んだ間違いは打ち消し線。間違いを選んだら「なぜ違うか」を出す。空欄の中の miss で揺れる |
-| `PlayMode34` | モード3・4（書いて判定）：依頼の会話とテーブルの一覧、SqlEditor・HintPanel・JudgePanel／WriteResult、書いたSQLの結果の表 ⇄ ステップ再生。実行したら、設定が on なら判定の結果の場所に ReorderIntro を流し、終わってから結果を見せる |
+| `PlayMode34` | モード3・4（書いて判定）：依頼の会話とテーブルの一覧、SqlEditor・HintPanel・JudgePanel／WriteResult、書いたSQLの結果の表 ⇄ ステップ再生。実行したら、設定が on なら判定の結果の場所に ReorderIntro を流し、終わってから結果を見せる。依頼の下に「DBの地図を見る」（書いているSQLが使うテーブルを、書くたびに光らせる） |
 | `SqlEditor` | モード3・4：複数行の入力欄（`textarea`）。Ctrl+Enter（⌘+Enter）で実行。Tab でスペース2つ（Shift+Tab などは入力欄の外へ移る）。日本語入力がオンなら知らせる |
 | `HintPanel` | モード3：ヒントを1つずつ開く（①使う句 ②句の順番 ③骨組み） |
 | `WriteResult` | モード3・4のクリアの結果：時間・実行した回数・（モード3）開いたヒントの数 |
@@ -762,7 +792,8 @@ export function nextProblemId(chapters, problemId) {}
 | `ReorderIntro` | 見える化B：句のチップが書いた順から実行順へ入れ替わる（1.5秒）。動きは下の「見える化B（ReorderIntro）の動き」 |
 | `JudgePanel` | 判定の結果（不正解の理由・条件違反・打ち切り）、和訳したエラー（よくある原因、英語の原文は折りたたみ）。何回目の実行の結果かも出す |
 | `ResultScreen` | クリア後の記録（速さ・正確さ・ランク／時間・実行回数・ヒント数）、苦手の上位3つ、ステップ再生へのボタン、次の問題へ |
-| `SchemaMap` | DBの地図（React Flow）。触っているテーブルを光らせる。新しいテーブルの印。箱を押すと先頭20行 |
+| `SchemaMap` | DBの地図（React Flow）。テーブルの箱（名前・列名・型・PK・FK、新しいテーブルに NEW）と、外部キーのつながりの線。触っているテーブルを青で光らせ、両方のテーブルを触っている線も光らせる。箱を押すと選ぶ。ホイールの拡大・キーでの削除や選択は切る（ページのスクロール・打つキーを奪わない）。置き方は `src/ui/state/schema-layout.js`：指される側（親）を左の列、指す側（子）を右の列に置き、線を親の右から子の左へ流す（自分を指すつながりは列を決めるのに使わない）。同じ列のものは上から章の順に積む。図は読み上げから隠し（中をキーで動いても何もできないため）、同じ中身（テーブル・列・つながり・使っているか）を読み上げ用の一覧で出す。React Flow は大きいので、地図を開くまで読み込まない（`lazy`） |
+| `SchemaMapPanel` | 「DBの地図を見る」（`details`。ふだんは閉じる）。開いたときに `runDbJob` でスキーマを読む（読めたら読み直さない。読めなかったら、閉じて開き直すともう一度読む）。モード選択だけは `prepareDb` で先に DB を問題の初期状態にする（前に遊んだ問題の DB のまま読まない）。DB が起動できなかったときは、その知らせを出す。光るテーブルは、変わったときだけ地図に渡す（書くたびに描き直さない）。章の `tables` にあるテーブルだけ出す（学習者が作ったテーブルは出さない）。「中身を見る」のボタン（キーボードでも選べる）と、選んだテーブルの先頭20行・全部の行数 |
 | `KeywordTip` | SQLの中のキーワードにカーソルを当てたら説明を出す |
 | `DictionaryScreen` | 用語辞典。レベル別の一覧、初めて出てくる問題へのリンク |
 | `SettingsScreen` | 見える化Bの on/off、ステップ再生の速さ（0.5・1・2倍）、学習記録を消す（確かめを1回はさむ。設定は学習の記録ではなく好みなので残す。本人の決定。2026-11-12）。変えたらすぐ保存する。Esc は確かめが出ていれば閉じ、出ていなければ一覧へ。確かめを出したら「やめる」に、閉じたら「学習記録を消す」にフォーカスを移す。消したあとは「消しました」、消せない環境では「消せませんでした」を、先に置いた `role="status"` に出す。消したら一覧の「記録を読み込めなかった」の知らせも閉じる（`useProgress` の `clearAll`） |
@@ -888,7 +919,7 @@ stateDiagram-v2
     Settings --> Home
 ```
 
-- スマホ（幅768px未満）では `ModeSelect` から先に進めず、ストーリーの読み返し・用語辞典・DBの地図だけ開ける（用語辞典・DBの地図はまだない）
+- スマホ（幅768px未満）では `ModeSelect` から先に進めず、ストーリーの読み返し・用語辞典・DBの地図だけ開ける（DBの地図はモード選択の「DBの地図を見る」。用語辞典はまだない）
 - キーボードだけで操作できるようにする：会話送り＝Enter、モード選択＝1〜4のキー、実行＝Ctrl+Enter、次の問題へ＝Enter か J、もう一度＝R、やめる・一覧へ＝Esc
 - クリアの結果のキー（本人の決定。2026-11-12）：Enter・J で次の問題へ（次があって開いているときだけ。ボタンにフォーカスがあるときの Enter はボタンに任せる）、R でもう一度。修飾キーつき（Ctrl+R の読み込み直し、実行の Ctrl+Enter を続けて押したとき）・長押し・入力欄の中では何もしない。キーは AfterStory が受ける（`typing-keys.js` の `classifyResultKey`）。それまでの「Enter でもう一度」はやめた
 - クリア後の会話（Result → StoryAfter）は、別の画面にせず結果の下に出す
@@ -906,12 +937,11 @@ stateDiagram-v2
 | 場所（上から） | 中身 |
 |---|---|
 | 上の帯 | 章名・問題名・モード・経過時間・（モード1・2）今の速さと正確さ |
-| 帯の下（モード1・2） | 「依頼の会話を見る」（開くと全部の行。打っている途中に何を頼まれたかを見返すため。入力エリアを押し下げないよう、ふだんは閉じる。本人の希望。2026-11-12） |
-| 帯の下（モード3・4） | 依頼の会話（全部の行。書いている間に読み返すため）と、使えるテーブルと列の一覧（DBの地図ができるまでの仮） |
+| 帯の下（モード1・2） | 「依頼の会話を見る」（開くと全部の行。打っている途中に何を頼まれたかを見返すため。入力エリアを押し下げないよう、ふだんは閉じる。本人の希望。2026-11-12）と「DBの地図を見る」（同じくふだんは閉じる） |
+| 帯の下（モード3・4） | 依頼の会話（全部の行。書いている間に読み返すため）と、使えるテーブルと列の一覧（地図を開かなくても名前がわかるように残す）、「DBの地図を見る」（書いているSQLが使うテーブルを、書くたびに光らせる） |
 | 真ん中（舞台） | 案内の1行・日本語入力の知らせ／TypingArea（文字は2.4rem、中は左寄せのまま横の真ん中に置く）または SqlEditor と実行ボタン／ChoiceList（モード2）／HintPanel（モード3） |
 | 舞台の下 | クリアしたときの結果（TypingResult）・JudgePanel |
 | その下（横いっぱい） | ResultTable・StepPlayer（切り替え） |
-| 右下の小窓 | SchemaMap（小さく表示。クリックで大きくする） |
 
 **サイト全体の大きさ**：ルートの文字を125%（ブラウザの既定16pxなら20px）にする（本人の希望。ブラウザで125%表示にしたときの大きさ）。文字・余白・角・幅はすべて rem で書き、`src/ui/styles/global.css` の `html { font-size }` を変えるだけで全体が同じ割合で変わるようにする。
 
@@ -1056,11 +1086,15 @@ data/
 - `ErrorTranslator`：表のすべてのコード、原文の形で出し分けるもの、2つ以上の文、未知のコード
 - `Judge` の純粋な部分：値の比べ方（許容誤差・NaN・Infinity・NULL）、表の比べ方（各 `reason`）、`require`・`forbid` の探し方（ドット付きの語・記号をはさむ語・関数名）
 - `ReorderChips`（`reorder.js`）：書いた順と実行順、空白のまとめ方、長い句の切り方、流さないSQL（句が1つ・分けられない）
+- `TouchedTables`：大文字・小文字、文字列・コメントの中、語の一部、引用符つきの名前、打っている途中
+- DBの地図の置き方（`schema-layout.js`）：中級の形（親を左・子を右、同じ列は積む）、自己結合、輪になったつながり、地図にないテーブルへのつながり
+- 空欄の答えを空白にする（`maskBlankAnswers`）：改行・字下げ、大文字・小文字の違い、空欄2つ
 - `ProgressStore`：壊れたデータからの復帰、設定の変更（`updateSettings`）、記録を消す（`clearProgress`：設定は残す・退避した古い記録も消す・書けないときは記録のキーを消す・消せもしないとき）、`isUnlocked`（ターニングポイントはモード3・4だけで次の章が開く、ターニングポイントのない章）、`nextProblemId`
 - 画面の切り替え（`navigation.js`）、モード名と最高記録の文（`best-text.js`）
 
 ### 統合テスト（Vitest + PGlite（Node 版）、`tests/integration/`）
 - `Judge`：正解・別解（`IN` と `OR` の書き換え）・行数違い・順番違い・列名違い・列の並び順違い・`require` 違反・エラー・2つ以上の文・タイムアウト（作り物の SqlRunner）・判定のあと DB が初期状態に戻ること・書き換え系（`compareTable`・`ignoreColumns`・テーブルを消したとき）・空のSQL
+- `SchemaInfo`：初級の products の列・型・主キー、外部キーのつながり、2つの列の主キー・外部キー、別のテーブルの同じ名前の制約、public 以外のスキーマ・ビュー、先頭20行と行数、変わった名前のテーブルの引用
 - `Stepper`：初級9問の正解SQLすべてで、最後の段階が元のSQLの結果と一致すること。WHERE で消えた行・DISTINCT でまとまった行が正しいこと
 - **問題データの検証（安全柵、PRD の開発プロセス要件）**：`data/` の全ファイルについて
   - Zod の形に合う
@@ -1084,3 +1118,4 @@ data/
 - 設定の画面：一覧から開き Esc でもどる。速さと見える化B の on/off が保存される。off なら流れない。学習記録を消すときは確かめ、やめる・Esc では消えず、消すと星が消えて設定は残る（`tests/e2e/settings/settings.spec.js`）
 - ページを読み込み直しても、クリア状況が残っている
 - 幅375pxの画面では、タイピングを開始できない
+- DBの地図：モード選択から開くと products の箱（列・型・PK・NEW）、押すと先頭20行と全部の行数。幅375pxでも見られる。モード1では光り、モード2では空欄の答えのテーブルは光らない。モード4では書くと光り、消すと消える。地図を開いて箱を押したあとも打てる（`tests/e2e/map/schema-map.spec.js`）
