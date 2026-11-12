@@ -79,6 +79,8 @@ sql-typing/
   - `use-narrow-screen.js`：画面の幅が 768px 未満か
   - `best-text.js`：モードの名前と最高記録の文（`tests/unit/ui/` で単体テスト）
   - `use-count-up.js`：数を0から目標まで増やす（インデックスの比較のカウンター）
+  - `plan-layout.js`：実行計画の木の置き方（葉が下・根が上、線の太さ。React に依存しない。`tests/unit/ui/` で単体テスト）
+  - `plan-words.js`：実行計画の節の言葉（一言 `NODE_WORDS`・時間・行の数・テーブル・返した行）と、箱からはみ出す文字の縮め方（`fitText`）。インデックスの比較と実行計画の木で使う（React に依存しない。`tests/unit/ui/` で単体テスト）
   - `keyword-words.js`：用語辞典の用語（`KEYWORD_WORDS`・`KEYWORD_BY_WORD`。1回だけ読む）
   - `join-colors.js`：JOIN の段階の色分け（つながる行どうしを同じ色。React に依存しない。`tests/unit/ui/` で単体テスト）
   - `schema-layout.js`：DBの地図の箱の置き方（親を左・子を右、親は子のすぐ左。React に依存しない。`tests/unit/ui/` で単体テスト）
@@ -92,6 +94,7 @@ sql-typing/
 - `components/KeywordTipLayer.jsx`・`KeywordText.jsx`：キーワードの説明（ページ全体で1つ）と、SQLの文字に `data-keyword` を付けて描く部品
 - `screens/DictionaryScreen.jsx`：用語辞典
 - `components/IndexRace.jsx`・`IndexRacePanel.jsx`：上級の見える化（インデックスあり・なしの比較）と、比較を作って出す枠
+- `components/PlanTree.jsx`・`PlanTreePanel.jsx`：上級の見える化（実行計画の木）と、実行計画を取って出す枠
 - `components/SchemaMap.jsx`・`SchemaMapPanel.jsx`：DBの地図（React Flow の箱と線）と、開いて見る枠（読み込み・中身を見る）
 - `screens/ReplayDemoScreen.jsx`：ステップ再生の見本（`/?demo`）
 - `screens/SettingsScreen.jsx`：設定（見える化B の on/off・ステップ再生の速さ・学習記録を消す）
@@ -357,7 +360,8 @@ tests/e2e/
 ├── visualization/
 │   ├── step-replay.spec.js    # 見える化A（ステップ再生）
 │   ├── step-replay-marks.spec.js # 見本のページで、印（消える行・列、まとまる行）の数を確かめる
-│   └── index-race.spec.js     # 見本のページで、インデックスあり・なしの比較
+│   ├── index-race.spec.js     # 見本のページで、インデックスあり・なしの比較
+│   └── plan-tree.spec.js      # 見本のページで、実行計画の木（線の太さ・実行されなかった節）
 ├── progression/
 │   ├── home-story.spec.js     # 一覧・モード選択・依頼の会話・クリア後の会話・星
 │   ├── turning-point.spec.js  # ターニングポイントが開く・印・説明・11行の会話・クリア後・モード4で中級が開く
@@ -520,7 +524,7 @@ src/core        src/data
 1. **新しい問題**：`data/problems/<章id>/` に YAML を1つ追加し、`chapters.yaml` に足す。コードは変えない
 2. **新しい章**：`chapters.yaml` に章、`data/seeds/` に初期データ、`data/problems/<章id>/` を作る
 3. **ステップ再生の新しい句**：中級の `GROUP BY`・`JOIN` は `stepper/index.js` の段階ごとの関数（`pushGroupedSteps`・`pushJoinStep`）と、句を読む小さなファイル（`group-by.js`・`from-clause.js`）で足した。上級の句も同じ形で足す。`build()` が長くなってきたので、上級で足す前に FROM・WHERE・SELECT 以降の関数に分ける
-4. **上級の専用の見える化**：画面の部品は `src/ui/components/` に置く（`IndexRace.jsx`・`IndexRacePanel.jsx`。このあと `PlanTree.jsx`・`TxTimeline.jsx`）。計算部分は `src/core/` に置く（`explain.js`）。問題に出すときは問題YAMLの `visual` に書く
+4. **上級の専用の見える化**：画面の部品は `src/ui/components/` に置く（`IndexRace.jsx`・`IndexRacePanel.jsx`・`PlanTree.jsx`・`PlanTreePanel.jsx`。このあと `TxTimeline.jsx`）。計算部分は `src/core/` に置く（`explain.js`）。問題に出すときは問題YAMLの `visual` に書く
 
 ### ファイルサイズの管理
 

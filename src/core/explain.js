@@ -13,9 +13,11 @@
  *   removed: number,
  *   loops: number,
  *   totalMs: number,
+ *   subplan: boolean,
  *   children: PlanNode[],
  * }} PlanNode
  *   rows：この節が返した行（Actual Rows × Actual Loops）。removed：条件で取り除いた行（× loops）
+ *   subplan：親の行ごと（または1回だけ）に呼ばれる副問い合わせ（SubPlan・InitPlan）。親へ行が流れるのではない
  * @typedef {{ plan: PlanNode, executionMs: number, planningMs: number }} ParsedExplain
  * @typedef {ParsedExplain & { rowsRead: number, scans: { nodeType: string, relation: string | null, index: string | null }[] }} ExplainSummary
  * @typedef {{ ok: true, result: { rows: unknown[][] } } | { ok: false, error: { code: string, message: string } } | { ok: false, timeout: true }} RunOutcome
@@ -63,6 +65,8 @@ function toNode(node) {
     removed: Math.round(removed * loops),
     loops,
     totalMs: num(node['Actual Total Time']),
+    subplan:
+      node['Parent Relationship'] === 'SubPlan' || node['Parent Relationship'] === 'InitPlan',
     children,
   };
 }
@@ -130,6 +134,28 @@ async function explain(runner, query) {
  */
 export function isSelectQuery(query) {
   return /^\s*SELECT\b/i.test(query);
+}
+
+/**
+ * 初期状態の DB で問い合わせを実行計画つきで実行する（実行計画の木）。
+ * query は SELECT だけ（EXPLAIN ANALYZE は実際に実行するので）。前と後に DB を初期状態に戻す。
+ * @param {{ runner: Runner, query: string }} args
+ * @returns {Promise<{ ok: true, summary: ExplainSummary } | { ok: false, message: string }>}
+ */
+export async function explainQuery({ runner, query }) {
+  if (!isSelectQuery(query)) {
+    return { ok: false, message: '実行計画を見られるのは SELECT だけです' };
+  }
+  await runner.reset();
+  try {
+    const summary = await explain(runner, query);
+    if ('error' in summary) return { ok: false, message: summary.error };
+    return { ok: true, summary };
+  } catch (error) {
+    return { ok: false, message: String(error instanceof Error ? error.message : error) };
+  } finally {
+    await runner.reset();
+  }
 }
 
 /**

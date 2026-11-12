@@ -206,7 +206,7 @@ try { await runner.run(sql); } catch (e) {}
 - **ヒント3段階**：①使う句 ②句の順番 ③骨組み（値や条件だけを `???` にしたSQL）
 - **順番が1つに決まること**：`ordered: true` の問題は、並び順が同じ値の行で入れ替わらないように初期データを用意する（`checkOrderDetermined` で止まる）
 - **書き換え系の比べない列**：`INSERT` の問題で SERIAL の `id` のように、正しい書き方でも値が変わる列は `judge.ignoreColumns` に書く
-- **上級の見える化（`visual`）**：インデックスを作る問題は `visual: { kind: index, query: <比べる SELECT> }` を書く。query は SELECT だけ（EXPLAIN ANALYZE は実際に実行するため。形の確かめで止まる）。正解SQLで query の読む行が減ることを `checkVisuals` が確かめる
+- **上級の見える化（`visual`）**：インデックスを作る問題は `visual: { kind: index, query: <比べる SELECT> }` を書く。query は SELECT だけ（EXPLAIN ANALYZE は実際に実行するため。形の確かめで止まる）。正解SQLで query の読む行が減ることを `checkVisuals` が確かめる。実行計画の木を見せる問題は `visual: { kind: plan }`（学習者の SELECT の木。決まった問い合わせの木を見せるなら `query` も書く）。正解SQL（`query`）の木が作れることを `checkVisuals` が確かめる
 - **新しいキーワード**：問題で初めて使うキーワードは、同じ作業の中で `data/keywords.yaml` に追加する
 - 問題を足したら、`npm run validate:data` が通ることを確かめる
 
