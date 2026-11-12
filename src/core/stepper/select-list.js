@@ -9,29 +9,32 @@ import { tokenize } from '../sql-text.js';
  */
 
 /**
- * @typedef {{ text: string, sourceColumn?: string, alias?: string }} SelectItem
+ * @typedef {{ text: string, sourceColumn?: string, sourceTable?: string, alias?: string }} SelectItem
  */
 
 const isMeaningful = (t) => t.type !== 'space' && t.type !== 'comment';
 
 /**
  * @param {import('../sql-text.js').Token[]} tokens - 1つの項目の意味のあるトークン
- * @returns {{ sourceColumn?: string, alias?: string }}
+ * @returns {{ sourceColumn?: string, sourceTable?: string, alias?: string }}
  */
 function describeItem(tokens) {
   const words = tokens.map((t) => (t.type === 'word' ? t.text : null));
-  // p.name → name だけを見る（PostgreSQL の結果の列名も name になる）
+  // p.name → name を元の列、p をテーブル（JOIN で同じ名前の列があるときに見分ける）として見る
   let rest = tokens;
+  /** @type {{ sourceTable?: string }} */
+  const table = {};
   if (tokens.length >= 3 && words[0] && tokens[1].text === '.' && words[2]) {
     rest = tokens.slice(2);
+    table.sourceTable = words[0].toLowerCase();
   }
   const restWords = rest.map((t) => (t.type === 'word' ? t.text : null));
-  if (rest.length === 1 && restWords[0]) return { sourceColumn: restWords[0] };
+  if (rest.length === 1 && restWords[0]) return { sourceColumn: restWords[0], ...table };
   if (rest.length === 2 && restWords[0] && restWords[1]) {
-    return { sourceColumn: restWords[0], alias: restWords[1] };
+    return { sourceColumn: restWords[0], alias: restWords[1], ...table };
   }
   if (rest.length === 3 && restWords[0] && restWords[1]?.toUpperCase() === 'AS' && restWords[2]) {
-    return { sourceColumn: restWords[0], alias: restWords[2] };
+    return { sourceColumn: restWords[0], alias: restWords[2], ...table };
   }
   return {};
 }

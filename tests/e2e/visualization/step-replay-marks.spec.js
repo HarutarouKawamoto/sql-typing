@@ -108,3 +108,36 @@ test('HAVING：条件に合わないグループの行に、消える印が付�
     });
   expect(check).toBe(true);
 });
+
+test('JOIN：注文（左）と顧客（右）が並び、つながる行が同じ色。注文のない2人の顧客は薄い。そのあと合体する', async ({
+  page,
+}) => {
+  await openSample(page, /^JOIN：/);
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByTestId('step-title')).toContainText('JOIN');
+  await expect(page.getByTestId('step-player')).toContainText('1行に合体する');
+  const table = page.getByTestId('step-table');
+  await expect(table.locator('tbody tr[data-side="right"]')).toHaveCount(10);
+  await expect(table.locator('tbody tr:not([data-side])[data-pair]')).toHaveCount(20);
+  await expect(marks(page, 'join-unmatched')).toHaveCount(2);
+  // 左の注文の色は、つながる右の顧客の色と同じ
+  const sameColors = await table.locator('tbody tr').evaluateAll((trs) => {
+    const right = trs.filter((tr) => tr.dataset.side === 'right' && tr.dataset.pair !== undefined);
+    const left = trs.filter((tr) => tr.dataset.side === undefined);
+    const rightColors = new Set(right.map((tr) => tr.dataset.pair));
+    return left.every((tr) => rightColors.has(tr.dataset.pair));
+  });
+  expect(sameColors).toBe(true);
+});
+
+test('LEFT JOIN：注文のない2人の顧客に「NULL になる」印が付き、合体した表は22行', async ({
+  page,
+}) => {
+  await openSample(page, /^LEFT JOIN：/, 0.5);
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByTestId('step-title')).toContainText('JOIN');
+  await expect(page.getByTestId('step-player')).toContainText('右の列が NULL になる');
+  await expect(marks(page, 'join-null')).toHaveCount(2);
+  await expect(page.getByTestId('step-table')).toContainText('10行 → 22行', { timeout: 15_000 });
+  await expect(page.locator('[data-testid="step-table"] tbody tr')).toHaveCount(22);
+});

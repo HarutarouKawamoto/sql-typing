@@ -28,6 +28,11 @@ function explanationOf(step) {
   if (step.label === 'SELECT' && step.diff.aggregated) {
     return '1つのグループが1行にまとまり、集計した値が出る';
   }
+  if (step.label === 'JOIN' && step.diff.join) {
+    return step.diff.join.kind === 'LEFT'
+      ? '左の行は全部残り、つながる相手のない行は右の列が NULL になる'
+      : 'つながる相手のある行どうしが1行に合体する（相手が複数なら行が増え、相手のない行は消える）';
+  }
   if (step.label === 'GROUP BY' && !step.diff.reordered) {
     return '同じグループの行が同じ色になる（もう寄って並んでいる）';
   }

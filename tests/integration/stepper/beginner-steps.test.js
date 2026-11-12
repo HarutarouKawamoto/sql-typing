@@ -199,7 +199,6 @@ describe('buildSteps：作れない形', () => {
     ['FOR UPDATE', 'SELECT name FROM products FOR UPDATE'],
     ['DISTINCT ON', 'SELECT DISTINCT ON (category) category, name FROM products'],
     ['SELECT ALL', 'SELECT ALL name FROM products'],
-    ['JOIN', 'SELECT * FROM products p JOIN products q ON p.id = q.id'],
     ['カンマで2つのテーブル', 'SELECT * FROM products, products AS q'],
     ['FROM のサブクエリ', 'SELECT * FROM (SELECT * FROM products) AS t'],
     ['FROM がない', 'SELECT 1'],
