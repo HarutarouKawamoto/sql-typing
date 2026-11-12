@@ -64,3 +64,47 @@ test('入口へもどると、見本のページを抜ける', async ({ page }) 
   await expect(homeProblem(page)).toBeVisible();
   await expect(page).not.toHaveURL(/demo/);
 });
+
+test('GROUP BY：30行がグループの色で塗られ、SELECT で1グループ1行にまとまる', async ({ page }) => {
+  await openSample(page, /^GROUP BY：/);
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByTestId('step-title')).toContainText('GROUP BY');
+  const rows = page.locator('[data-testid="step-table"] tbody tr');
+  await expect(rows).toHaveCount(30);
+  await expect(page.locator('[data-testid="step-table"] tbody tr[data-group]')).toHaveCount(30);
+  // supplier は NULL を入れて5グループ
+  const groups = await page
+    .locator('[data-testid="step-table"] tbody tr[data-group]')
+    .evaluateAll((trs) => new Set(trs.map((tr) => tr.dataset.group)).size);
+  expect(groups).toBe(5);
+
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByTestId('step-title')).toContainText('SELECT');
+  await expect(page.getByTestId('step-player')).toContainText('1つのグループが1行にまとまり');
+  await expect(marks(page, 'merging-keep')).toHaveCount(5);
+  await expect(marks(page, 'merging')).toHaveCount(25);
+});
+
+test('HAVING：条件に合わないグループの行に、消える印が付く', async ({ page }) => {
+  await openSample(page, /^HAVING：/);
+  // HAVING の段階まで進める（段階の数が変わっても壊れないように、題が HAVING になるまで押す）
+  await expect(async () => {
+    await page.keyboard.press('ArrowRight');
+    await expect(page.getByTestId('step-title')).toContainText('HAVING', { timeout: 500 });
+  }).toPass({ timeout: 10_000 });
+  await expect(page.getByTestId('step-player')).toContainText('条件に合わないグループ');
+  const removing = marks(page, 'removing');
+  await expect(removing.first()).toBeVisible();
+  // 消える行はすべて、同じグループの行ごと消える（消える行のグループの行は全部印が付いている）
+  const check = await page
+    .locator('[data-testid="step-table"] tbody tr[data-group]')
+    .evaluateAll((trs) => {
+      const removedGroups = new Set(
+        trs.filter((tr) => tr.dataset.mark === 'removing').map((tr) => tr.dataset.group),
+      );
+      return trs.every(
+        (tr) => (tr.dataset.mark === 'removing') === removedGroups.has(tr.dataset.group),
+      );
+    });
+  expect(check).toBe(true);
+});

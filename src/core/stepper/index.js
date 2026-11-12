@@ -1,15 +1,18 @@
 import { canRunWhileTyping, splitClauses } from '../clause-splitter.js';
 import { tokenize } from '../sql-text.js';
+import { hasAggregate, hasWindow } from './aggregates.js';
+import { resolveGroupItems, splitGroupBy } from './group-by.js';
 import { splitSelectList } from './select-list.js';
 
 /**
  * 見える化A（ステップ再生）の段階を作る。
- * SQLを実行順（FROM → WHERE → SELECT → DISTINCT → ORDER BY → LIMIT）の段階に分け、
+ * SQLを実行順（FROM → WHERE → GROUP BY → HAVING → SELECT → DISTINCT → ORDER BY → LIMIT）の段階に分け、
  * 各段階の表を「本物のSQL」として PostgreSQL で実行して作る。行は ctid（行の目印）で前の段階とつなぐ。
  * 段階のSQLは、ClauseSplitter の句の範囲で元のSQLの文字をそのまま切り貼りして作る（構文木は使わない）。
  * 間違った見える化を見せないため、対応しない形は先に unsupported にし、最後の段階が元のSQLの結果と
  * 一致しなければ mismatch にする。
- * 今は初級の単一テーブルの形だけ。GROUP BY・JOIN の段階は中級（P1）でこのフォルダに足す。
+ * 集計（GROUP BY・HAVING・集計関数）は、各行のグループの鍵（ROW(GROUP BY の項目)::text）で前の段階の行とつなぐ。
+ * 今は1つのテーブルの形だけ。JOIN の段階は中級（P1）でこのフォルダに足す。
  * 元：docs/functional-design.md の Stepper
  */
 
@@ -27,9 +30,13 @@ import { splitSelectList } from './select-list.js';
  *   renamedColumns: Record<string, string>,
  *   merged: Record<string, string[]>,
  *   reordered: boolean,
+ *   groups: Record<string, number>,
+ *   aggregated: boolean,
  * }} StepDiff
+ *   groups：GROUP BY・HAVING の段階で、各行（目印）のグループの番号（最初に出てきた順。色分けのため）
+ *   aggregated：集計した SELECT の段階か（まとまる行がなくても、段階の一言を「集計」にするため）
  * @typedef {{
- *   label: 'FROM' | 'WHERE' | 'SELECT' | 'DISTINCT' | 'ORDER BY' | 'LIMIT',
+ *   label: 'FROM' | 'WHERE' | 'GROUP BY' | 'HAVING' | 'SELECT' | 'DISTINCT' | 'ORDER BY' | 'LIMIT',
  *   range: [number, number],
  *   columns: string[],
  *   rows: StepRow[],
@@ -40,21 +47,8 @@ import { splitSelectList } from './select-list.js';
  */
 
 const RID = '__rid';
-/** 集計関数（GROUP BY がなくても1行にまとめてしまうので、行の対応が取れない） */
-const AGGREGATES = new Set([
-  'COUNT',
-  'SUM',
-  'AVG',
-  'MIN',
-  'MAX',
-  'STRING_AGG',
-  'ARRAY_AGG',
-  'BOOL_AND',
-  'BOOL_OR',
-  'EVERY',
-  'JSON_AGG',
-  'JSONB_AGG',
-]);
+/** 段階のSQLに足す、行のグループの鍵の列 */
+const GRP = '__grp';
 /** 括弧の外にあると、ClauseSplitter の句の範囲に混ざってしまう語（LIMIT 句の中の OFFSET は扱える） */
 const UNSUPPORTED_WORDS = new Set([
   'OFFSET',
@@ -81,6 +75,8 @@ const emptyDiff = () => ({
   renamedColumns: {},
   merged: {},
   reordered: false,
+  groups: {},
+  aggregated: false,
 });
 
 const isMeaningful = (t) => t.type !== 'space' && t.type !== 'comment';
@@ -100,17 +96,6 @@ function isSingleTable(fromText) {
     tokens.length === 1 ||
     (tokens.length === 2 && words[1] !== 'AS') ||
     (tokens.length === 3 && words[1] === 'AS')
-  );
-}
-
-/** SELECT の項目に集計関数・ウィンドウ関数があるか */
-function hasAggregate(selectText) {
-  const tokens = tokenize(selectText).filter(isMeaningful);
-  return tokens.some(
-    (t, i) =>
-      t.type === 'word' &&
-      ((AGGREGATES.has(t.text.toUpperCase()) && tokens[i + 1]?.text === '(') ||
-        t.text.toUpperCase() === 'OVER'),
   );
 }
 
@@ -259,9 +244,6 @@ async function build(sql, runner) {
   const range = (kind) => /** @type {[number, number]} */ ([byKind[kind].start, byKind[kind].end]);
 
   if (!byKind.FROM) throw new StepError('unsupported', 'FROM のないSQLです');
-  if (byKind['GROUP BY'] || byKind.HAVING) {
-    throw new StepError('unsupported', 'GROUP BY のステップ再生はまだありません');
-  }
   const stray = strayWord(sql, byKind.LIMIT);
   if (stray) {
     throw new StepError('unsupported', `${stray} を使うSQLのステップ再生はまだありません`);
@@ -272,8 +254,8 @@ async function build(sql, runner) {
       '2つ以上のテーブル・サブクエリのステップ再生はまだありません',
     );
   }
-  if (hasAggregate(text('SELECT'))) {
-    throw new StepError('unsupported', '集計関数のステップ再生はまだありません');
+  if (hasWindow(sql)) {
+    throw new StepError('unsupported', 'ウィンドウ関数（OVER）のステップ再生はまだありません');
   }
   const { distinct, unsupportedModifier, items } = splitSelectList(text('SELECT'));
   if (unsupportedModifier) {
@@ -282,6 +264,13 @@ async function build(sql, runner) {
       `SELECT ${unsupportedModifier} のステップ再生はまだありません`,
     );
   }
+  // 集計するか（GROUP BY・HAVING・集計関数のどれかがある）
+  const grouped = Boolean(byKind['GROUP BY'] || byKind.HAVING || hasAggregate(text('SELECT')));
+  if (grouped && distinct) {
+    throw new StepError('unsupported', 'DISTINCT と集計を一緒に使うステップ再生はまだありません');
+  }
+  const groupItems = byKind['GROUP BY'] ? splitGroupBy(text('GROUP BY')) : { items: [] };
+  if ('unsupported' in groupItems) throw new StepError('unsupported', groupItems.unsupported);
 
   // 元のSQLの結果（最後の段階と比べる）。学習者のSQLの間違いはここで error になる
   const original = await runOriginal(runner, sql);
@@ -321,6 +310,31 @@ async function build(sql, runner) {
       await runStage(runner, `SELECT *, ctid::text AS ${RID} ${from} ${where}`),
     );
     push('WHERE', range('WHERE'), table, { removed: removedRids(steps.at(-1).rows, table.rows) });
+  }
+
+  if (grouped) {
+    // グループの鍵の式（GROUP BY がなければ全部の行が1つのグループ）。列の番号・SELECT の別名は式に置き換える
+    const resolved = resolveGroupItems(groupItems.items, items, fromStep.columns);
+    if ('unsupported' in resolved) throw new StepError('unsupported', resolved.unsupported);
+    const groupKeySql =
+      resolved.items.length > 0 ? `ROW(${resolved.items.join(', ')})::text` : `'all'`;
+    await pushGroupedSteps({
+      runner,
+      push,
+      steps,
+      range,
+      byKind,
+      parts: {
+        list,
+        from,
+        where,
+        groupTail: `${text('GROUP BY')} ${text('HAVING')}`,
+        order,
+        limit: text('LIMIT'),
+        groupKeySql,
+      },
+    });
+    return checkLast(steps, original, Boolean(byKind['ORDER BY'] || byKind.LIMIT));
   }
 
   // SELECT：使わない列が消え、AS で名前が変わる
@@ -390,13 +404,7 @@ async function build(sql, runner) {
         throw new StepError('mismatch', 'LIMIT の段階を前の段階の行に対応づけられませんでした');
       }
     }
-    // 残る行は、ORDER BY の段階の並びのまま連続していること（同じ値の行の並びが違うと、見た目がうそになる）
-    const start = previous.rows.findIndex((row) => row.rid === rows[0]?.rid);
-    const contiguous =
-      rows.length === 0 || rows.every((row, i) => previous.rows[start + i]?.rid === row.rid);
-    if (!contiguous) {
-      throw new StepError('mismatch', 'LIMIT で残る行が、並べた表の中で続いていません');
-    }
+    assertContiguous(previous.rows, rows);
     push(
       'LIMIT',
       range('LIMIT'),
@@ -407,11 +415,34 @@ async function build(sql, runner) {
     );
   }
 
-  // 最後の段階が元のSQLの結果と一致するか（ORDER BY がなければ並びは比べない）
+  return checkLast(steps, original, Boolean(byKind['ORDER BY'] || byKind.LIMIT));
+}
+
+/**
+ * LIMIT で残る行は、ORDER BY の段階の並びのまま連続していること（同じ値の行の並びが違うと、見た目がうそになる）。
+ * @param {StepRow[]} previousRows
+ * @param {StepRow[]} rows
+ */
+function assertContiguous(previousRows, rows) {
+  const start = previousRows.findIndex((row) => row.rid === rows[0]?.rid);
+  const contiguous =
+    rows.length === 0 || rows.every((row, i) => previousRows[start + i]?.rid === row.rid);
+  if (!contiguous) {
+    throw new StepError('mismatch', 'LIMIT で残る行が、並べた表の中で続いていません');
+  }
+}
+
+/**
+ * 最後の段階が元のSQLの結果と一致するか（並べていなければ並びは比べない）。一致しなければ mismatch。
+ * @param {Step[]} steps
+ * @param {QueryTable} original
+ * @param {boolean} sameOrder
+ * @returns {Step[]}
+ */
+function checkLast(steps, original, sameOrder) {
   const last = steps.at(-1);
   const lastKeys = last.rows.map((r) => key(r.values));
   const originalKeys = original.rows.map(key);
-  const sameOrder = byKind['ORDER BY'] || byKind.LIMIT;
   const equal =
     key(last.columns) === key(original.columns) &&
     (sameOrder
@@ -420,4 +451,201 @@ async function build(sql, runner) {
   if (!equal)
     throw new StepError('mismatch', 'ステップ再生の最後の表が、実行結果と一致しませんでした');
   return steps;
+}
+
+/**
+ * @typedef {{
+ *   runner: Runner,
+ *   push: (label: Step['label'], range: [number, number], table: { columns: string[], rows: StepRow[] }, diff: Partial<StepDiff>) => Step,
+ *   steps: Step[],
+ *   range: (kind: string) => [number, number],
+ *   byKind: Record<string, { start: number, end: number }>,
+ *   parts: { list: string, from: string, where: string, groupTail: string, order: string, limit: string, groupKeySql: string },
+ * }} GroupContext
+ */
+
+/**
+ * 集計するSQLの、WHERE のあとの段階（GROUP BY → HAVING → SELECT → ORDER BY → LIMIT）。
+ * 各行のグループの鍵（groupKeySql）で、集計のあとの行を「そのグループの最初の行」の目印につなぐ。
+ * @param {GroupContext} context
+ */
+async function pushGroupedSteps(context) {
+  const groups = await readGroups(context);
+  if (context.byKind['GROUP BY']) pushGroupStep(context, groups);
+  if (context.byKind.HAVING) await pushHavingStep(context, groups);
+  await pushAggregateSteps(context, groups);
+}
+
+/**
+ * 各行のグループの鍵と、グループの番号（前の段階の並びで最初に出てきた順）。
+ * @param {GroupContext} context
+ */
+async function readGroups({ runner, steps, parts }) {
+  const { from, where, groupKeySql } = parts;
+  /** @type {Map<string, string>} 行の目印 → グループの鍵 */
+  const keyOfRid = new Map();
+  const result = await runStage(
+    runner,
+    `SELECT *, ctid::text AS ${RID}, ${groupKeySql} AS ${GRP} ${from} ${where}`,
+  );
+  const ridIndex = result.columns.lastIndexOf(RID);
+  const grpIndex = result.columns.lastIndexOf(GRP);
+  for (const row of result.rows) keyOfRid.set(String(row[ridIndex]), String(row[grpIndex]));
+
+  /** @type {Map<string, number>} グループの鍵 → 番号 */
+  const indexOfKey = new Map();
+  for (const row of steps.at(-1).rows) {
+    const rowKey = keyOfRid.get(row.rid);
+    if (rowKey === undefined) {
+      throw new StepError('mismatch', 'GROUP BY の段階を前の段階の行に対応づけられませんでした');
+    }
+    if (!indexOfKey.has(rowKey)) indexOfKey.set(rowKey, indexOfKey.size);
+  }
+  const indexOf = (rid) => /** @type {number} */ (indexOfKey.get(keyOfRid.get(rid)));
+  return {
+    keyOfRid,
+    indexOfKey,
+    indexOf,
+    /** @param {StepRow[]} rows */
+    groupsOf: (rows) => Object.fromEntries(rows.map((row) => [row.rid, indexOf(row.rid)])),
+  };
+}
+
+/**
+ * GROUP BY：同じグループの行が寄る（グループの中は元の並びのまま。sort は安定）。
+ * @param {GroupContext} context
+ * @param {Awaited<ReturnType<typeof readGroups>>} groups
+ */
+function pushGroupStep({ push, steps, range }, { indexOf, groupsOf }) {
+  const previous = steps.at(-1);
+  const rows = [...previous.rows].sort((a, b) => indexOf(a.rid) - indexOf(b.rid));
+  const reordered = rows.some((row, i) => row.rid !== previous.rows[i].rid);
+  push(
+    'GROUP BY',
+    range('GROUP BY'),
+    { columns: previous.columns, rows },
+    { groups: groupsOf(rows), reordered },
+  );
+}
+
+/**
+ * HAVING：条件に合わないグループの行がすべて消える。
+ * @param {GroupContext} context
+ * @param {Awaited<ReturnType<typeof readGroups>>} groups
+ */
+async function pushHavingStep({ runner, push, steps, range, parts }, { keyOfRid, groupsOf }) {
+  const { from, where, groupTail, groupKeySql } = parts;
+  const result = await runStage(
+    runner,
+    `SELECT ${groupKeySql} AS ${GRP} ${from} ${where} ${groupTail}`,
+  );
+  const kept = new Set(result.rows.map((row) => String(row[0])));
+  const previous = steps.at(-1);
+  const rows = previous.rows.filter((row) => kept.has(String(keyOfRid.get(row.rid))));
+  push(
+    'HAVING',
+    range('HAVING'),
+    { columns: previous.columns, rows },
+    { removed: removedRids(previous.rows, rows), groups: groupsOf(previous.rows) },
+  );
+}
+
+/**
+ * SELECT（集計）・ORDER BY・LIMIT。集計のあとの行は、グループの鍵でグループの最初の行の目印につなぐ。
+ * @param {GroupContext} context
+ * @param {Awaited<ReturnType<typeof readGroups>>} groups
+ */
+async function pushAggregateSteps(context, { keyOfRid, indexOfKey }) {
+  const { runner, push, steps, range, byKind, parts } = context;
+  const { list, from, where, groupTail, order, limit, groupKeySql } = parts;
+  const grouped = Boolean(byKind['GROUP BY']);
+
+  /** @type {Map<string, string[]>} グループの鍵 → そのグループの行の目印（前の段階の並び） */
+  const membersOf = new Map();
+  for (const row of steps.at(-1).rows) {
+    const rowKey = String(keyOfRid.get(row.rid));
+    if (!membersOf.has(rowKey)) membersOf.set(rowKey, []);
+    membersOf.get(rowKey)?.push(row.rid);
+  }
+  /**
+   * @param {string} tail - 段階のSQLの後ろに足す句（ORDER BY・LIMIT）
+   * @param {boolean} limited - LIMIT があるか（あればグループの数より少なくてよい）
+   */
+  const runGrouped = async (tail, limited) => {
+    const result = await runStage(
+      runner,
+      `SELECT ${list}, ${groupKeySql} AS ${GRP} ${from} ${where} ${groupTail} ${tail}`,
+    );
+    const grpIndex = result.columns.lastIndexOf(GRP);
+    const rows = result.rows.map((row) => {
+      const rowKey = String(row[grpIndex]);
+      return {
+        // 前の段階に行がないグループ（0行の集計）は group:<鍵>
+        rid: membersOf.get(rowKey)?.[0] ?? `group:${rowKey}`,
+        rowKey,
+        values: row.filter((_, i) => i !== grpIndex),
+      };
+    });
+    assertOneRowPerGroup(rows, membersOf, grouped, limited);
+    return { columns: result.columns.filter((_, i) => i !== grpIndex), rows };
+  };
+  const strip = (rows) => rows.map(({ rid, values }) => ({ rid, values }));
+
+  // SELECT：1グループが1行にまとまる。並びはグループの番号の順（前の段階から行が動かないように）
+  {
+    const table = await runGrouped('', false);
+    const position = (row) => indexOfKey.get(row.rowKey) ?? indexOfKey.size;
+    const rows = [...table.rows].sort((a, b) => position(a) - position(b));
+    /** @type {Record<string, string[]>} */
+    const merged = {};
+    for (const row of rows) {
+      const members = membersOf.get(row.rowKey) ?? [];
+      if (members.length > 1) merged[row.rid] = members.slice(1);
+    }
+    push(
+      'SELECT',
+      range('SELECT'),
+      { columns: table.columns, rows: strip(rows) },
+      { merged, aggregated: true },
+    );
+  }
+
+  // ORDER BY：まとまった行が並び替わる
+  if (byKind['ORDER BY']) {
+    const previous = steps.at(-1);
+    const rows = strip((await runGrouped(order, false)).rows);
+    const reordered = rows.some((row, i) => row.rid !== previous.rows[i]?.rid);
+    push('ORDER BY', range('ORDER BY'), { columns: previous.columns, rows }, { reordered });
+  }
+
+  // LIMIT：残る行
+  if (byKind.LIMIT) {
+    const previous = steps.at(-1);
+    const rows = strip((await runGrouped(`${order} ${limit}`, true)).rows);
+    assertContiguous(previous.rows, rows);
+    push(
+      'LIMIT',
+      range('LIMIT'),
+      { columns: previous.columns, rows },
+      { removed: removedRids(previous.rows, rows) },
+    );
+  }
+}
+
+/**
+ * 集計のあとの行が、グループごとに1行ずつか（最後の守り）。グループの鍵の文字と本物のグループ分けがずれる
+ * （`1.0` と `1.00` は同じグループなのに鍵の文字が違う）と、途中の段階がうそになるので mismatch にする。
+ * @param {{ rid: string, rowKey: string }[]} rows
+ * @param {Map<string, string[]>} membersOf
+ * @param {boolean} grouped - GROUP BY があるか（なければ全部で1グループ。0行でも集計は1行）
+ * @param {boolean} limited - LIMIT があるか（あればグループの数より少なくてよい）
+ */
+function assertOneRowPerGroup(rows, membersOf, grouped, limited) {
+  const unique = (values) => new Set(values).size === values.length;
+  let countOk;
+  if (grouped) countOk = limited ? rows.length <= membersOf.size : rows.length === membersOf.size;
+  else countOk = rows.length <= 1 && (limited || membersOf.size === 0 || rows.length === 1);
+  if (!unique(rows.map((r) => r.rowKey)) || !unique(rows.map((r) => r.rid)) || !countOk) {
+    throw new StepError('mismatch', '集計した行を、グループに1つずつ対応づけられませんでした');
+  }
 }

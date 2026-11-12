@@ -7,7 +7,8 @@ const GROUP_COLORS = 6;
 
 /**
  * ステップ再生の1段階の表。
- * - 印の場面（mark）：前の段階の表に、消える行（赤）・まとまる行（黄）・消える列（灰色の打ち消し線）の印を付ける
+ * - 印の場面（mark）：前の段階の表に、消える行（赤）・まとまる行（組ごとの色）・消える列（灰色の打ち消し線）の印を付ける
+ * - GROUP BY・HAVING の段階は、印・変化の両方の場面で、行をグループの色で塗る（どの行が同じグループかが見えるように）
  * - 変化の場面（apply）：この段階の表。行は行の目印（rid）を key にして、並び替え・消える動きを Motion で見せる
  *
  * @param {{
@@ -22,11 +23,22 @@ export function StepTable({ step, previous, phase }) {
   const removed = new Set(step.diff.removed);
   const mergedAway = new Set(Object.values(step.diff.merged).flat());
   const mergedKeep = new Set(Object.keys(step.diff.merged));
-  // DISTINCT でまとまる組ごとに色を分ける（どの行とどの行がまとまるかが見えるように）
+  // まとまる組ごとに色を分ける（どの行とどの行がまとまるかが見えるように）。
+  // 前の段階が GROUP BY・HAVING なら、そのグループの色のまま（段階が変わっても同じグループは同じ色）
+  const previousGroups = previous?.diff.groups ?? {};
   const groupOf = new Map();
   Object.entries(step.diff.merged).forEach(([keep, absorbed], index) => {
-    for (const rid of [keep, ...absorbed]) groupOf.set(rid, index % GROUP_COLORS);
+    const color = (previousGroups[keep] ?? index) % GROUP_COLORS;
+    for (const rid of [keep, ...absorbed]) groupOf.set(rid, color);
   });
+  // グループの色：GROUP BY・HAVING の段階はその段階の番号。集計の SELECT の印の場面は、前の段階の色のまま
+  // （1行だけのグループは「まとまる」に入らないので、ここで色を残す）
+  const groups =
+    Object.keys(step.diff.groups ?? {}).length > 0
+      ? step.diff.groups
+      : marking && step.diff.aggregated
+        ? previousGroups
+        : {};
   const removedColumns = new Set(step.diff.removedColumns);
   const renamedTo = new Map(
     Object.entries(step.diff.renamedColumns).map(([from, to]) => [to, from]),
@@ -43,13 +55,15 @@ export function StepTable({ step, previous, phase }) {
   };
   const rowClass = (rid) => {
     const mark = rowMark(rid);
-    if (mark === 'removing') return styles.removing;
+    const group = groups[rid];
+    const groupClass = group === undefined ? '' : styles[`group${group % GROUP_COLORS}`];
+    if (mark === 'removing') return `${groupClass} ${styles.removing}`;
     if (mark === 'merging' || mark === 'merging-keep') {
       return `${styles[`group${groupOf.get(rid)}`]} ${
         mark === 'merging' ? styles.mergingAway : styles.mergingKeep
       }`;
     }
-    return undefined;
+    return groupClass || undefined;
   };
   const columnMark = (column) =>
     marking && removedColumns.has(column) ? 'removing-column' : undefined;
@@ -102,6 +116,7 @@ export function StepTable({ step, previous, phase }) {
                     transition={{ duration: 0.3 }}
                     data-rid={row.rid}
                     data-mark={rowMark(row.rid)}
+                    data-group={groups[row.rid]}
                   >
                     {row.values.map((value, index) => (
                       <td

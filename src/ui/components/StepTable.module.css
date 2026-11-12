@@ -41,15 +41,8 @@
   background: var(--color-surface);
 }
 
-/* 消える行（WHERE・LIMIT） */
-.removing td {
-  color: var(--color-miss);
-  background: color-mix(in srgb, var(--color-miss) 18%, transparent);
-  text-decoration: line-through;
-}
-
 /*
- * まとまる行（DISTINCT）。組ごとに色を分け、まとまって消える行は薄く打ち消し線、残る行は太字にする。
+ * まとまる行（DISTINCT・集計）と、GROUP BY のグループ。組ごとに色を分け、まとまって消える行は薄く打ち消し線、残る行は太字にする。
  * 色は tokens.css の色を借りる（新しい色の値を書かない）
  */
 .group0 td {
@@ -69,6 +62,13 @@
 }
 .group5 td {
   background: color-mix(in srgb, var(--color-character-tencho) 50%, transparent);
+}
+
+/* 消える行（WHERE・HAVING・LIMIT）。HAVING ではグループの色より消える印（赤）を先に見せるので、グループの色より後ろに書く */
+.removing td {
+  color: var(--color-miss);
+  background: color-mix(in srgb, var(--color-miss) 18%, transparent);
+  text-decoration: line-through;
 }
 
 .mergingAway td {

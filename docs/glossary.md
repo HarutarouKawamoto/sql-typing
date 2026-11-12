@@ -87,9 +87,10 @@
 | 句 | `Clause` | SQLの最上位の部品。`SELECT` / `FROM` / `WHERE` / `GROUP BY` / `HAVING` / `ORDER BY` / `LIMIT` | `ClauseSplitter` |
 | 書いた順 | `writtenOrder` | SQLに句を書く順番（SELECT が最初） | 実行順 |
 | 実行順 | `execOrder` | DBが句を処理する順番（FROM → WHERE → GROUP BY → HAVING → SELECT → ORDER BY → LIMIT） | 書いた順 |
-| 段階 | `Step` | ステップ再生の1コマ。実行順のある時点での表と、前の段階からの変化 | `StepDiff` |
-| 印の場面・変化の場面 | `phase: 'mark' \| 'apply'` | ステップ再生の1段階の2つの場面。印の場面は前の段階の表に「消える行（赤）・まとまる行（組ごとの色）・消える列（灰色）」の印を付け、変化の場面でこの段階の表にする | StepTable |
-| 見本のページ | `ReplayDemoScreen`（`/?demo`） | 初級の形のSQLでステップ再生を見られるページ。入口からはリンクしない。印の見た目を確かめるため | ステップ再生 |
+| 段階 | `Step` | ステップ再生の1コマ。実行順のある時点での表と、前の段階からの変化（`label` は FROM・WHERE・GROUP BY・HAVING・SELECT・DISTINCT・ORDER BY・LIMIT） | `StepDiff`（消えた行・列、まとまった行、並び替わったか、グループの番号 `groups`、集計したか `aggregated`） |
+| 印の場面・変化の場面 | `phase: 'mark' \| 'apply'` | ステップ再生の1段階の2つの場面。印の場面は前の段階の表に「消える行（赤）・まとまる行（組ごとの色）・消える列（灰色）・グループ（GROUP BY・HAVING の色）」の印を付け、変化の場面でこの段階の表にする | StepTable |
+| グループの鍵 | `__grp` | 集計するSQLのステップ再生で、各行がどのグループかを表す値（`ROW(GROUP BY の項目)::text`）。集計のあとの行を、グループの最初の行につなぐ | `pushGroupedSteps` |
+| 見本のページ | `ReplayDemoScreen`（`/?demo`） | 初級の形と集計のSQLでステップ再生を見られるページ。入口からはリンクしない。印の見た目を確かめるため | ステップ再生 |
 | 行の目印 | `rid` | 段階と段階の間で同じ行を見分ける印。元のテーブルの `ctid` を使う | `__rid` |
 | ステップ再生（見える化A） | `stepReplay`（`StepPlayer`） | 実行順に1句ずつ光らせ、その時点の表を見せる再生 | 再生・一時停止・進む・戻る |
 | 実行順の並び替え（見える化B） | `reorderIntro`（`ReorderIntro`） | モード3・4で実行したとき、書いた順の句が実行順に入れ替わる1.5秒のアニメーション（判定と同時に流し、終わってから結果を見せる） | 設定（`reorderAnimation`）で止められる。チップは `buildReorderChips` |
