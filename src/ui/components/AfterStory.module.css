@@ -11,7 +11,7 @@
 
 .note {
   margin: 0;
-  color: var(--color-active);
+  color: var(--color-text);
 }
 
 .controls {
@@ -29,8 +29,8 @@
 
 .next {
   font-weight: bold;
-  color: var(--color-bg);
-  background: var(--color-correct);
+  color: var(--color-on-primary);
+  background: var(--color-primary);
   border: none;
 }
 
@@ -48,6 +48,6 @@
 
 .next:focus-visible,
 .home:focus-visible {
-  outline: 3px solid var(--color-text);
+  outline: 3px solid var(--color-focus);
   outline-offset: 2px;
 }

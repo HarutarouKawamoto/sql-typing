@@ -57,8 +57,8 @@
   padding: 0 var(--space-1);
   font-size: 0.7rem;
   font-weight: bold;
-  color: var(--color-bg);
-  background: var(--color-active);
+  color: var(--color-text);
+  background: var(--color-marker);
   border-radius: var(--radius);
 }
 
@@ -82,7 +82,7 @@
 .keyMark {
   font-size: 0.65rem;
   font-weight: bold;
-  color: var(--color-active);
+  color: var(--color-text-muted);
 }
 
 .type {

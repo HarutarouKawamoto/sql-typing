@@ -88,6 +88,7 @@ sql-typing/
   - `schema-layout.js`：DBの地図の箱の置き方（親を左・子を右、親は子のすぐ左。React に依存しない。`tests/unit/ui/` で単体テスト）
   - `db-jobs.js`：DB を何回も使う仕事（問題の準備・正解の結果づくり・判定・ステップ再生の段階づくり）を1つずつ流す列 `runDbJob`（`tests/unit/ui/` で単体テスト）
 - `components/StepPlayer.jsx`・`StepTable.jsx`：見える化A（ステップ再生）の画面と、1段階の表
+- `components/Stamp.jsx`：クリアの判子（朱の丸に「済」。一覧の承認欄・モード選択・クリアの結果）
 - `components/PredictionQuiz.jsx`：見える化D（再生の前の予想クイズ `PredictionQuiz` と答え合わせ `PredictionResult`）
 - `components/PlayMode12.jsx`：モード1・2（なぞり書き・打って選ぶ）。`components/PlayMode34.jsx`：モード3・4（書いて判定）
 - `components/TypingArea.jsx`・`ChoiceList.jsx`：打つSQL（モード2の空欄は「？」の箱で隠す）と、モード2の選択肢
@@ -102,7 +103,7 @@ sql-typing/
 - `components/SchemaMap.jsx`・`SchemaMapPanel.jsx`：DBの地図（React Flow の箱と線）と、開いて見る枠（読み込み・中身を見る）
 - `screens/ReplayDemoScreen.jsx`：ステップ再生の見本（`/?demo`）
 - `screens/SettingsScreen.jsx`：設定（見える化B の on/off・ステップ再生の速さ・学習記録を消す）
-- `styles/`: `tokens.css`（色・余白などの CSS 変数。ライト／ダーク）、`global.css`
+- `styles/`: `tokens.css`（色・書体・余白の CSS 変数。ライト／ダーク。見た目の方針は機能設計書の「見た目の方針」）、`global.css`
 
 **命名規則**:
 - コンポーネントのファイルは PascalCase ＋ `.jsx`（中のコンポーネント名と同じ）

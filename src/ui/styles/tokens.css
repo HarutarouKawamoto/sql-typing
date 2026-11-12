@@ -1,28 +1,41 @@
 /*
- * 色と余白の変数。部品の CSS には色の値を直接書かず、ここの変数を使う。
- * 色の使い分けは docs/functional-design.md の「カラーコーディング」。
+ * 色・文字・余白の変数。部品の CSS には色の値を直接書かず、ここの変数を使う。
+ * 見た目の土台は「お店の事務所の伝票と判子」（帳簿の紙・紺のインク・罫線・朱肉・蛍光ペン）。
+ * 色の使い分けは docs/functional-design.md の「カラーコーディング」と「見た目の方針」。
  */
 :root {
-  --color-bg: #fafaf7;
-  --color-surface: #ffffff;
-  --color-text: #1f2328;
-  --color-text-muted: #6b7280;
-  --color-border: #d8dbe0;
+  --color-bg: #f4f6f2; /* 帳簿の紙（少し青緑寄りの白） */
+  --color-surface: #ffffff; /* 伝票・書く欄・表 */
+  --color-text: #1f2b45; /* 紺のインク */
+  --color-text-muted: #56627a;
+  --color-border: #c4d0cb; /* 罫線 */
+  --color-rule-strong: #8d9e98; /* 表の外枠・ボタンの枠（罫線より濃く） */
 
-  --color-miss: #d1242f; /* 打ち間違い・WHERE で消える行・エラー */
-  --color-correct: #1a7f37; /* 正解・クリアした星 */
-  --color-active: #bf8700; /* 実行中の句・光っている候補 */
-  --color-focus-table: #0969da; /* DBの地図で触っているテーブル */
-  --color-pending: #9ca3af; /* まだ打っていない文字・開いていない問題・NULL */
+  --color-miss: #c21f3a; /* 打ち間違い・WHERE で消える行・エラー（深紅。判子の朱と分ける） */
+  --color-correct: #2a7a4b; /* 正解 */
+  --color-active: #8a6500; /* 実行中の句・光っている候補の線と文字（蛍光ペンの濃いところ） */
+  --color-marker: #f4d25f; /* 蛍光ペン：今どこか（今打つ文字・実行中の句）の塗り */
+  --color-focus-table: #2d5c9c; /* DBの地図で触っているテーブル（藍） */
+  --color-pending: #9aa5a1; /* まだ打っていない文字・開いていない問題・NULL */
+  --color-stamp: #cf4a2c; /* 朱肉：クリアの判子・ターニングポイントの角印だけに使う */
+
+  --color-primary: #1f2b45; /* 主なボタンの塗り（紺） */
+  --color-on-primary: #ffffff;
+  --color-focus: #1f2b45; /* キーボードのフォーカスの輪 */
 
   /* 登場人物の名前の色（data/characters.yaml の color。検証テストで定義があるか確かめる） */
-  --color-character-player: #1f2328;
-  --color-character-tencho: #b35900;
-  --color-character-senpai: #6f42c1;
-  --color-character-eigyo: #0e7c86;
+  --color-character-player: #1f2b45;
+  --color-character-tencho: #a0500f;
+  --color-character-senpai: #6a3fa6;
+  --color-character-eigyo: #0d6b74;
 
-  --font-ui: system-ui, -apple-system, 'Segoe UI', 'Hiragino Sans', 'Yu Gothic UI', sans-serif;
-  --font-code: ui-monospace, 'Cascadia Code', Consolas, 'BIZ UDGothic', monospace;
+  /*
+   * 書体は同梱する（src/main.jsx）。画面は事務の書類のための BIZ UDPゴシック。
+   * SQL の英数字は IBM Plex Mono（BIZ UDゴシックの英字は幅が狭く、小さい文字で下線が見えにくかった）、
+   * SQL の中の日本語（文字列・コメント）は BIZ UDゴシックで補う
+   */
+  --font-ui: 'BIZ UDPGothic', 'Hiragino Sans', 'Yu Gothic UI', sans-serif;
+  --font-code: 'IBM Plex Mono', 'BIZ UDGothic', ui-monospace, Consolas, monospace;
 
   /* 余白と角の丸みは rem で決める（ルートの文字の大きさ＝サイト全体の大きさに合わせて一緒に大きくなる） */
   --space-1: 0.25rem;
@@ -30,24 +43,33 @@
   --space-3: 1rem;
   --space-4: 1.5rem;
   --space-5: 2.5rem;
-  --radius: 0.5rem;
+  /* 伝票は角をほとんど丸めない。丸いのは判子だけ */
+  --radius: 0.15rem;
 }
 
+/* 夜の事務所：紺の紙に、同じ役目の色をそろえる */
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-bg: #0f1115;
-    --color-surface: #171a21;
-    --color-text: #e6e8eb;
-    --color-text-muted: #9aa3ae;
-    --color-border: #2c313a;
+    --color-bg: #151b2a;
+    --color-surface: #1d2537;
+    --color-text: #e3e8f0;
+    --color-text-muted: #a3adbf;
+    --color-border: #34405a;
+    --color-rule-strong: #56658a;
 
-    --color-miss: #ff6b6b;
-    --color-correct: #4ac26b;
-    --color-active: #e3b341;
-    --color-focus-table: #58a6ff;
-    --color-pending: #6b7280;
+    --color-miss: #ff6b81;
+    --color-correct: #5cc98a;
+    --color-active: #e8c35a;
+    --color-marker: #c9a43a;
+    --color-focus-table: #7fb0ff;
+    --color-pending: #6b7690;
+    --color-stamp: #f0714f;
 
-    --color-character-player: #e6e8eb;
+    --color-primary: #e3e8f0;
+    --color-on-primary: #151b2a;
+    --color-focus: #e3e8f0;
+
+    --color-character-player: #e3e8f0;
     --color-character-tencho: #f0a35e;
     --color-character-senpai: #b392f0;
     --color-character-eigyo: #4fc1c9;

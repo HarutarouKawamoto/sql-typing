@@ -23,7 +23,7 @@
 
 .editor:focus-visible {
   outline: none;
-  border-color: var(--color-active);
+  border-color: var(--color-focus);
 }
 
 .editor[readonly] {

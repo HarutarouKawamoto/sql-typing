@@ -233,6 +233,7 @@ graph LR
 | @xyflow/react | DBの地図 | `^12` |
 | yaml / @rollup/plugin-yaml | YAML | `^2` / `^5` |
 | zod | 検証 | `^4` |
+| @fontsource/biz-udpgothic・@fontsource/biz-udgothic・@fontsource/ibm-plex-mono | 書体の同梱（画面・SQL の日本語・SQL の英数字） | `^5`。外のサイトから読み込まないため（下の「外部依存」）。2026-11-13 に見た目の作り直しで足した |
 | vitest / @playwright/test | テスト | `^5` / `^1` |
 | eslint / prettier | 書き方・整形 | `^10` / `^3` |
 
