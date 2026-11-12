@@ -82,11 +82,13 @@ sql-typing/
   - `plan-layout.js`：実行計画の木の置き方（葉が下・根が上、線の太さ。React に依存しない。`tests/unit/ui/` で単体テスト）
   - `plan-words.js`：実行計画の節の言葉（一言 `NODE_WORDS`・時間・行の数・テーブル・返した行）と、箱からはみ出す文字の縮め方（`fitText`）。インデックスの比較と実行計画の木で使う（React に依存しない。`tests/unit/ui/` で単体テスト）
   - `tx-timeline-state.js`：トランザクションのタイムラインの画面の状態（`txTimelineReducer`）と結果の文（React に依存しない。`tests/unit/ui/` で単体テスト）
+  - `prediction-text.js`：予想クイズの答え合わせの文（当たり・おしい、段階ごとの行の数の流れ。React に依存しない。`tests/unit/ui/` で単体テスト）
   - `keyword-words.js`：用語辞典の用語（`KEYWORD_WORDS`・`KEYWORD_BY_WORD`。1回だけ読む）
   - `join-colors.js`：JOIN の段階の色分け（つながる行どうしを同じ色。React に依存しない。`tests/unit/ui/` で単体テスト）
   - `schema-layout.js`：DBの地図の箱の置き方（親を左・子を右、親は子のすぐ左。React に依存しない。`tests/unit/ui/` で単体テスト）
   - `db-jobs.js`：DB を何回も使う仕事（問題の準備・正解の結果づくり・判定・ステップ再生の段階づくり）を1つずつ流す列 `runDbJob`（`tests/unit/ui/` で単体テスト）
 - `components/StepPlayer.jsx`・`StepTable.jsx`：見える化A（ステップ再生）の画面と、1段階の表
+- `components/PredictionQuiz.jsx`：見える化D（再生の前の予想クイズ `PredictionQuiz` と答え合わせ `PredictionResult`）
 - `components/PlayMode12.jsx`：モード1・2（なぞり書き・打って選ぶ）。`components/PlayMode34.jsx`：モード3・4（書いて判定）
 - `components/TypingArea.jsx`・`ChoiceList.jsx`：打つSQL（モード2の空欄は「？」の箱で隠す）と、モード2の選択肢
 - `components/SqlEditor.jsx`・`HintPanel.jsx`・`JudgePanel.jsx`・`WriteResult.jsx`：書く画面の入力欄・ヒント・判定の結果・クリアの結果
@@ -138,6 +140,7 @@ ui/
 - `blank-typing.js`: 空欄つきのなぞり書き（空欄の外は TypingEngine、中は ChoiceEngine。空欄がなければ TypingEngine と同じなので、モード1もこれで動かす）
 - `clause-splitter.js`: ClauseSplitter
 - `reorder.js`: 見える化B のチップ（`buildReorderChips`。句の書いた順と実行順）
+- `prediction.js`: 見える化D の予想クイズの選択肢（`buildRowCountQuiz`。結果の行の数の4択）
 - `touched-tables.js`: SQLが触っているテーブル（DBの地図で光らせる）
 - `explain.js`: 実行計画（EXPLAIN ANALYZE）を読む・読んだ行の数・変える前と後の比較（上級の見える化）
 - `tx-simulation.js`: トランザクションのタイムラインのシミュレーション（2人の同時の注文。READ COMMITTED と行の鍵を真似る）
@@ -171,6 +174,7 @@ core/
 ├── blank-typing.js
 ├── clause-splitter.js
 ├── reorder.js
+├── prediction.js
 ├── touched-tables.js
 ├── explain.js
 ├── tx-simulation.js
@@ -287,6 +291,7 @@ tests/unit/
 │   ├── blank-typing.test.js
 │   ├── clause-splitter.test.js
 │   ├── reorder.test.js
+│   ├── prediction.test.js
 │   ├── group-by.test.js
 │   ├── from-clause.test.js
 │   ├── touched-tables.test.js
@@ -368,6 +373,7 @@ tests/e2e/
 │   └── typing-layout.spec.js  # 打っている途中に入力欄の大きさが変わらない・依頼の会話を見返せる
 ├── visualization/
 │   ├── step-replay.spec.js    # 見える化A（ステップ再生）
+│   ├── prediction-quiz.spec.js # 見える化D（予想クイズ。見本のページの ?demo&predict と設定）
 │   ├── step-replay-marks.spec.js # 見本のページで、印（消える行・列、まとまる行）の数を確かめる
 │   ├── index-race.spec.js     # 見本のページで、インデックスあり・なしの比較
 │   ├── plan-tree.spec.js      # 見本のページで、実行計画の木（線の太さ・実行されなかった節）

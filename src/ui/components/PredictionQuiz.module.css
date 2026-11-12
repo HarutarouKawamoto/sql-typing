@@ -1,0 +1,67 @@
+.quiz {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-active);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.question {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.lead {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.choice {
+  min-width: 6rem;
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--font-code);
+  font-size: 1.1rem;
+}
+
+.skip {
+  font-size: 0.9rem;
+}
+
+.result {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-left-width: 4px;
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.hit {
+  border-left-color: var(--color-correct);
+}
+
+/* 外れても責めない（赤ではなく黄色の枠） */
+.miss {
+  border-left-color: var(--color-active);
+}
+
+.verdict,
+.flow {
+  margin: 0;
+}
+
+.flow {
+  margin-top: var(--space-1);
+  font-family: var(--font-code);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}

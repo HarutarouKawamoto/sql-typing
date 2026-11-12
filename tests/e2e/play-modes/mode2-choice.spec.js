@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { openModeSelect, openPlay } from '../helpers/open-play.js';
+import { openModeSelect, openPlay, skipPrediction } from '../helpers/open-play.js';
 
 /** 一覧から1問目の打って選ぶを始める */
 async function startMode2(page) {
@@ -70,6 +70,7 @@ test('クリアのあとステップ再生を見られ、R でもう一度（空
   await page.keyboard.type('SELECT * FROM products');
   await expect(page.getByRole('heading', { name: 'クリア！' })).toBeVisible();
   await page.getByRole('button', { name: /ステップ再生を見る/ }).click();
+  await skipPrediction(page);
   await expect(page.getByTestId('step-player')).toBeVisible();
   await page.keyboard.press('r');
   await expect(page.getByTestId('blank-box')).toBeVisible();

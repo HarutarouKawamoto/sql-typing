@@ -76,6 +76,15 @@ export function SettingsScreen({ settings, onChange, onClear, saveFailed, onHome
           />
           モード3・4で実行するとき、句が実行順に入れ替わる動きを流す（見える化B・1.5秒）
         </label>
+        <label className={styles.check}>
+          <input
+            type="checkbox"
+            checked={settings.predictionQuiz}
+            onChange={(event) => onChange({ predictionQuiz: event.target.checked })}
+            data-testid="setting-prediction"
+          />
+          ステップ再生の前に、結果の行の数を予想するクイズを出す（見える化D）
+        </label>
         <fieldset className={styles.speeds}>
           <legend>ステップ再生の速さ</legend>
           {SPEEDS.map(({ value, label }) => (

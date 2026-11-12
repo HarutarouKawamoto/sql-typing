@@ -3,7 +3,7 @@
  * 形は src/schema/progress-schema.js（version 1）。最初の1回だけ入れ、読み込み直しでは上書きしない。
  * @param {import('@playwright/test').Page} page
  * @param {{ problemId: string, mode: '1' | '2' | '3' | '4' }[]} clears - クリア済みにする問題とモード
- * @param {{ reorderAnimation?: boolean, replaySpeed?: 0.5 | 1 | 2 }} [settings] - 既定から変える設定
+ * @param {{ reorderAnimation?: boolean, replaySpeed?: 0.5 | 1 | 2, predictionQuiz?: boolean }} [settings] - 既定から変える設定
  */
 export async function seedProgress(page, clears, settings = {}) {
   const problems = {};
@@ -17,7 +17,7 @@ export async function seedProgress(page, clears, settings = {}) {
     mistakes: {},
     typed: {},
     days: {},
-    settings: { reorderAnimation: true, replaySpeed: 1, ...settings },
+    settings: { reorderAnimation: true, replaySpeed: 1, predictionQuiz: true, ...settings },
   };
   await page.addInitScript((value) => {
     if (sessionStorage.getItem('progress-seeded')) return;

@@ -1,10 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { splitClauses } from '../../core/clause-splitter.js';
+import { buildRowCountQuiz } from '../../core/prediction.js';
 import { buildSteps } from '../../core/stepper/index.js';
 import { runDbJob } from '../state/db-jobs.js';
 import { isInteractiveTarget, isTextEntryTarget } from '../state/typing-keys.js';
 import { useStepReplay } from '../state/use-step-replay.js';
 import { KeywordText } from './KeywordText.jsx';
+import { predictionFlowText, predictionVerdict } from '../state/prediction-text.js';
+import { PredictionQuiz, PredictionResult } from './PredictionQuiz.jsx';
 import { StepTable } from './StepTable.jsx';
 import styles from './StepPlayer.module.css';
 
@@ -46,12 +49,19 @@ function explanationOf(step) {
  *   sql: string,
  *   runner: import('../../data/sql-runner/sql-runner.js').SqlRunner,
  *   speed: number,
+ *   predict?: boolean,
  *   onFinished?: () => void,
  * }} props
+ *   predict：段階ができたら、再生の前に結果の行の数を予想するクイズを出す（見える化D）
+ * SQL が変わったら、呼ぶ側で key を変えて作り直す（段階と予想の答えを引き継がないため）
  */
-export function StepPlayer({ sql, runner, speed, onFinished }) {
+export function StepPlayer({ sql, runner, speed, predict = false, onFinished }) {
   const [built, setBuilt] = useState(
     /** @type {import('../../core/stepper/index.js').BuildResult | null} */ (null),
+  );
+  // 予想の答え（null は予想しないで再生する）。まだ答えていなければ undefined
+  const [prediction, setPrediction] = useState(
+    /** @type {number | null | undefined} */ (undefined),
   );
 
   useEffect(() => {
@@ -80,14 +90,45 @@ export function StepPlayer({ sql, runner, speed, onFinished }) {
       </p>
     );
   }
-  return <StepPlayerView sql={sql} steps={built.steps} speed={speed} onFinished={onFinished} />;
+  if (!predict) {
+    return <StepPlayerView sql={sql} steps={built.steps} speed={speed} onFinished={onFinished} />;
+  }
+  const quiz = buildRowCountQuiz(built.steps);
+  const answered = prediction !== undefined;
+  const verdict = typeof prediction === 'number' ? predictionVerdict(quiz, prediction) : null;
+  return (
+    <div className={styles.predicted}>
+      {/* 読み上げの枠は先に置いておき、答えたら中身を入れる（中身ごと出すと読み上げない環境があるため） */}
+      <p className={styles.srOnly} role="status">
+        {verdict && `${verdict.title}${verdict.detail}${predictionFlowText(quiz)}`}
+      </p>
+      {!answered && <PredictionQuiz quiz={quiz} onAnswer={setPrediction} />}
+      {typeof prediction === 'number' && <PredictionResult quiz={quiz} choice={prediction} />}
+      {/* 答えるまで再生しない（先に再生すると、最後の段階の行の数が見えてしまう） */}
+      {answered && (
+        <StepPlayerView
+          sql={sql}
+          steps={built.steps}
+          speed={speed}
+          onFinished={onFinished}
+          focusOnStart
+        />
+      )}
+    </div>
+  );
 }
 
 /**
- * @param {{ sql: string, steps: import('../../core/stepper/index.js').Step[], speed: number, onFinished?: () => void }} props
+ * @param {{ sql: string, steps: import('../../core/stepper/index.js').Step[], speed: number, onFinished?: () => void, focusOnStart?: boolean }} props
+ *   focusOnStart：出たら再生・一時停止のボタンにフォーカスする（予想クイズの選択肢が消えたあと、
+ *   フォーカスがページに落ちて Enter が「次の問題へ」にならないように）
  */
-function StepPlayerView({ sql, steps, speed, onFinished }) {
+function StepPlayerView({ sql, steps, speed, onFinished, focusOnStart = false }) {
   const replay = useStepReplay({ steps, speed, onFinished });
+  const playButton = useRef(/** @type {HTMLButtonElement | null} */ (null));
+  useEffect(() => {
+    if (focusOnStart) playButton.current?.focus();
+  }, [focusOnStart]);
   const clauses = useMemo(() => splitClauses(sql).clauses, [sql]);
   const { next, back, first, togglePlay } = replay;
 
@@ -150,7 +191,7 @@ function StepPlayerView({ sql, steps, speed, onFinished }) {
         <button type="button" onClick={back} disabled={replay.index === 0} aria-label="戻る">
           ◀ 戻る
         </button>
-        <button type="button" onClick={togglePlay}>
+        <button type="button" onClick={togglePlay} ref={playButton}>
           {replay.playing ? '⏸ 一時停止' : '▶ 再生'}
         </button>
         <button

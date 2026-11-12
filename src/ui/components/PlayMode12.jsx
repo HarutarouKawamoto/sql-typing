@@ -30,6 +30,7 @@ const GUIDES = {
  *   keywords: string[],
  *   runner: import('../../data/sql-runner/sql-runner.js').SqlRunner,
  *   replaySpeed: number,
+ *   predictionQuiz: boolean,
  *   onRecord: (play: object) => import('../../schema/progress-schema.js').Progress,
  *   onReplayFinished: (problemId: string) => void,
  *   onExit: () => void,
@@ -44,6 +45,7 @@ export function PlayMode12({
   keywords,
   runner,
   replaySpeed,
+  predictionQuiz,
   onRecord,
   onReplayFinished,
   onExit,
@@ -165,6 +167,7 @@ export function PlayMode12({
             sql={displaySql}
             runner={runner}
             speed={replaySpeed}
+            predict={predictionQuiz}
             onFinished={() => onReplayFinished(problem.id)}
           />
         </section>

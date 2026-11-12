@@ -117,7 +117,8 @@ describe('data/ のファイルをまたぐ決まり', () => {
   });
 });
 
-describe('PGlite で確かめる決まり', () => {
+// 上級は初期状態に戻すたびにアクセスログ5万行を入れ直すので、全問を流すテストはどれも30秒を超えうる
+describe('PGlite で確かめる決まり', { timeout: 300_000 }, () => {
   let runner;
 
   beforeAll(() => {
@@ -156,8 +157,7 @@ describe('PGlite で確かめる決まり', () => {
       readSeed,
     });
     expect(issues).toEqual([]);
-    // 上級は初期状態に戻すたびにアクセスログ5万行を入れ直すので、選択肢ごとの判定が長くかかる
-  }, 300_000);
+  });
 
   it('正解SQLのステップ再生が作れる（最後の段階が結果と一致する）', async () => {
     const issues = await checkStepsBuild({

@@ -95,7 +95,7 @@
 | ステップ再生（見える化A） | `stepReplay`（`StepPlayer`） | 実行順に1句ずつ光らせ、その時点の表を見せる再生 | 再生・一時停止・進む・戻る |
 | 実行順の並び替え（見える化B） | `reorderIntro`（`ReorderIntro`） | モード3・4で実行したとき、書いた順の句が実行順に入れ替わる1.5秒のアニメーション（判定と同時に流し、終わってから結果を見せる） | 設定（`reorderAnimation`）で止められる。チップは `buildReorderChips` |
 | 打ちながら変化（見える化C） | `liveResult` | モード1・2で、句を打ち終えるたびに結果の表が変わること | 句の終わり（`clauseEnded`） |
-| 予想クイズ（見える化D） | `prediction` | 実行前に結果の行数などを当てさせる（P2） | |
+| 予想クイズ（見える化D） | `prediction`（`PredictionQuiz`） | ステップ再生の前に、結果の行の数を4択で当てさせる（P2）。選択肢は `buildRowCountQuiz` が段階の行の数から作る | 設定 `predictionQuiz` |
 | 実行計画 | `PlanNode`（`parseExplain`） | DB がSQLをどう実行したかの木。`EXPLAIN (ANALYZE, FORMAT JSON)` で取る | `explain.js` |
 | 読んだ行 | `rowsRead` | 実行計画のうち、テーブルの行を読む節が読んだ行の数（返した行 + 条件で取り除いた行）。インデックスの比較のカウンター | Seq Scan なら全部の行 |
 | 変える前と後の比較 | `compareChange` | 同じ問い合わせを、あるSQL（インデックスを作るなど）を実行する前と後で EXPLAIN ANALYZE して比べる | `IndexRace` |

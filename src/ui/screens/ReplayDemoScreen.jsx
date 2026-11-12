@@ -13,6 +13,7 @@ import styles from './ReplayDemoScreen.module.css';
  * 目と E2E で確かめるために、初級・中級（集計・JOIN）の形のSQLを並べておく。
  * 初期データは中級（products は初級と同じ30行に、customers・orders・order_items を足したもの）。
  * `?demo&speed=0.2` のように再生の速さも変えられる（E2E で印の場面を長く見せるため）。
+ * `&predict` を付けると、再生の前に予想クイズ（見える化D）を出す（付けないときは出さない。今の見本の E2E のため）。
  */
 export const DEMO_SAMPLES = [
   {
@@ -89,10 +90,11 @@ export const DEMO_SAMPLES = [
  * @param {{
  *   runner: import('../../data/sql-runner/sql-runner.js').SqlRunner,
  *   speed: number,
+ *   predict: boolean,
  *   onExit: () => void,
  * }} props
  */
-export function ReplayDemoScreen({ runner, speed, onExit }) {
+export function ReplayDemoScreen({ runner, speed, predict, onExit }) {
   const [selected, setSelected] = useState(0);
   const sample = DEMO_SAMPLES[selected];
   // 上級の初期データで DB を準備する（JOIN・インデックスの見本のため。products・中級のテーブルは同じなので、初級・中級の見本もそのまま）
@@ -152,7 +154,13 @@ export function ReplayDemoScreen({ runner, speed, onExit }) {
         ) : sample.kind === 'transaction' ? (
           <TxTimeline />
         ) : (
-          <StepPlayer key={sample.sql} sql={sample.sql} runner={runner} speed={speed} />
+          <StepPlayer
+            key={sample.sql}
+            sql={sample.sql}
+            runner={runner}
+            speed={speed}
+            predict={predict}
+          />
         ))}
     </div>
   );

@@ -35,6 +35,7 @@ const MODIFIER_KEYS = new Set(['Shift', 'Control', 'Alt', 'Meta', 'AltGraph', 'C
  *   mode: '3' | '4',
  *   runner: import('../../data/sql-runner/sql-runner.js').SqlRunner,
  *   replaySpeed: number,
+ *   predictionQuiz: boolean,
  *   reorderAnimation: boolean,
  *   onRecord: (play: object) => unknown,
  *   onReplayFinished: (problemId: string) => void,
@@ -49,6 +50,7 @@ export function PlayMode34({
   mode,
   runner,
   replaySpeed,
+  predictionQuiz,
   reorderAnimation,
   onRecord,
   onReplayFinished,
@@ -247,6 +249,7 @@ export function PlayMode34({
             sql={last.sql}
             runner={runner}
             speed={replaySpeed}
+            predict={predictionQuiz}
             onFinished={() => onReplayFinished(problem.id)}
           />
         </section>

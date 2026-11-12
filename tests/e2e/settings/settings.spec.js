@@ -16,6 +16,7 @@ async function openSettings(page) {
 test('一覧の「設定」から開き、Esc で一覧へもどる', async ({ page }) => {
   await openSettings(page);
   await expect(page.getByTestId('setting-reorder')).toBeChecked();
+  await expect(page.getByTestId('setting-prediction')).toBeChecked();
   await expect(page.getByTestId('setting-speed-1')).toBeChecked();
   await page.keyboard.press('Escape');
   await expect(homeProblem(page)).toBeVisible();
@@ -30,6 +31,7 @@ test('ステップ再生の速さと見える化B を変えるとすぐ保存さ
   expect((await storedProgress(page)).settings).toEqual({
     reorderAnimation: false,
     replaySpeed: 2,
+    predictionQuiz: true,
   });
   await page.reload();
   await page.getByTestId('open-settings').click();
@@ -68,7 +70,7 @@ test('学習記録を消すときは確かめる。やめる・Esc では消え�
   await expect(page.getByTestId('clear-progress')).toBeFocused();
   const stored = await storedProgress(page);
   expect(stored.problems).toEqual({});
-  expect(stored.settings).toEqual({ reorderAnimation: true, replaySpeed: 2 });
+  expect(stored.settings).toEqual({ reorderAnimation: true, replaySpeed: 2, predictionQuiz: true });
 
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('star-beginner-01-1')).toHaveAttribute('data-cleared', 'false');

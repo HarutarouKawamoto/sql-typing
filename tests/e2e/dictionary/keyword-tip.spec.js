@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { openPlay } from '../helpers/open-play.js';
+import { openPlay, skipPrediction } from '../helpers/open-play.js';
 import { seedProgress } from '../helpers/seed-progress.js';
 
 test('モード1：打つSQLの WHERE にカーソルを当てると説明が出て、キーを押すと消える', async ({
@@ -80,6 +80,7 @@ test('ステップ再生のSQLでも、キーワードにカーソルを当て�
   await page.keyboard.press('Control+Enter');
   await expect(page.getByTestId('judge-panel')).toHaveAttribute('data-status', 'wrong');
   await page.getByRole('button', { name: /ステップ再生を見る/ }).click();
+  await skipPrediction(page);
 
   await page.getByTestId('step-player').locator('[data-keyword="FROM"]').hover();
   const tip = page.getByTestId('keyword-tip');

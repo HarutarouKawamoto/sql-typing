@@ -29,5 +29,13 @@ export async function openModeSelect(page, problemId = 'beginner-01') {
   await expect(page.getByTestId('mode-1')).toBeVisible();
 }
 
+/**
+ * ステップ再生の前の予想クイズ（見える化D。設定の既定で出る）を、予想しないで飛ばす。
+ * @param {import('@playwright/test').Page} page
+ */
+export async function skipPrediction(page) {
+  await page.getByRole('button', { name: '予想しないで再生する' }).click({ timeout: 15_000 });
+}
+
 /** 一覧が出ているか（遊ぶ画面から Esc でもどったあとなど） */
 export const homeProblem = (page) => page.getByTestId('problem-beginner-01');
