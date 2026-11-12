@@ -58,7 +58,7 @@ sql-typing/
 **役割**: 画面の表示、キー入力・クリックの受付、アニメーション、画面の状態の管理
 
 **配置ファイル**:
-- `screens/*.jsx`: 1つの画面（`HomeScreen.jsx`、`ModeSelect.jsx`、`StoryScreen.jsx`、`PlayScreen.jsx`、`ReplayDemoScreen.jsx`、`SettingsScreen.jsx`。あとで `DictionaryScreen.jsx`）
+- `screens/*.jsx`: 1つの画面（`HomeScreen.jsx`、`ModeSelect.jsx`、`StoryScreen.jsx`、`PlayScreen.jsx`、`ReplayDemoScreen.jsx`、`SettingsScreen.jsx`、`DictionaryScreen.jsx`）
 - `components/*.jsx`: 画面の部品（`TypingArea.jsx`、`ChoiceList.jsx`、`SqlEditor.jsx`、`StepPlayer.jsx`、`ResultTable.jsx`、`SchemaMap.jsx` など）
 - `components/*.module.css`: 部品と同じ名前の CSS Modules
 - `state/*.js`: Context・reducer・独自フック。
@@ -74,10 +74,11 @@ sql-typing/
   - `write-session-machine.js`：書く画面の決まり（時計・実行の回数・判定中は次を受けない・ヒントの数・クリア。React に依存しない reducer。`tests/unit/ui/` で単体テスト）
   - `editor-keys.js`：入力欄のキーの判定（Ctrl+Enter・Tab）とスペース2つの入れ方（React に依存しない。`tests/unit/ui/` で単体テスト）
   - `local-date.js`：学習記録の日付（その人のタイムゾーンの `YYYY-MM-DD`）
-  - `navigation.js`：画面の切り替え（一覧・設定・モード選択・会話・遊ぶ）の reducer（React に依存しない。`tests/unit/ui/` で単体テスト）
+  - `navigation.js`：画面の切り替え（一覧・設定・用語辞典・モード選択・会話・遊ぶ）の reducer（React に依存しない。`tests/unit/ui/` で単体テスト）
   - `use-problems.js`：全章の問題を1回だけ読み、ターニングポイントの ID の集合を返す
   - `use-narrow-screen.js`：画面の幅が 768px 未満か
   - `best-text.js`：モードの名前と最高記録の文（`tests/unit/ui/` で単体テスト）
+  - `keyword-words.js`：用語辞典の用語（`KEYWORD_WORDS`・`KEYWORD_BY_WORD`。1回だけ読む）
   - `schema-layout.js`：DBの地図の箱の置き方（親を左・子を右。React に依存しない。`tests/unit/ui/` で単体テスト）
   - `db-jobs.js`：DB を何回も使う仕事（問題の準備・正解の結果づくり・判定・ステップ再生の段階づくり）を1つずつ流す列 `runDbJob`（`tests/unit/ui/` で単体テスト）
 - `components/StepPlayer.jsx`・`StepTable.jsx`：見える化A（ステップ再生）の画面と、1段階の表
@@ -86,6 +87,8 @@ sql-typing/
 - `components/SqlEditor.jsx`・`HintPanel.jsx`・`JudgePanel.jsx`・`WriteResult.jsx`：書く画面の入力欄・ヒント・判定の結果・クリアの結果
 - `components/StoryPanel.jsx`・`StoryLines.jsx`・`AfterStory.jsx`：会話を1行ずつ送る部品、会話の行の描き方、クリア後の会話と次への道
 - `components/ReorderIntro.jsx`：見える化B（句のチップが書いた順から実行順へ入れ替わる）
+- `components/KeywordTipLayer.jsx`・`KeywordText.jsx`：キーワードの説明（ページ全体で1つ）と、SQLの文字に `data-keyword` を付けて描く部品
+- `screens/DictionaryScreen.jsx`：用語辞典
 - `components/SchemaMap.jsx`・`SchemaMapPanel.jsx`：DBの地図（React Flow の箱と線）と、開いて見る枠（読み込み・中身を見る）
 - `screens/ReplayDemoScreen.jsx`：ステップ再生の見本（`/?demo`）
 - `screens/SettingsScreen.jsx`：設定（見える化B の on/off・ステップ再生の速さ・学習記録を消す）
@@ -128,6 +131,8 @@ ui/
 - `clause-splitter.js`: ClauseSplitter
 - `reorder.js`: 見える化B のチップ（`buildReorderChips`。句の書いた順と実行順）
 - `touched-tables.js`: SQLが触っているテーブル（DBの地図で光らせる）
+- `keyword-spans.js`: SQLの中の用語辞典の語の場所（キーワードの説明を出すため。複数語の用語をまとめる）
+- `dictionary.js`: 用語辞典の中身（レベルごとの並びと、初めて出てくる問題）
 - `judge.js`: Judge
 - `scoring.js`: Scoring（速さ・正確さ・ランク・苦手の集計）
 - `error-translator.js`: ErrorTranslator
@@ -154,6 +159,8 @@ core/
 ├── clause-splitter.js
 ├── reorder.js
 ├── touched-tables.js
+├── keyword-spans.js
+├── dictionary.js
 ├── judge.js
 ├── scoring.js
 ├── error-translator.js
@@ -253,6 +260,8 @@ tests/unit/
 │   ├── clause-splitter.test.js
 │   ├── reorder.test.js
 │   ├── touched-tables.test.js
+│   ├── keyword-spans.test.js
+│   ├── dictionary.test.js
 │   ├── scoring.test.js
 │   ├── judge-compare.test.js  # Judge の純粋な部分（値・表の比べ方、require・forbid の探し方）
 │   └── error-translator.test.js
@@ -328,6 +337,9 @@ tests/e2e/
 │   └── turning-point.spec.js  # ターニングポイントが開く・印・説明・11行の会話・クリア後
 ├── settings/
 │   └── settings.spec.js       # 設定の画面（速さ・見える化B の on/off・学習記録を消す）
+├── dictionary/
+│   ├── keyword-tip.spec.js    # キーワードにカーソルを当てると説明（モード1・ステップ再生）
+│   └── dictionary.spec.js     # 用語辞典（16語・初めて出てくる問題・幅375pxでタップ）
 ├── map/
 │   └── schema-map.spec.js     # DBの地図（モード選択・モード1・モード4・幅375px）
 ├── device/

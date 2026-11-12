@@ -135,6 +135,7 @@ export function press(s, k) { s.pos++; return s; }
 - 状態は「画面全体のもの（今の画面、学習記録、SqlRunner）」を Context に、「1つの画面の中のもの」をその画面の `useReducer` / `useState` に置く
 - キー入力は `keydown` を1か所（遊ぶ画面のフック）で受け、コアレイヤーの `pressKey` に渡す。部品ごとに `keydown` を付けない（二重に反応するのを防ぐ）
 - `dangerouslySetInnerHTML` は使わない（ESLint で禁止）
+- 画面にSQLを出す部品は、文字を `KeywordText` で描く（用語辞典の語に `data-keyword` が付き、カーソルを当てると説明が出る）。打つ画面（`TypingArea`）は見た目を変えないよう、スロットに `data-keyword` だけを付ける。モード2のように答えを隠している間は付けない（説明の例から答えがわかるため）
 - 色・余白は `src/ui/styles/tokens.css` の CSS 変数を使う。部品の CSS に色の値を直接書かない
 - 大きさ（文字・余白・幅・角）は `rem` で書く。`px` は線の太さ（`1px`・`2px`）だけ。サイト全体の大きさはルートの文字（`html { font-size: 125% }`）で決めているので、`px` で書くとそこだけ大きくならない
 

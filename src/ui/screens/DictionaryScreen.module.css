@@ -1,0 +1,103 @@
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: min(100%, 44rem);
+  margin: 0 auto;
+}
+
+.header {
+  text-align: center;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.6rem;
+}
+
+.sub,
+.status {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-muted);
+}
+
+.level {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.levelTitle {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.entry {
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.word {
+  margin: 0 0 var(--space-1);
+  font-family: var(--font-code);
+  font-size: 1.1rem;
+}
+
+.list {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+}
+
+.list dt {
+  color: var(--color-text-muted);
+}
+
+.list dd {
+  margin: 0;
+  min-width: 0;
+}
+
+.example {
+  font-family: var(--font-code);
+  overflow-wrap: anywhere;
+}
+
+.muted {
+  color: var(--color-text-muted);
+}
+
+.link {
+  padding: 0;
+  font: inherit;
+  color: var(--color-focus-table);
+  text-decoration: underline;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.link:focus-visible,
+.back:focus-visible {
+  outline: 3px solid var(--color-text);
+  outline-offset: 2px;
+}
+
+.back {
+  align-self: center;
+  padding: var(--space-2) var(--space-4);
+  font: inherit;
+  color: var(--color-text);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.error {
+  margin: 0;
+  color: var(--color-miss);
+}
