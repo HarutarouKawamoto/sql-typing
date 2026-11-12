@@ -222,8 +222,9 @@ data/
 └── problems/
     └── beginner/
         ├── 01-select-all.yaml
-        ├── 03-where.yaml
-        └── 09-turning-point.yaml
+        ├── 02-select-columns.yaml
+        ├── …（03〜08）
+        └── 09-turning-point.yaml   # ターニングポイント（kind: turningPoint）
 ```
 
 ### tests/（テストディレクトリ）
@@ -303,17 +304,19 @@ tests/e2e/
 ├── play-modes/
 │   ├── mode1-trace.spec.js
 │   ├── mode2-choice.spec.js
-│   └── mode3-4-write.spec.js
+│   ├── mode3-4-write.spec.js
+│   └── typing-layout.spec.js  # 打っている途中に入力欄の大きさが変わらない・依頼の会話を見返せる
 ├── visualization/
 │   ├── step-replay.spec.js    # 見える化A（ステップ再生）
 │   └── step-replay-marks.spec.js # 見本のページで、印（消える行・列、まとまる行）の数を確かめる
 ├── progression/
 │   ├── home-story.spec.js     # 一覧・モード選択・依頼の会話・クリア後の会話・星
-│   └── turning-point.spec.js  # ターニングポイントの問題データを足す作業で
+│   └── turning-point.spec.js  # ターニングポイントが開く・印・説明・10行の会話・クリア後
 ├── device/
 │   └── narrow-screen.spec.js  # 幅375pxでは遊べず、会話は読める
 └── helpers/
-    └── open-play.js           # 一覧から1問目のモードを選び、会話を飛ばして遊ぶ画面を開く
+    ├── open-play.js           # 一覧から1問目のモードを選び、会話を飛ばして遊ぶ画面を開く
+    └── seed-progress.js       # 学習記録を localStorage に入れてから開く（何問もクリアした状態から始める）
 ```
 
 **命名規則**: `<シナリオ>.spec.js`（Vitest のテストと見分けるため `.spec.js` にする）
@@ -330,6 +333,7 @@ tests/e2e/
 - `answer-checks.js` の `checkClausePrefixes`：見える化C のため、SELECT の問題の句の途中までのSQLを実行しても止まらないことを確かめる
 - `answer-checks.js` の `checkWrongChoices`：間違いの選択肢を入れたSQLが、判定（Judge）で正解にも `ruleViolation` にもならないことを確かめる
 - `answer-checks.js` の `checkOrderDetermined`：`ordered: true` の問題で、並び順が1つに決まることを確かめる
+- `answer-checks.js` の `checkStepsBuild`：正解SQLのステップ再生が作れる（`mismatch`・`error` にならない）ことを確かめる
 - `answer-checks.js` の `checkBlanksPlayable`：モード2の空欄が表示用SQLの中に見つかり（画面と同じ `locateBlanks`）、選択肢がすべて打てることを確かめる
 
 ### docs/（ドキュメントディレクトリ）

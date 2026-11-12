@@ -1,0 +1,38 @@
+# 初級2問目：必要な列だけを選び、名前を付け替える
+# 形：src/schema/problem-schema.js ／ 書き方：docs/development-guidelines.md の「問題データの書き方」
+id: beginner-02
+chapterId: beginner
+order: 2
+title: 名前と値段だけでいい
+kind: normal
+story:
+  before:
+    - speaker: eigyo
+      text: 新人さん、商品の名前と値段だけの表が欲しいの。
+    - speaker: eigyo
+      text: 取引先に送る見積もり用でね。名前の列は item にして。
+    - speaker: senpai
+      text: 管理画面から書き出すと、全部の列が出てきて消すのが面倒なんだよ。
+    - speaker: player
+      text: 要る列だけ選んで、名前も付け替えますね。
+  after:
+    - speaker: eigyo
+      text: 見積もり用の形そのまま！ 消す手間がゼロだわ。
+    - speaker: senpai
+      text: AS ってそう使うのか……。
+answer: SELECT name AS item, price FROM products
+blanks:
+  - answer: name AS item
+    wrong:
+      - text: item AS name
+        why: AS の左が元の列、右が新しい名前。逆にすると item という列を探してしまう。
+      - text: name AS price
+        why: 新しい名前を price にすると、値段の列と同じ名前が2つ並んで区別できない。
+hints:
+  - 使う句は SELECT・AS・FROM の3つ。
+  - 書く順は SELECT 列 AS 新しい名前, 列 → FROM テーブル。
+  - SELECT ??? AS ???, ??? FROM ???
+judge:
+  ordered: false
+  checkColumnNames: true
+keywords: [SELECT, AS, FROM]

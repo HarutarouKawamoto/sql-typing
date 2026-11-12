@@ -1,0 +1,41 @@
+# 初級8問目：同じ値を1つにまとめる（DISTINCT）
+# 形：src/schema/problem-schema.js ／ 書き方：docs/development-guidelines.md の「問題データの書き方」
+id: beginner-08
+chapterId: beginner
+order: 8
+title: 扱っているカテゴリ
+kind: normal
+story:
+  before:
+    - speaker: tencho
+      text: サイトのメニューに、カテゴリの一覧を載せたいの。
+    - speaker: tencho
+      text: うちで扱っているカテゴリを、重なりなしで教えて。
+    - speaker: tencho
+      text: メニューに並べるから、アルファベット順でね。
+    - speaker: senpai
+      text: 30行の category を目で見て、手で重なりを消すのか……。
+    - speaker: player
+      text: 同じ値を1つにまとめれば、すぐ出ます。
+  after:
+    - speaker: tencho
+      text: bag・interior・kitchen・stationery の4つね。
+    - speaker: senpai
+      text: 30行が4行に……。DISTINCT、便利だな。
+answer: SELECT DISTINCT category FROM products ORDER BY category
+display: |-
+  SELECT DISTINCT category
+  FROM products
+  ORDER BY category
+blanks:
+  - answer: DISTINCT
+    wrong:
+      - text: ALL
+        why: ALL は重なりも全部残す（書かないのと同じ）。30行そのまま出てしまう。
+hints:
+  - 使う句は SELECT DISTINCT・FROM・ORDER BY。
+  - SELECT DISTINCT 列 → FROM → ORDER BY 列 の順。
+  - SELECT DISTINCT ??? FROM ??? ORDER BY ???
+judge:
+  ordered: true
+keywords: [SELECT, DISTINCT, FROM, ORDER BY]

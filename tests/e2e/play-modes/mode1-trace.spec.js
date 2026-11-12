@@ -60,13 +60,9 @@ test('クリアの記録が残り、読み込み直しても一覧の星とモ�
   await expect(page.getByTestId('best-mode1')).toContainText(/最高：\d+ 文字\/分/);
 });
 
-test('結果で R を押すと、もう一度最初から打てる（次の問題がないときの Enter は何もしない）', async ({
-  page,
-}) => {
+test('結果で R を押すと、もう一度最初から打てる', async ({ page }) => {
   await startMode1(page);
   await page.keyboard.type('SELECT * FROM products');
-  await expect(page.getByRole('heading', { name: 'クリア！' })).toBeVisible();
-  await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { name: 'クリア！' })).toBeVisible();
   await page.keyboard.press('r');
   await expect(page.getByRole('heading', { name: 'クリア！' })).toHaveCount(0);
@@ -102,4 +98,12 @@ test('壊れた学習記録があっても起動し、そのことを知らせ�
   await page.goto('/');
   await expect(page.getByRole('alert')).toContainText('学習記録を読み込めなかった');
   await expect(homeProblem(page)).toBeEnabled({ timeout: 30_000 });
+});
+
+test('打つSQLは合字（>= を ≥ にする描き方）を使わない', async ({ page }) => {
+  await startMode1(page);
+  const ligatures = await page
+    .getByTestId('typing-area')
+    .evaluate((element) => getComputedStyle(element).fontVariantLigatures);
+  expect(ligatures).toBe('none');
 });

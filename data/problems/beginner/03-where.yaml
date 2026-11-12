@@ -1,0 +1,38 @@
+# 初級3問目：条件に合う行だけを残す（比べる）
+# 形：src/schema/problem-schema.js ／ 書き方：docs/development-guidelines.md の「問題データの書き方」
+# ちょうど1000円の商品はないので、間違いの選択肢に「price > 1000」は使えない（結果が同じになる）
+id: beginner-03
+chapterId: beginner
+order: 3
+title: 1000円以上の商品
+kind: normal
+story:
+  before:
+    - speaker: tencho
+      text: 送料無料キャンペーンを考えてるの。
+    - speaker: tencho
+      text: 1000円以上の商品の名前と値段を、全部出せる？
+    - speaker: senpai
+      text: 管理画面は値段で絞り込めないから、全部数えるしかないな。
+    - speaker: player
+      text: 条件で行をしぼれば一発です。
+  after:
+    - speaker: tencho
+      text: もう出たの？ 21商品ね、これで計画が立てられる！
+    - speaker: senpai
+      text: 数える前に終わってる……。
+answer: SELECT name, price FROM products WHERE price >= 1000
+blanks:
+  - answer: price >= 1000
+    wrong:
+      - text: price <= 1000
+        why: <= は「以下」。1000円以上は >= で書く。
+      - text: price = 1000
+        why: = は「ちょうど1000円」だけ。ちょうど1000円の商品はないので1行も出ない。
+hints:
+  - 使う句は SELECT・FROM・WHERE の3つ。
+  - 書く順は SELECT → FROM → WHERE。「以上」は >= で書く。
+  - SELECT ???, ??? FROM ??? WHERE ??? >= ???
+judge:
+  ordered: false
+keywords: [SELECT, FROM, WHERE]

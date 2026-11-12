@@ -722,8 +722,8 @@ export function nextProblemId(chapters, problemId) {}
 | `StoryLines` | 会話の行を、話している人の名前（登場人物の色）と並べる（StoryPanel・AfterStory・モード3・4の依頼で共有） |
 | `AfterStory` | クリアの結果の下に出す、反応の会話と「次の問題へ（Enter / J）」「もう一度（R）」「一覧へ（Esc）」。結果を出しているときのキーはここで受ける。ターニングポイントをモード1・2でクリアし、次の章がまだ開いていないときは、モード3・4で次の章が開くと添える |
 | `PlayScreen` | 1問を遊ぶ画面。モードによって中身を切り替える |
-| `PlayMode12` | モード1・2（打つモード）：TypingArea・ChoiceList（モード2）・結果（TypingResult）・結果の表 ⇄ ステップ再生 |
-| `TypingArea` | モード1・2：薄い正解SQLの上に打った文字を重ねて表示。miss の赤い光り。モード2のまだ埋まっていない空欄は「？」の箱1つで描く（答えの文字数がわからないように） |
+| `PlayMode12` | モード1・2（打つモード）：依頼の会話（開いて見る。ふだんは閉じる）・TypingArea・ChoiceList（モード2）・結果（TypingResult）・結果の表 ⇄ ステップ再生 |
+| `TypingArea` | モード1・2：薄い正解SQLの上に打った文字を重ねて表示。miss の赤い光り。モード2のまだ埋まっていない空欄は「？」の箱1つで描く（答えの文字数がわからないように）。打ち終えた形の幅と高さをいつも取っておき、打っている途中・空欄が埋まったときに大きさが変わらない（本人の指摘。2026-11-12）。今の位置が改行を含む区切りのときは、行の並びに影響しない印を重ねて描く（空白の区切りは空白そのものの背景の色だけ。重ねると2つの印がずれる） |
 | `ChoiceList` | モード2：今の空欄の選択肢。打った文字に合う候補は打った分を光らせ、合わなくなったものは薄く、選んだ間違いは打ち消し線。間違いを選んだら「なぜ違うか」を出す。空欄の中の miss で揺れる |
 | `PlayMode34` | モード3・4（書いて判定）：依頼の会話とテーブルの一覧、SqlEditor・HintPanel・JudgePanel／WriteResult、書いたSQLの結果の表 ⇄ ステップ再生 |
 | `SqlEditor` | モード3・4：複数行の入力欄（`textarea`）。Ctrl+Enter（⌘+Enter）で実行。Tab でスペース2つ（Shift+Tab などは入力欄の外へ移る）。日本語入力がオンなら知らせる |
@@ -877,6 +877,7 @@ stateDiagram-v2
 | 場所（上から） | 中身 |
 |---|---|
 | 上の帯 | 章名・問題名・モード・経過時間・（モード1・2）今の速さと正確さ |
+| 帯の下（モード1・2） | 「依頼の会話を見る」（開くと全部の行。打っている途中に何を頼まれたかを見返すため。入力エリアを押し下げないよう、ふだんは閉じる。本人の希望。2026-11-12） |
 | 帯の下（モード3・4） | 依頼の会話（全部の行。書いている間に読み返すため）と、使えるテーブルと列の一覧（DBの地図ができるまでの仮） |
 | 真ん中（舞台） | 案内の1行・日本語入力の知らせ／TypingArea（文字は2.4rem、中は左寄せのまま横の真ん中に置く）または SqlEditor と実行ボタン／ChoiceList（モード2）／HintPanel（モード3） |
 | 舞台の下 | クリアしたときの結果（TypingResult）・JudgePanel |
@@ -951,9 +952,9 @@ data/
         └── 09-turning-point.yaml
 ```
 
-### 初級1章の問題（案）
+### 初級1章の問題
 
-依頼の会話は問題YAMLを書くときに作る。ここでは正解SQLの形を決める。
+依頼の会話・空欄・ヒントは問題YAML（`data/problems/beginner/`）にある。ここでは正解SQLの形を決める。
 
 | # | 題名（仮） | 正解SQL（形） | 判定 |
 |---|---|---|---|
@@ -965,9 +966,13 @@ data/
 | 6 | 仕入れ先の確認 | `SELECT name, supplier FROM products WHERE name LIKE '%Mug%' OR supplier IS NULL` | require: [LIKE, IS NULL] |
 | 7 | 高い順に5つ | `SELECT name, price FROM products ORDER BY price DESC LIMIT 5` | ordered: true |
 | 8 | 扱っているカテゴリ | `SELECT DISTINCT category FROM products ORDER BY category` | ordered: true |
-| TP | セール前夜のリスト | `SELECT name AS item, category, price FROM products WHERE stock > 0 AND supplier IS NOT NULL AND category IN ('kitchen', 'interior') AND price BETWEEN 1000 AND 5000 ORDER BY price DESC LIMIT 10` | ordered: true, checkColumnNames: true |
+| TP | セール前夜のリスト | `SELECT name AS item, category, price FROM products WHERE stock > 0 AND supplier IS NOT NULL AND category IN ('kitchen', 'interior') AND price BETWEEN 1000 AND 5000 ORDER BY price DESC LIMIT 5` | ordered: true, checkColumnNames: true |
 
 ※ 7 は同じ値段の商品があると順番が1つに決まらないため、初期データの値段はすべて違うものにする（`data/seeds/beginner.sql`。データ検証で確かめる）。
+
+※ ターニングポイントは最初 `LIMIT 10` だったが、WHERE のあとに8行しか残らず LIMIT が何もしないので `LIMIT 5` にした（2026-11-12、問題を書く作業で）。
+
+※ 3 のモード2の間違いの選択肢に `price > 1000` は使わない。ちょうど1000円の商品がないので、正解と同じ結果になる（問題データの検証 `checkWrongChoices` で止まる）。初期データは他の問題・テストが行数を数えているので変えない。
 
 ## パフォーマンス最適化
 
@@ -1024,12 +1029,16 @@ data/
   - 空欄が表示用SQLのスロットの中に見つかり（画面と同じ `locateBlanks`）、空欄どうしが重ならない。空欄の始まり・終わりが語の途中でない。選択肢に打てない文字がない（`checkBlanksPlayable`）。間違いの選択肢の確かめ（`checkWrongChoices`）も、同じ範囲を置き換える
   - 間違いの選択肢を入れたSQLが、判定で正解にならず、`ruleViolation` にもならない（結果が正解と変わる。`checkWrongChoices`）
   - `keywords` がすべて用語辞典にある。ターニングポイントが章の最後に1つだけ
+  - 正解SQL（表示用SQL）のステップ再生が作れる。`mismatch`・`error` は止め、まだ対応していない形（`unsupported`）は止めない（`checkStepsBuild`）
   - `ordered: true` の問題で、並び順が1つに決まる（`checkOrderDetermined`：ORDER BY の後ろに `ctid`（DISTINCT・GROUP BY のときは行全体）の昇順と降順を足して実行し、結果が同じか比べる。ORDER BY がなければ失敗。WITH・UNION などの形は確かめられないので失敗にする。既知の制限：同じ並びの値の行が前から読んでも後ろから読んでも同じ並びのときは見逃す）
 
 ### E2Eテスト（Playwright、`tests/e2e/`）
 - 初級1問目を、モード1〜4のそれぞれで最後まで遊んでクリアできる
 - モード2で間違いの選択肢を打ち切ると説明が出て、やり直せる
 - 一覧から問題・モードを選び、依頼の会話を Enter・クリックで送る／スキップして遊び、クリア後の会話から一覧へもどる（星が付く）。共通の入口は `tests/e2e/helpers/open-play.js`
-- ターニングポイントはモード1・2ではクリア扱いにならず、モード4でクリアすると次の章が開く（テスト用の記録を localStorage に入れて確かめる）（ターニングポイントの問題データを足す作業で。それまでは `isUnlocked` の単体テストで確かめる）
+- クリアのあとの Enter・J で次の問題のモード選択へ進む。1問目をクリアすると2問目が開く
+- ターニングポイントは8問目までクリアすると開き、印とモード選択の説明が出る。会話は11行。テスト用の記録を localStorage に入れて確かめる（`tests/e2e/helpers/seed-progress.js`）。モード3・4でクリアすると次の章が開くことは、次の章（中級）を足すまで `isUnlocked` の単体テストで確かめる
+- 打つSQL・ヒント③・入力欄が合字（`>=` を ≥ の1文字に描く）を使わない（合字はサイト全体で切る。`global.css`）
+- 打っている途中・モード2の空欄が埋まったときに、入力欄の大きさが変わらない。モード1・2で依頼の会話を開いて見られ、開いたまま打てる（`typing-layout.spec.js`）
 - ページを読み込み直しても、クリア状況が残っている
 - 幅375pxの画面では、タイピングを開始できない

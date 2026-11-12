@@ -16,6 +16,7 @@ import {
   checkClausePrefixes,
   checkTypable,
   checkBlanksPlayable,
+  checkStepsBuild,
   checkWrongChoices,
   checkOrderDetermined,
 } from '../../helpers/answer-checks.js';
@@ -148,6 +149,16 @@ describe('PGlite で確かめる決まり', () => {
 
   it('モード2の間違いの選択肢を入れたSQLが、判定で正解にならない', async () => {
     const issues = await checkWrongChoices({
+      runner,
+      chapters: chapters.value ?? [],
+      entries: problems.filter((p) => p.value).map((p) => ({ file: p.file, problem: p.value })),
+      readSeed,
+    });
+    expect(issues).toEqual([]);
+  });
+
+  it('正解SQLのステップ再生が作れる（最後の段階が結果と一致する）', async () => {
+    const issues = await checkStepsBuild({
       runner,
       chapters: chapters.value ?? [],
       entries: problems.filter((p) => p.value).map((p) => ({ file: p.file, problem: p.value })),

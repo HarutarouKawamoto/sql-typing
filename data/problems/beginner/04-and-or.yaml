@@ -1,0 +1,43 @@
+# 初級4問目：2つの条件の両方に合う行（AND）
+# 形：src/schema/problem-schema.js ／ 書き方：docs/development-guidelines.md の「問題データの書き方」
+id: beginner-04
+chapterId: beginner
+order: 4
+title: キッチン用品の在庫切れ間近
+kind: normal
+story:
+  before:
+    - speaker: senpai
+      text: 倉庫から連絡。キッチン用品の在庫が減ってるらしい。
+    - speaker: senpai
+      text: 在庫が5個より少ないキッチン用品の、名前と在庫数を出せる？
+    - speaker: senpai
+      text: 発注画面の「在庫わずか」一覧も、裏ではこういう絞り込みなんだ。
+    - speaker: player
+      text: 2つの条件を、どちらも満たす行ですね。
+  after:
+    - speaker: senpai
+      text: 4つか。今日のうちに発注しておく！
+    - speaker: tencho
+      text: 品切れの前に気づけるなんて、助かるわ。
+answer: SELECT name, stock FROM products WHERE category = 'kitchen' AND stock < 5
+display: |-
+  SELECT name, stock
+  FROM products
+  WHERE category = 'kitchen' AND stock < 5
+blanks:
+  - answer: "'kitchen'"
+    wrong:
+      - text: kitchen
+        why: 文字の値は ' で囲む。囲まないと kitchen という名前の列を探してしまう。
+  - answer: AND
+    wrong:
+      - text: OR
+        why: OR はどちらか1つに合えば残る。キッチン以外の在庫わずかな商品まで出てしまう。
+hints:
+  - 使う句は SELECT・FROM・WHERE と、条件をつなぐ AND。
+  - WHERE 条件1 AND 条件2 の順。文字の値は ' で囲む。
+  - SELECT ???, ??? FROM ??? WHERE ??? = '???' AND ??? < ???
+judge:
+  ordered: false
+keywords: [SELECT, FROM, WHERE, AND]

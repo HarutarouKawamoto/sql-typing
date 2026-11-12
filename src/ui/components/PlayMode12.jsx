@@ -7,6 +7,7 @@ import { StepPlayer } from './StepPlayer.jsx';
 import { TypingArea } from './TypingArea.jsx';
 import { TypingResult } from './TypingResult.jsx';
 import { ChoiceList } from './ChoiceList.jsx';
+import { StoryLines } from './StoryLines.jsx';
 import styles from './PlayMode12.module.css';
 
 const MODE_NAMES = { 1: 'モード1 なぞり書き', 2: 'モード2 打って選ぶ' };
@@ -92,6 +93,14 @@ export function PlayMode12({
           {(session.elapsedMs / 1000).toFixed(1)}秒 ・ {live.cpm} 文字/分 ・ 正確さ {live.accuracy}%
         </span>
       </header>
+      {/*
+        打っている途中に、何を頼まれたかを見返せるように（本人の希望。2026-11-12）。
+        入力エリアを下へ押し下げないよう、ふだんは閉じておく。Space・Enter は打つキーとして使われ、開け閉めにはならない
+      */}
+      <details className={styles.request} data-testid="request-story">
+        <summary className={styles.requestSummary}>依頼の会話を見る</summary>
+        <StoryLines lines={problem.story.before} />
+      </details>
       {/* 打っている間に目が行く入力エリアを真ん中に大きく。表はすぐ下に置き、打った瞬間の変化が視線を少し下げるだけで見えるようにする */}
       <section className={styles.stage} aria-label="打つところ">
         <p className={styles.guide}>{GUIDES[mode]}</p>

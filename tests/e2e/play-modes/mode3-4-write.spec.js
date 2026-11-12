@@ -177,3 +177,21 @@ test('クリアのあとの R でもう一度（書いたSQLも時計も最初�
   await expect(editor).toBeFocused();
   await expect(page.getByTestId('meter')).toContainText('実行 0回');
 });
+
+test('ヒント③の骨組みと入力欄は、合字（>= を ≥ にする描き方）を使わない', async ({ page }) => {
+  const editor = await startWrite(page, 'ヒントありで書く');
+  for (let i = 0; i < 3; i += 1) {
+    await page.getByRole('button', { name: `ヒントを開く（${i}/3）` }).click();
+  }
+  const skeleton = page.getByTestId('hint-panel').getByText('SELECT ??? FROM ???');
+  const styleOf = (locator) =>
+    locator.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return [style.fontVariantLigatures, style.fontFeatureSettings];
+    });
+  for (const locator of [skeleton, editor]) {
+    const [ligatures, features] = await styleOf(locator);
+    expect(ligatures).toBe('none');
+    expect(features).toContain('"calt" 0');
+  }
+});

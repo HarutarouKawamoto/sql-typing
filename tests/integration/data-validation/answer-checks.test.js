@@ -4,6 +4,7 @@ import {
   checkClausePrefixes,
   checkTypable,
   checkBlanksPlayable,
+  checkStepsBuild,
   checkWrongChoices,
   checkOrderDetermined,
 } from '../../helpers/answer-checks.js';
@@ -115,6 +116,24 @@ describe('checkAnswersRun', () => {
     ).toEqual([expect.stringContaining('打ちながら実行できません')]);
     // 書き換え系は確かめない
     expect(await run(makeProblem({ answer: 'UPDATE products SET price = 0' }))).toEqual([]);
+  });
+
+  it('ステップ再生：作れる問題・まだ対応していない形は0件、作れない（エラー）問題は見つける', async () => {
+    const run = (problem) =>
+      checkStepsBuild({
+        runner,
+        chapters: [makeChapter()],
+        entries: [{ file: 'beginner/x.yaml', problem }],
+        readSeed,
+      });
+    expect(await run(makeProblem())).toEqual([]);
+    // 集計関数はまだステップ再生がない（unsupported）。画面は「まだありません」と出すので止めない
+    expect(await run(makeProblem({ answer: 'SELECT count(*) FROM products' }))).toEqual([]);
+    // 書き換え系は確かめない
+    expect(await run(makeProblem({ answer: 'UPDATE products SET price = 0' }))).toEqual([]);
+    expect(await run(makeProblem({ answer: 'SELECT nam FROM products' }))).toEqual([
+      expect.stringContaining('ステップ再生を作れません'),
+    ]);
   });
 
   it('打てない文字：文字列の中の改行を見つけ、普通の問題は0件', () => {
