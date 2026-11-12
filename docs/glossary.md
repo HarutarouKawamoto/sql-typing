@@ -96,7 +96,7 @@
 | 打ちながら変化（見える化C） | `liveResult` | モード1・2で、句を打ち終えるたびに結果の表が変わること | 句の終わり（`clauseEnded`） |
 | 予想クイズ（見える化D） | `prediction` | 実行前に結果の行数などを当てさせる（P2） | |
 | DBの地図 | `SchemaMap` | お店のDBのテーブルとつながりの図（ER図）。今のSQLが触るテーブルを光らせる | 全レベル共通 |
-| 用語辞典 | `Dictionary` / `Keyword` | SQLのキーワードの、英語の意味とSQLでの意味の一覧。キーワードにカーソルを当てると出る説明（`KeywordTip`）も同じデータを使う | `keywords.yaml` |
+| 用語辞典 | `Dictionary` / `Keyword` | SQLのキーワードの、英語の意味とSQLでの意味の一覧（`DictionaryScreen`）。キーワードにカーソルを当てる（スマホではタップ）と出る説明（`KeywordTip`、`KeywordTipLayer`）も同じデータを使う | `keywords.yaml`。初めて出てくる問題は問題の `keywords` から作る |
 | インデックス比較 | `indexRace` | 上級：インデックスあり・なしで、読んだ行数と実測時間を左右で比べる（P2） | `EXPLAIN ANALYZE` |
 | 実行計画の木 | `planTree` | 上級：`EXPLAIN` の結果を木の図にし、データの流れを見せる（P2） | |
 | トランザクションのタイムライン | `txTimeline` | 上級：2人の同時の注文を2列で並べるシミュレーション（P2） | PGlite は接続が1つ |

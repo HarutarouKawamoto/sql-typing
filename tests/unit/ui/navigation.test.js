@@ -58,6 +58,19 @@ describe('navigationReducer', () => {
     expect(go(mode, { type: 'openSettings' })).toBe(mode);
   });
 
+  it('一覧から用語辞典へ。用語辞典の問題から、その問題のモード選択へ。home で一覧へ', () => {
+    const dictionary = go(HOME, { type: 'openDictionary' });
+    expect(dictionary).toEqual({ screen: 'dictionary' });
+    expect(go(dictionary, { type: 'openProblem', problemId: 'beginner-03' })).toEqual({
+      screen: 'mode',
+      problemId: 'beginner-03',
+    });
+    expect(go(dictionary, { type: 'home' })).toBe(HOME);
+    expect(go(dictionary, { type: 'modeSelect' })).toBe(dictionary);
+    const settings = { screen: 'settings' };
+    expect(go(settings, { type: 'openDictionary' })).toBe(settings);
+  });
+
   it('設定の画面では、問題につながる動き（modeSelect・chooseMode・storyDone）は何もしない', () => {
     const settings = { screen: 'settings' };
     expect(go(settings, { type: 'modeSelect' })).toBe(settings);

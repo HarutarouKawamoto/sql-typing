@@ -1,0 +1,12 @@
+.keyword {
+  text-decoration: underline dotted;
+  text-decoration-color: var(--color-text-muted);
+  text-underline-offset: 0.2em;
+  cursor: help;
+}
+
+.keyword:focus-visible {
+  outline: 2px solid var(--color-text);
+  outline-offset: 2px;
+  border-radius: 2px;
+}

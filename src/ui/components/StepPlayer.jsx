@@ -4,6 +4,7 @@ import { buildSteps } from '../../core/stepper/index.js';
 import { runDbJob } from '../state/db-jobs.js';
 import { isInteractiveTarget, isTextEntryTarget } from '../state/typing-keys.js';
 import { useStepReplay } from '../state/use-step-replay.js';
+import { KeywordText } from './KeywordText.jsx';
 import { StepTable } from './StepTable.jsx';
 import styles from './StepPlayer.module.css';
 
@@ -105,7 +106,9 @@ function StepPlayerView({ sql, steps, speed, onFinished }) {
       <pre className={styles.sql} aria-label="実行順の番号を付けたSQL">
         {segments.map((segment, index) =>
           segment.order === undefined ? (
-            <span key={index}>{segment.text}</span>
+            <span key={index}>
+              <KeywordText text={segment.text} />
+            </span>
           ) : (
             <span
               key={index}
@@ -113,7 +116,7 @@ function StepPlayerView({ sql, steps, speed, onFinished }) {
               data-active={segment.active ? 'true' : undefined}
             >
               <span className={styles.order}>{segment.order}</span>
-              {segment.text}
+              <KeywordText text={segment.text} />
             </span>
           ),
         )}

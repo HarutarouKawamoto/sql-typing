@@ -1,3 +1,4 @@
+import { KeywordText } from './KeywordText.jsx';
 import styles from './HintPanel.module.css';
 
 /** ヒントの段階の名前（問題データの hints の順。docs/development-guidelines.md の「ヒント3段階」） */
@@ -16,7 +17,10 @@ export function HintPanel({ hints, opened, onOpen, disabled }) {
           {hints.slice(0, opened).map((hint, index) => (
             <li key={index}>
               <span className={styles.stage}>{STAGE_NAMES[index] ?? `ヒント${index + 1}`}</span>
-              <span className={index === 2 ? styles.code : undefined}>{hint}</span>
+              {/* ③の骨組みはSQLなので、キーワードの説明を見られるようにする */}
+              <span className={index === 2 ? styles.code : undefined}>
+                {index === 2 ? <KeywordText text={hint} /> : hint}
+              </span>
             </li>
           ))}
         </ol>

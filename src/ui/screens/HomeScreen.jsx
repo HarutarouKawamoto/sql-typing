@@ -18,6 +18,7 @@ const MODES = /** @type {const} */ (['1', '2', '3', '4']);
  *   onDismissRecovered: () => void,
  *   onOpen: (problemId: string) => void,
  *   onOpenSettings: () => void,
+ *   onOpenDictionary: () => void,
  * }} props
  */
 export function HomeScreen({
@@ -31,6 +32,7 @@ export function HomeScreen({
   onDismissRecovered,
   onOpen,
   onOpenSettings,
+  onOpenDictionary,
 }) {
   return (
     <div className={styles.home}>
@@ -39,14 +41,24 @@ export function HomeScreen({
           <h1 className={styles.title}>SQL Typing</h1>
           <p className={styles.subtitle}>打って、動きを見て、覚えるSQL</p>
         </div>
-        <button
-          type="button"
-          className={styles.settings}
-          onClick={onOpenSettings}
-          data-testid="open-settings"
-        >
-          設定
-        </button>
+        <div className={styles.headerButtons}>
+          <button
+            type="button"
+            className={styles.settings}
+            onClick={onOpenDictionary}
+            data-testid="open-dictionary"
+          >
+            用語辞典
+          </button>
+          <button
+            type="button"
+            className={styles.settings}
+            onClick={onOpenSettings}
+            data-testid="open-settings"
+          >
+            設定
+          </button>
+        </div>
       </header>
       {recoveredNotice && (
         <p className={styles.notice} role="alert">

@@ -1,0 +1,38 @@
+.tip {
+  position: fixed;
+  z-index: 100;
+  padding: var(--space-2) var(--space-3);
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 20%);
+  pointer-events: none;
+}
+
+/* 語の上に出すときは、下の端を語の上に合わせる */
+.above {
+  transform: translateY(-100%);
+}
+
+.word {
+  font-family: var(--font-code);
+  font-weight: bold;
+}
+
+.list {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0 var(--space-2);
+  margin: var(--space-1) 0 0;
+}
+
+.list dt {
+  color: var(--color-text-muted);
+}
+
+.list dd {
+  margin: 0;
+}

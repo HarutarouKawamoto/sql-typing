@@ -1,3 +1,6 @@
+import { useMemo } from 'react';
+import { keywordsOfSlots } from '../../core/keyword-spans.js';
+import { getKeywordWords } from '../state/keyword-words.js';
 import styles from './TypingArea.module.css';
 
 /**
@@ -5,6 +8,8 @@ import styles from './TypingArea.module.css';
  * 「打った・今・まだ・ミスした」を色で分ける。区切りスロットは空白・改行そのものを描く。
  * モード2では、まだ埋まっていない空欄を「？」の箱1つで描く（文字数で答えがわからないように）。
  * 打っている途中に入力欄の大きさが変わらないように、打ち終えた形（表示用SQLそのまま）の幅と高さをいつも取っておく。
+ * 用語辞典の語のスロットには data-keyword を付ける（カーソルを当てると KeywordTipLayer が説明を出す。見た目は変えない）。
+ * モード2で埋まっていない空欄があるあいだは付けない（説明の「例」に空欄の答えが書いてあることがあるため）。
  *
  * @param {{
  *   target: import('../../core/typing-engine.js').TypingTarget,
@@ -15,6 +20,10 @@ import styles from './TypingArea.module.css';
  *   blanks：モード2の空欄（ranges は表示用SQLの中の順。前から filled 個が埋まっている）
  */
 export function TypingArea({ target, typing, missPulse, blanks }) {
+  // スロットの番号 → 用語辞典の語と組
+  const keywordOfSlot = useMemo(() => keywordsOfSlots(target, getKeywordWords()), [target]);
+  const tipsAllowed = !blanks || blanks.filled >= blanks.ranges.length;
+
   // まだ埋まっていない空欄：始まりのスロット番号 → 空欄の番号
   const hiddenStarts = new Map();
   const hidden = new Set();
@@ -74,6 +83,8 @@ export function TypingArea({ target, typing, missPulse, blanks }) {
               key={isMissNow ? `${index}-${missPulse}` : index}
               className={className}
               data-state={state}
+              data-keyword={tipsAllowed ? keywordOfSlot[index]?.word : undefined}
+              data-keyword-group={tipsAllowed ? keywordOfSlot[index]?.group : undefined}
             >
               {text}
             </span>

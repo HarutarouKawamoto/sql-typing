@@ -1,4 +1,5 @@
-import { useCallback, useReducer, useState } from 'react';
+import { useCallback, useMemo, useReducer, useState } from 'react';
+import { buildDictionary } from '../core/dictionary.js';
 import { loadChapters } from '../data/problem-loader.js';
 import { loadSeed } from '../data/seed-loader.js';
 import { isUnlocked, nextProblemId } from '../data/progress-store.js';
@@ -6,7 +7,10 @@ import { getSqlRunner, useDatabaseStatus } from './state/database.js';
 import { HOME, navigationReducer } from './state/navigation.js';
 import { useProgress } from './state/progress.js';
 import { useNarrowScreen } from './state/use-narrow-screen.js';
+import { getKeywordMap } from './state/keyword-words.js';
 import { useProblems } from './state/use-problems.js';
+import { KeywordTipLayer } from './components/KeywordTipLayer.jsx';
+import { DictionaryScreen } from './screens/DictionaryScreen.jsx';
 import { HomeScreen } from './screens/HomeScreen.jsx';
 import { ModeSelect } from './screens/ModeSelect.jsx';
 import { PlayScreen } from './screens/PlayScreen.jsx';
@@ -27,10 +31,22 @@ function readDemoParams(search) {
 }
 
 /**
- * アプリの入口のコンポーネント。画面の切り替え（navigation.js）と、学習記録・データベースの状態を配る。
- * 一覧 → モード選択 → 依頼の会話 → 遊ぶ（クリア後の会話から次の問題・一覧へ）。一覧 → 設定。`/?demo` はステップ再生の見本。
+ * アプリの入口のコンポーネント。画面と、ページ全体で1つのキーワードの説明（KeywordTipLayer）。
  */
 export function App() {
+  return (
+    <>
+      <Screens />
+      <KeywordTipLayer />
+    </>
+  );
+}
+
+/**
+ * 画面の切り替え。画面の切り替え（navigation.js）と、学習記録・データベースの状態を配る。
+ * 一覧 → モード選択 → 依頼の会話 → 遊ぶ（クリア後の会話から次の問題・一覧へ）。一覧 → 設定。`/?demo` はステップ再生の見本。
+ */
+function Screens() {
   const database = useDatabaseStatus();
   const {
     progress,
@@ -46,6 +62,15 @@ export function App() {
   const { problems, turningPointIds, error: loadError } = useProblems(chapters);
   const [navigation, dispatch] = useReducer(navigationReducer, HOME);
   const narrow = useNarrowScreen();
+  // 用語辞典は、全章の問題を読み終えてから作る（初めて出てくる問題を出題順で決めるため）
+  const dictionary = useMemo(() => {
+    if (!problems) return null;
+    const ordered = chapters
+      .flatMap((chapter) => chapter.problemIds)
+      .map((id) => problems.get(id))
+      .filter((problem) => problem !== undefined);
+    return buildDictionary([...getKeywordMap().values()], ordered);
+  }, [chapters, problems]);
   const goHome = useCallback(() => dispatch({ type: 'home' }), []);
   const [demo, setDemo] = useState(() => readDemoParams(window.location.search));
   const exitDemo = useCallback(() => {
@@ -88,6 +113,20 @@ export function App() {
           }
           turningPoint={turningPointIds.has(problemId)}
           onNext={() => dispatch({ type: 'next', problemId: nextId })}
+        />
+      </main>
+    );
+  }
+
+  if (navigation.screen === 'dictionary') {
+    return (
+      <main className="app">
+        <DictionaryScreen
+          dictionary={dictionary}
+          loadError={loadError}
+          isUnlocked={(problemId) => isUnlocked(progress, chapters, problemId, turningPointIds)}
+          onOpenProblem={(problemId) => dispatch({ type: 'openProblem', problemId })}
+          onHome={goHome}
         />
       </main>
     );
@@ -168,6 +207,7 @@ export function App() {
         onDismissRecovered={dismissRecoveredNotice}
         onOpen={(problemId) => dispatch({ type: 'openProblem', problemId })}
         onOpenSettings={() => dispatch({ type: 'openSettings' })}
+        onOpenDictionary={() => dispatch({ type: 'openDictionary' })}
       />
     </main>
   );
