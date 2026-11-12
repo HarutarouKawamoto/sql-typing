@@ -9,6 +9,27 @@
   font-weight: bold;
 }
 
+.tableBox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.caption {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+/* JOIN の印の場面：左と右の表を並べる（狭いときは縦に） */
+.joinPair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: var(--space-3);
+  align-items: start;
+}
+
 .scroll {
   overflow: auto;
   max-height: 60vh;
@@ -104,4 +125,25 @@
   margin: 0;
   color: var(--color-text-muted);
   font-size: 0.9rem;
+}
+
+/* JOIN：LEFT JOIN で右の列が NULL になる左の行（点線で囲む） */
+.joinNull td {
+  border-top: 2px dashed var(--color-text);
+  border-bottom: 2px dashed var(--color-text);
+}
+
+/* JOIN：どの行ともつながらない右の行 */
+.joinUnmatched td {
+  color: var(--color-pending);
+  font-style: italic;
+}
+
+/* JOIN：多対多で、2つ以上の色の左の行につながる右の行（1つの色に決められないので斜線） */
+.joinMulti td {
+  background: repeating-linear-gradient(
+    45deg,
+    transparent 0 6px,
+    color-mix(in srgb, var(--color-text-muted) 25%, transparent) 6px 8px
+  );
 }

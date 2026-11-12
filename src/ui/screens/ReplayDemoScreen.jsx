@@ -1,11 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { loadSeed } from '../../data/seed-loader.js';
+import { runDbJob } from '../state/db-jobs.js';
 import { StepPlayer } from '../components/StepPlayer.jsx';
 import styles from './ReplayDemoScreen.module.css';
 
 /**
  * ステップ再生の見本（`/?demo` で開く。入口からはリンクしない）。
  * 1問目（SELECT * FROM products）には消える行・まとまる行がないので、印（赤・黄・灰色）の見た目を
- * 目と E2E で確かめるために、初級・中級の集計の形のSQLを並べておく。初期データは初級（products 30行）。
+ * 目と E2E で確かめるために、初級・中級（集計・JOIN）の形のSQLを並べておく。
+ * 初期データは中級（products は初級と同じ30行に、customers・orders・order_items を足したもの）。
  * `?demo&speed=0.2` のように再生の速さも変えられる（E2E で印の場面を長く見せるため）。
  */
 export const DEMO_SAMPLES = [
@@ -40,6 +43,21 @@ export const DEMO_SAMPLES = [
     title: '集計関数だけ：全部の行が1行にまとまる',
     sql: 'SELECT count(*) AS items, max(price) AS top FROM products',
   },
+  {
+    title: 'JOIN：注文に顧客がつながって1行になる',
+    sql: 'SELECT o.id, c.name, o.status FROM orders o JOIN customers c ON c.id = o.customer_id',
+  },
+  {
+    title: 'LEFT JOIN：注文のない顧客は右の列が NULL になる',
+    sql: 'SELECT c.name, o.id AS order_id FROM customers c LEFT JOIN orders o ON o.customer_id = c.id',
+  },
+  {
+    title: 'JOIN と GROUP BY：地域ごとの売上',
+    sql:
+      'SELECT c.region, sum(i.quantity * i.unit_price) AS sales FROM orders o ' +
+      'JOIN customers c ON c.id = o.customer_id JOIN order_items i ON i.order_id = o.id ' +
+      "WHERE o.status <> 'cancelled' GROUP BY c.region ORDER BY sales DESC",
+  },
 ];
 
 /**
@@ -52,6 +70,25 @@ export const DEMO_SAMPLES = [
 export function ReplayDemoScreen({ runner, speed, onExit }) {
   const [selected, setSelected] = useState(0);
   const sample = DEMO_SAMPLES[selected];
+  // 中級の初期データで DB を準備する（JOIN の見本のため。products は初級と同じなので、初級の見本もそのまま）
+  const [prepared, setPrepared] = useState(
+    /** @type {'loading' | 'ready' | 'error'} */ ('loading'),
+  );
+  useEffect(() => {
+    let active = true;
+    runDbJob(async () =>
+      runner.prepare({ seedSql: await loadSeed('intermediate.sql'), extraSql: '' }),
+    ).then(
+      () => active && setPrepared('ready'),
+      (error) => {
+        console.error(error);
+        if (active) setPrepared('error');
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, [runner]);
   return (
     <div className={styles.demo}>
       <header className={styles.bar}>
@@ -74,8 +111,12 @@ export function ReplayDemoScreen({ runner, speed, onExit }) {
           </li>
         ))}
       </ul>
+      {prepared === 'loading' && <p role="status">初期データを準備しています…</p>}
+      {prepared === 'error' && <p role="alert">初期データを準備できませんでした</p>}
       {/* SQLを変えたら段階を作り直す */}
-      <StepPlayer key={sample.sql} sql={sample.sql} runner={runner} speed={speed} />
+      {prepared === 'ready' && (
+        <StepPlayer key={sample.sql} sql={sample.sql} runner={runner} speed={speed} />
+      )}
     </div>
   );
 }

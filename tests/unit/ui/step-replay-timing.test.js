@@ -9,6 +9,8 @@ const step = (diff = {}) => ({
     merged: {},
     reordered: false,
     groups: {},
+    aggregated: false,
+    join: null,
     ...diff,
   },
 });
@@ -18,6 +20,10 @@ describe('needsMark', () => {
     expect(needsMark(step({ removed: ['(0,1)'] }))).toBe(true);
     expect(needsMark(step({ removedColumns: ['id'] }))).toBe(true);
     expect(needsMark(step({ merged: { '(0,1)': ['(0,2)'] } }))).toBe(true);
+  });
+
+  it('JOIN の段階は、先に2つの表を並べてつながる行に色を付ける', () => {
+    expect(needsMark(step({ join: { kind: 'INNER', pairs: {} } }))).toBe(true);
   });
 
   it('GROUP BY・HAVING の段階は、先にグループの色を付ける', () => {
@@ -36,6 +42,7 @@ describe('stepTiming', () => {
     expect(stepTiming('FROM', 1)).toEqual({ markMs: 0, applyMs: 600, holdMs: 1000 });
     expect(stepTiming('GROUP BY', 1)).toEqual({ markMs: 1800, applyMs: 800, holdMs: 1000 });
     expect(stepTiming('HAVING', 1)).toEqual({ markMs: 1800, applyMs: 800, holdMs: 1000 });
+    expect(stepTiming('JOIN', 1)).toEqual({ markMs: 2000, applyMs: 900, holdMs: 1000 });
   });
 
   it('速さ2倍なら半分、0.5倍なら2倍の長さ', () => {

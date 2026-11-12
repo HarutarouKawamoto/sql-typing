@@ -233,6 +233,109 @@ describe('PGlite で確かめる決まり', () => {
       expect(outcome.ok && outcome.result.rows[0][0]).toBe(30);
     });
   });
+
+  describe('中級の初期データ（intermediate.sql）の決まり', () => {
+    /** @param {string} sql */
+    const one = async (sql) => {
+      const outcome = await runner.run(sql);
+      if (!outcome.ok) throw new Error(JSON.stringify(outcome));
+      return outcome.result.rows[0][0];
+    };
+
+    let beginnerProducts;
+    beforeAll(async () => {
+      await runner.prepare({ seedSql: readSeed('beginner.sql') });
+      const outcome = await runner.run('SELECT * FROM products ORDER BY id');
+      beginnerProducts = outcome.ok ? outcome.result.rows : null;
+      await runner.prepare({ seedSql: readSeed('intermediate.sql') });
+    });
+
+    it('products は初級と同じ30行（初級の問題の形を中級でもそのまま使えるように）', async () => {
+      const outcome = await runner.run('SELECT * FROM products ORDER BY id');
+      expect(outcome.ok && outcome.result.rows).toEqual(beginnerProducts);
+    });
+
+    it('顧客10人・注文20件・明細33行', async () => {
+      expect(await one('SELECT count(*) FROM customers')).toBe(10);
+      expect(await one('SELECT count(*) FROM orders')).toBe(20);
+      expect(await one('SELECT count(*) FROM order_items')).toBe(33);
+    });
+
+    it('注文のない顧客が2人以上（LEFT JOIN で NULL が出る）', async () => {
+      expect(
+        await one(
+          'SELECT count(*) FROM customers c LEFT JOIN orders o ON o.customer_id = c.id WHERE o.id IS NULL',
+        ),
+      ).toBeGreaterThanOrEqual(2);
+    });
+
+    it('取り消しの注文が2件以上、注文は2026年8〜10月の3か月', async () => {
+      expect(
+        await one("SELECT count(*) FROM orders WHERE status = 'cancelled'"),
+      ).toBeGreaterThanOrEqual(2);
+      expect(await one("SELECT count(DISTINCT to_char(ordered_at, 'YYYY-MM')) FROM orders")).toBe(
+        3,
+      );
+      expect(await one("SELECT min(to_char(ordered_at, 'YYYY-MM')) FROM orders")).toBe('2026-08');
+      expect(
+        await one(
+          "SELECT count(*) FROM orders WHERE status NOT IN ('paid', 'shipped', 'cancelled')",
+        ),
+      ).toBe(0);
+    });
+
+    it('一度も注文されていない商品がある。明細の値段は、値引きの1行を除いて商品の値段と同じ', async () => {
+      expect(
+        await one(
+          'SELECT count(*) FROM products p WHERE NOT EXISTS (SELECT 1 FROM order_items i WHERE i.product_id = p.id)',
+        ),
+      ).toBeGreaterThanOrEqual(1);
+      expect(
+        await one(
+          'SELECT count(*) FROM order_items i JOIN products p ON p.id = i.product_id WHERE i.unit_price <> p.price',
+        ),
+      ).toBe(1);
+    });
+
+    it('文字の値は英語・数字・記号だけ', async () => {
+      expect(
+        await one(
+          "SELECT count(*) FROM customers WHERE name !~ '^[ -~]+$' OR region !~ '^[ -~]+$'",
+        ),
+      ).toBe(0);
+    });
+
+    it('intermediate.sql は beginner.sql の全文を含む（products の作り方まで同じ）', () => {
+      expect(readSeed('intermediate.sql').includes(readSeed('beginner.sql'))).toBe(true);
+    });
+
+    it('JOIN の練習になる形：2件以上の注文の顧客・2行以上の明細の注文・2つ以上の注文に入る商品', async () => {
+      const atLeastTwo = (table, column) =>
+        one(
+          `SELECT count(*) FROM (SELECT ${column} FROM ${table} GROUP BY ${column} HAVING count(*) >= 2) AS t`,
+        );
+      expect(await atLeastTwo('orders', 'customer_id')).toBeGreaterThanOrEqual(2);
+      expect(await atLeastTwo('order_items', 'order_id')).toBeGreaterThanOrEqual(2);
+      expect(await atLeastTwo('order_items', 'product_id')).toBeGreaterThanOrEqual(2);
+    });
+
+    it('顧客の名前は重ならず、地域は4つ、paid・shipped の注文がそれぞれある', async () => {
+      expect(await one('SELECT count(DISTINCT name) FROM customers')).toBe(10);
+      expect(await one('SELECT count(DISTINCT region) FROM customers')).toBe(4);
+      expect(await one("SELECT count(*) FROM orders WHERE status = 'paid'")).toBeGreaterThan(0);
+      expect(await one("SELECT count(*) FROM orders WHERE status = 'shipped'")).toBeGreaterThan(0);
+    });
+
+    it('顧客ごとの合計金額は重ならない（取り消しを入れても外しても。上位N人が1つに決まるように）', async () => {
+      for (const where of ['', "WHERE o.status <> 'cancelled'"]) {
+        expect(
+          await one(
+            `SELECT count(*) = count(DISTINCT total) FROM (SELECT sum(i.quantity * i.unit_price) AS total FROM orders o JOIN order_items i ON i.order_id = o.id ${where} GROUP BY o.customer_id) AS t`,
+          ),
+        ).toBe(true);
+      }
+    });
+  });
 });
 
 describe('検証そのものが働くこと', () => {

@@ -1,6 +1,7 @@
 import { canRunWhileTyping, splitClauses } from '../clause-splitter.js';
 import { tokenize } from '../sql-text.js';
 import { hasAggregate, hasWindow } from './aggregates.js';
+import { parseFrom } from './from-clause.js';
 import { resolveGroupItems, splitGroupBy } from './group-by.js';
 import { splitSelectList } from './select-list.js';
 
@@ -12,7 +13,7 @@ import { splitSelectList } from './select-list.js';
  * 間違った見える化を見せないため、対応しない形は先に unsupported にし、最後の段階が元のSQLの結果と
  * 一致しなければ mismatch にする。
  * 集計（GROUP BY・HAVING・集計関数）は、各行のグループの鍵（ROW(GROUP BY の項目)::text）で前の段階の行とつなぐ。
- * 今は1つのテーブルの形だけ。JOIN の段階は中級（P1）でこのフォルダに足す。
+ * JOIN は FROM（最初のテーブル）のあとに1つずつ段階にする。JOIN のあとの行の目印は、つないだテーブルの ctid を + でつないだもの。
  * 元：docs/functional-design.md の Stepper
  */
 
@@ -27,16 +28,28 @@ import { splitSelectList } from './select-list.js';
  * @typedef {{
  *   removed: string[],
  *   removedColumns: string[],
+ *   removedColumnIndexes: number[],
  *   renamedColumns: Record<string, string>,
  *   merged: Record<string, string[]>,
  *   reordered: boolean,
  *   groups: Record<string, number>,
  *   aggregated: boolean,
+ *   join: JoinDiff | null,
  * }} StepDiff
+ * @typedef {{
+ *   kind: 'INNER' | 'LEFT',
+ *   table: string,
+ *   alias: string | null,
+ *   columns: string[],
+ *   rows: StepRow[],
+ *   pairs: Record<string, string[]>,
+ * }} JoinDiff
+ *   JOIN の段階だけ。table・alias は右のテーブルの名前と別名、rows は右の表の行（目印はその ctid）、
+ *   pairs は左の行（前の段階の目印）ごとの、つながる右の行の目印（LEFT で相手がなければ []）
  *   groups：GROUP BY・HAVING の段階で、各行（目印）のグループの番号（最初に出てきた順。色分けのため）
  *   aggregated：集計した SELECT の段階か（まとまる行がなくても、段階の一言を「集計」にするため）
  * @typedef {{
- *   label: 'FROM' | 'WHERE' | 'GROUP BY' | 'HAVING' | 'SELECT' | 'DISTINCT' | 'ORDER BY' | 'LIMIT',
+ *   label: 'FROM' | 'JOIN' | 'WHERE' | 'GROUP BY' | 'HAVING' | 'SELECT' | 'DISTINCT' | 'ORDER BY' | 'LIMIT',
  *   range: [number, number],
  *   columns: string[],
  *   rows: StepRow[],
@@ -72,32 +85,16 @@ class StepError extends Error {
 const emptyDiff = () => ({
   removed: [],
   removedColumns: [],
+  removedColumnIndexes: [],
   renamedColumns: {},
   merged: {},
   reordered: false,
   groups: {},
   aggregated: false,
+  join: null,
 });
 
-const isMeaningful = (t) => t.type !== 'space' && t.type !== 'comment';
 const key = (values) => JSON.stringify(values);
-
-/**
- * FROM 句が「テーブル名1つ（別名可）」か。JOIN・カンマ・サブクエリは対応しない。
- * @param {string} fromText
- */
-function isSingleTable(fromText) {
-  const tokens = tokenize(fromText).filter(isMeaningful).slice(1); // 先頭の FROM を除く
-  const words = tokens.map((t) => (t.type === 'word' ? t.text.toUpperCase() : null));
-  if (tokens.length === 0 || tokens.some((t) => t.type !== 'word')) return false;
-  if (words.includes('JOIN')) return false;
-  // products / products p / products AS p
-  return (
-    tokens.length === 1 ||
-    (tokens.length === 2 && words[1] !== 'AS') ||
-    (tokens.length === 3 && words[1] === 'AS')
-  );
-}
 
 /**
  * 括弧の外に、句の範囲に混ざってしまう語（OFFSET・FETCH・FOR など）があるか。LIMIT 句の中の OFFSET は除く。
@@ -185,33 +182,80 @@ function matchByValues(sourceRows, valueRows) {
 
 /**
  * SELECT の段階で、消えた列と名前の変わった列を、項目の「元の列」から決める（結果の列名との一致では決めない）。
- * - 元の列は FROM の段階に実在するものだけ（TRUE・CURRENT_DATE などを列と取り違えない）
+ * 列は位置で見分ける（JOIN のあとは orders.id と customers.id のように同じ名前の列があるため）。
+ * - 元の列は、前の段階の表に実在するものだけ（TRUE・CURRENT_DATE などを列と取り違えない）
+ * - `o.id` のようにテーブルを書いた項目は、そのテーブルの列。書いていなければ、同じ名前の列が1つのときだけ
+ * - `*` があればどの列も消えない。`o.*` はそのテーブルの列を全部使う
  * - 名前を付けない引用符なしの名前は PostgreSQL が小文字にするので、小文字で比べる
- * - 同じ列を2回以上使っているときは、名前の変わった表示をしない（どれか1つに決められないため）
- * @param {string[]} fromColumns
+ * - 同じ名前の列を2回以上使っているときは、名前の変わった表示をしない（どれか1つに決められないため）
+ * @param {{ table: string, name: string }[]} owners - 前の段階の列ごとの、テーブル（別名、なければ名前）と列名
  * @param {import('./select-list.js').SelectItem[]} items
  */
-function selectColumnChanges(fromColumns, items) {
-  const existing = new Set(fromColumns);
-  if (items.some((item) => /(^|\.)\*$/.test(item.text))) {
-    return { removedColumns: [], renamedColumns: {} };
+function selectColumnChanges(owners, items) {
+  if (items.some((item) => item.text.trim() === '*')) {
+    return { removedColumns: [], removedColumnIndexes: [], renamedColumns: {} };
   }
+  /** @type {Map<number, import('./select-list.js').SelectItem[]>} 列の位置 → その列を使う項目 */
   const used = new Map();
+  const markUsed = (index, item) => used.set(index, [...(used.get(index) ?? []), item]);
   for (const item of items) {
+    const star = /^([A-Za-z_][A-Za-z0-9_]*)\.\*$/.exec(item.text.trim());
+    if (star) {
+      owners.forEach((owner, index) => {
+        if (owner.table === star[1].toLowerCase()) markUsed(index, item);
+      });
+      continue;
+    }
     const source = item.sourceColumn?.toLowerCase();
-    if (!source || !existing.has(source)) continue;
-    used.set(source, [...(used.get(source) ?? []), item]);
+    if (!source) continue;
+    const candidates = owners
+      .map((owner, index) => ({ owner, index }))
+      .filter(
+        ({ owner }) =>
+          owner.name === source && (!item.sourceTable || owner.table === item.sourceTable),
+      );
+    if (candidates.length === 1) markUsed(candidates[0].index, item);
   }
+  const removedColumnIndexes = owners.map((_, index) => index).filter((index) => !used.has(index));
+
   /** @type {Record<string, string>} */
   const renamedColumns = {};
-  for (const [source, uses] of used) {
+  const usedNames = [...used.keys()].map((index) => owners[index].name);
+  for (const [index, uses] of used) {
+    const name = owners[index].name;
     const alias = uses[0].alias?.toLowerCase();
-    if (uses.length === 1 && alias && alias !== source) renamedColumns[source] = alias;
+    const onlyOnce = uses.length === 1 && usedNames.filter((n) => n === name).length === 1;
+    if (onlyOnce && alias && alias !== name) renamedColumns[name] = alias;
   }
   return {
-    removedColumns: fromColumns.filter((column) => !used.has(column)),
+    removedColumns: removedColumnIndexes.map((index) => owners[index].name),
+    removedColumnIndexes,
     renamedColumns,
   };
+}
+
+/**
+ * LIMIT 句の数（`LIMIT 5`・`LIMIT 3 OFFSET 2`・`LIMIT ALL`）。式などで読めなければ null。
+ * @param {string} limitText
+ * @returns {{ limit: number | null, offset: number } | null}
+ */
+function readLimit(limitText) {
+  const match = /^LIMIT\s+(\d+|ALL)(?:\s+OFFSET\s+(\d+))?\s*;?$/i.exec(limitText.trim());
+  if (!match) return null;
+  return {
+    limit: match[1].toUpperCase() === 'ALL' ? null : Number(match[1]),
+    offset: match[2] ? Number(match[2]) : 0,
+  };
+}
+
+/**
+ * 並べたあとの LIMIT：ORDER BY の段階の並びをそのまま切る（同じ並びの値の行があっても、段階どうしで並びがずれない）。
+ * 切った行が元のSQLの結果と同じ値かは、最後の一致の確かめで見る。
+ * @param {StepRow[]} orderedRows
+ * @param {{ limit: number | null, offset: number }} limit
+ */
+function sliceLimit(orderedRows, { limit, offset }) {
+  return orderedRows.slice(offset, limit === null ? undefined : offset + limit);
 }
 
 /**
@@ -248,12 +292,8 @@ async function build(sql, runner) {
   if (stray) {
     throw new StepError('unsupported', `${stray} を使うSQLのステップ再生はまだありません`);
   }
-  if (!isSingleTable(text('FROM'))) {
-    throw new StepError(
-      'unsupported',
-      '2つ以上のテーブル・サブクエリのステップ再生はまだありません',
-    );
-  }
+  const parsedFrom = parseFrom(text('FROM'));
+  if ('unsupported' in parsedFrom) throw new StepError('unsupported', parsedFrom.unsupported);
   if (hasWindow(sql)) {
     throw new StepError('unsupported', 'ウィンドウ関数（OVER）のステップ再生はまだありません');
   }
@@ -296,25 +336,73 @@ async function build(sql, runner) {
     return steps.at(-1);
   };
 
-  // FROM：テーブルの全行
-  const fromStep = push(
+  // 行の目印の式。JOIN があれば、つないだテーブルの ctid を + でつなぐ（LEFT JOIN の相手のない行は -）
+  const refs = [parsedFrom.base.ref, ...parsedFrom.joins.map((j) => j.table.ref)];
+  /** @param {number} count - 前から何個のテーブルの目印をつなぐか */
+  const ridOf = (count) =>
+    parsedFrom.joins.length === 0
+      ? 'ctid::text'
+      : refs
+          .slice(0, count)
+          .map((ref, i) => (i === 0 ? `${ref}.ctid::text` : `coalesce(${ref}.ctid::text, '-')`))
+          .join(` || '+' || `);
+  const ridSql = ridOf(refs.length);
+
+  // FROM：最初のテーブルの全行（JOIN があれば、最初のテーブルの列だけ）
+  push(
     'FROM',
     range('FROM'),
-    toStepRows(await runStage(runner, `SELECT *, ctid::text AS ${RID} ${from}`)),
+    toStepRows(
+      await runStage(
+        runner,
+        parsedFrom.joins.length === 0
+          ? `SELECT *, ctid::text AS ${RID} ${from}`
+          : `SELECT ${parsedFrom.base.ref}.*, ${ridOf(1)} AS ${RID} ${parsedFrom.base.text}`,
+      ),
+    ),
     {},
   );
+
+  // JOIN：1つずつ、右のテーブルの行がつながって1行に合体する
+  for (const [index, join] of parsedFrom.joins.entries()) {
+    await pushJoinStep({
+      runner,
+      push,
+      steps,
+      join,
+      fromPrefix: from.slice(0, join.end),
+      ridSql: ridOf(index + 2),
+      range: [byKind.FROM.start + join.start, byKind.FROM.start + join.end],
+    });
+  }
+  // WHERE のあとの段階で「元の列」と比べる表（JOIN があれば合体した表）
+  const inputColumns = steps.at(-1).columns;
+  // 合体した表の列ごとの、テーブル（別名、なければ名前）と列名（SELECT の o.id がどの列かを位置で決めるため）
+  const tableOf = (part) => (part.alias ?? part.name).toLowerCase();
+  const owners = [
+    ...steps[0].columns.map((name) => ({ table: tableOf(parsedFrom.base), name })),
+    ...steps
+      .filter((step) => step.label === 'JOIN')
+      .flatMap((step, i) =>
+        (step.diff.join?.columns ?? []).map((name) => ({
+          table: tableOf(parsedFrom.joins[i].table),
+          name,
+        })),
+      ),
+  ];
+  const limitParts = byKind.LIMIT ? readLimit(text('LIMIT')) : null;
 
   // WHERE：条件に合わない行が消える
   if (where) {
     const table = toStepRows(
-      await runStage(runner, `SELECT *, ctid::text AS ${RID} ${from} ${where}`),
+      await runStage(runner, `SELECT *, ${ridSql} AS ${RID} ${from} ${where}`),
     );
     push('WHERE', range('WHERE'), table, { removed: removedRids(steps.at(-1).rows, table.rows) });
   }
 
   if (grouped) {
     // グループの鍵の式（GROUP BY がなければ全部の行が1つのグループ）。列の番号・SELECT の別名は式に置き換える
-    const resolved = resolveGroupItems(groupItems.items, items, fromStep.columns);
+    const resolved = resolveGroupItems(groupItems.items, items, inputColumns);
     if ('unsupported' in resolved) throw new StepError('unsupported', resolved.unsupported);
     const groupKeySql =
       resolved.items.length > 0 ? `ROW(${resolved.items.join(', ')})::text` : `'all'`;
@@ -331,7 +419,9 @@ async function build(sql, runner) {
         groupTail: `${text('GROUP BY')} ${text('HAVING')}`,
         order,
         limit: text('LIMIT'),
+        limitParts: byKind['ORDER BY'] ? limitParts : null,
         groupKeySql,
+        ridSql,
       },
     });
     return checkLast(steps, original, Boolean(byKind['ORDER BY'] || byKind.LIMIT));
@@ -340,9 +430,9 @@ async function build(sql, runner) {
   // SELECT：使わない列が消え、AS で名前が変わる
   {
     const table = toStepRows(
-      await runStage(runner, `SELECT ${list}, ctid::text AS ${RID} ${from} ${where}`),
+      await runStage(runner, `SELECT ${list}, ${ridSql} AS ${RID} ${from} ${where}`),
     );
-    push('SELECT', range('SELECT'), table, selectColumnChanges(fromStep.columns, items));
+    push('SELECT', range('SELECT'), table, selectColumnChanges(owners, items));
   }
 
   // DISTINCT：同じ値の行が1つにまとまる（最初の行が残る）
@@ -376,7 +466,7 @@ async function build(sql, runner) {
       rows = matchByValues(previous.rows, result.rows);
     } else {
       rows = toStepRows(
-        await runStage(runner, `SELECT ${list}, ctid::text AS ${RID} ${from} ${where} ${order}`),
+        await runStage(runner, `SELECT ${list}, ${ridSql} AS ${RID} ${from} ${where} ${order}`),
       ).rows;
     }
     const reordered = rows.some((row, i) => row.rid !== previous.rows[i]?.rid);
@@ -390,12 +480,14 @@ async function build(sql, runner) {
     if (distinct) {
       // DISTINCT のあとは値が重ならないので、元のSQLの結果の値で行を決められる
       rows = matchByValues(previous.rows, original.rows);
+    } else if (byKind['ORDER BY'] && limitParts) {
+      rows = sliceLimit(previous.rows, limitParts);
     } else {
       // 元の ORDER BY と LIMIT をそのまま使い、行の目印つきで実行する（同じ値の行を取り違えない）
       const limited = toStepRows(
         await runStage(
           runner,
-          `SELECT ${list}, ctid::text AS ${RID} ${from} ${where} ${order} ${text('LIMIT')}`,
+          `SELECT ${list}, ${ridSql} AS ${RID} ${from} ${where} ${order} ${text('LIMIT')}`,
         ),
       ).rows;
       const byRid = new Map(previous.rows.map((row) => [row.rid, row]));
@@ -460,7 +552,7 @@ function checkLast(steps, original, sameOrder) {
  *   steps: Step[],
  *   range: (kind: string) => [number, number],
  *   byKind: Record<string, { start: number, end: number }>,
- *   parts: { list: string, from: string, where: string, groupTail: string, order: string, limit: string, groupKeySql: string },
+ *   parts: { list: string, from: string, where: string, groupTail: string, order: string, limit: string, limitParts: { limit: number | null, offset: number } | null, groupKeySql: string, ridSql: string },
  * }} GroupContext
  */
 
@@ -481,12 +573,12 @@ async function pushGroupedSteps(context) {
  * @param {GroupContext} context
  */
 async function readGroups({ runner, steps, parts }) {
-  const { from, where, groupKeySql } = parts;
+  const { from, where, groupKeySql, ridSql } = parts;
   /** @type {Map<string, string>} 行の目印 → グループの鍵 */
   const keyOfRid = new Map();
   const result = await runStage(
     runner,
-    `SELECT *, ctid::text AS ${RID}, ${groupKeySql} AS ${GRP} ${from} ${where}`,
+    `SELECT *, ${ridSql} AS ${RID}, ${groupKeySql} AS ${GRP} ${from} ${where}`,
   );
   const ridIndex = result.columns.lastIndexOf(RID);
   const grpIndex = result.columns.lastIndexOf(GRP);
@@ -557,7 +649,7 @@ async function pushHavingStep({ runner, push, steps, range, parts }, { keyOfRid,
  */
 async function pushAggregateSteps(context, { keyOfRid, indexOfKey }) {
   const { runner, push, steps, range, byKind, parts } = context;
-  const { list, from, where, groupTail, order, limit, groupKeySql } = parts;
+  const { list, from, where, groupTail, order, limit, limitParts, groupKeySql } = parts;
   const grouped = Boolean(byKind['GROUP BY']);
 
   /** @type {Map<string, string[]>} グループの鍵 → そのグループの行の目印（前の段階の並び） */
@@ -621,7 +713,9 @@ async function pushAggregateSteps(context, { keyOfRid, indexOfKey }) {
   // LIMIT：残る行
   if (byKind.LIMIT) {
     const previous = steps.at(-1);
-    const rows = strip((await runGrouped(`${order} ${limit}`, true)).rows);
+    const rows = limitParts
+      ? sliceLimit(previous.rows, limitParts)
+      : strip((await runGrouped(`${order} ${limit}`, true)).rows);
     assertContiguous(previous.rows, rows);
     push(
       'LIMIT',
@@ -648,4 +742,74 @@ function assertOneRowPerGroup(rows, membersOf, grouped, limited) {
   if (!unique(rows.map((r) => r.rowKey)) || !unique(rows.map((r) => r.rid)) || !countOk) {
     throw new StepError('mismatch', '集計した行を、グループに1つずつ対応づけられませんでした');
   }
+}
+
+/**
+ * JOIN の段階。前の段階の行（左）に右のテーブルの行がつながって合体する。
+ * 合体した行の目印は「左の目印+右の ctid」（相手のない LEFT JOIN の行は「左の目印+-」）なので、最後の + で分けて対応を作る。
+ * @param {{
+ *   runner: Runner,
+ *   push: (label: Step['label'], range: [number, number], table: { columns: string[], rows: StepRow[] }, diff: Partial<StepDiff>) => Step,
+ *   steps: Step[],
+ *   join: import('./from-clause.js').JoinPart,
+ *   fromPrefix: string,
+ *   ridSql: string,
+ *   range: [number, number],
+ * }} context
+ */
+async function pushJoinStep({ runner, push, steps, join, fromPrefix, ridSql, range }) {
+  const previous = steps.at(-1);
+  const joined = toStepRows(await runStage(runner, `SELECT *, ${ridSql} AS ${RID} ${fromPrefix}`));
+  const right = toStepRows(
+    await runStage(
+      runner,
+      `SELECT *, ctid::text AS ${RID} FROM "${join.table.name.replaceAll('"', '""')}"`,
+    ),
+  );
+
+  /** @type {Record<string, string[]>} */
+  const pairs = Object.fromEntries(previous.rows.map((row) => [row.rid, []]));
+  const rightOrder = new Map(right.rows.map((row, i) => [row.rid, i]));
+  const split = (rid) => {
+    const at = rid.lastIndexOf('+');
+    return { left: rid.slice(0, at), right: rid.slice(at + 1) };
+  };
+  for (const row of joined.rows) {
+    const { left, right: rightRid } = split(row.rid);
+    if (!(left in pairs)) {
+      throw new StepError('mismatch', 'JOIN の段階を前の段階の行に対応づけられませんでした');
+    }
+    if (rightRid !== '-') pairs[left].push(rightRid);
+  }
+  // 合体した行は、左の行の並び → 右の表の並びの順にする（前の段階から行が大きく動かないように）
+  const leftOrder = new Map(previous.rows.map((row, i) => [row.rid, i]));
+  const position = (rid) => {
+    const { left, right: rightRid } = split(rid);
+    return [leftOrder.get(left) ?? 0, rightOrder.get(rightRid) ?? -1];
+  };
+  const rows = [...joined.rows].sort((a, b) => {
+    const [la, ra] = position(a.rid);
+    const [lb, rb] = position(b.rid);
+    return la - lb || ra - rb;
+  });
+  for (const rights of Object.values(pairs)) {
+    rights.sort((a, b) => (rightOrder.get(a) ?? 0) - (rightOrder.get(b) ?? 0));
+  }
+  const kept = new Set(joined.rows.map((row) => split(row.rid).left));
+  push(
+    'JOIN',
+    range,
+    { columns: joined.columns, rows },
+    {
+      removed: previous.rows.filter((row) => !kept.has(row.rid)).map((row) => row.rid),
+      join: {
+        kind: join.kind,
+        table: join.table.name,
+        alias: join.table.alias,
+        columns: right.columns,
+        rows: right.rows,
+        pairs,
+      },
+    },
+  );
 }
