@@ -7,7 +7,8 @@ import { splitClauses } from './clause-splitter.js';
  * - 文字列 '...'・識別子 "..." の外の英字は大文字・小文字を区別しない。中は区別する
  * - 文字列の外の、連続する空白・改行は1つの「区切りスロット」。Space と Enter のどちらでも正解
  * - 前後の空白は打たない
- * - 間違えたら止まる（位置は進まない）。Shift・Backspace など長さ2以上のキーは無視
+ * - 間違えても止まらない：そのスロットに印を付けて位置を1つ進める（直さずに書き進められる。2026-11-17 の本人の決定）。
+ *   Shift・Backspace など長さ2以上のキーは無視
  */
 
 /**
@@ -107,29 +108,28 @@ export function pressKey(state, target, key) {
   if (!slot) return { state, result: 'ignored' }; // 打ち終えたあと
   if (key.length !== 1 && key !== 'Enter') return { state, result: 'ignored' };
 
-  if (!slotMatches(slot, key)) {
-    const missedSlots = state.missedSlots.includes(state.position)
-      ? state.missedSlots
-      : [...state.missedSlots, state.position];
-    /** @type {PressResult} */
-    const missed = {
-      state: { ...state, missCount: state.missCount + 1, missedSlots, lastMissAt: state.position },
-      result: 'miss',
-    };
-    if (
-      slot.kind === 'char' &&
-      slot.caseSensitive &&
-      key.toLowerCase() === slot.expected.toLowerCase()
-    ) {
-      missed.caseOnly = true;
-    }
-    return missed;
-  }
-
   const typedIndex = state.position;
-  const next = { ...state, position: typedIndex + 1, okCount: state.okCount + 1, lastMissAt: null };
+  const matched = slotMatches(slot, key);
+  // 打ち間違いも、印を付けて次へ進める。直前の打ち間違いの位置（lastMissAt）は、画面がその文字を目立たせるのに使う
+  const next = matched
+    ? { ...state, position: typedIndex + 1, okCount: state.okCount + 1, lastMissAt: null }
+    : {
+        ...state,
+        position: typedIndex + 1,
+        missCount: state.missCount + 1,
+        missedSlots: [...state.missedSlots, typedIndex],
+        lastMissAt: typedIndex,
+      };
   /** @type {PressResult} */
-  const outcome = { state: next, result: 'ok' };
+  const outcome = { state: next, result: matched ? 'ok' : 'miss' };
+  if (
+    !matched &&
+    slot.kind === 'char' &&
+    slot.caseSensitive &&
+    key.toLowerCase() === slot.expected.toLowerCase()
+  ) {
+    outcome.caseOnly = true;
+  }
   const clauseIndex = target.clauseEnds.get(typedIndex);
   if (clauseIndex !== undefined) outcome.clauseEnded = clauseIndex;
   if (next.position === target.slots.length) outcome.done = true;

@@ -155,7 +155,12 @@ export function useTypingSession({
         if (inBlank) {
           setChoiceMissPulse((n) => n + 1);
         } else {
-          const key = weakPointKey(target, state.typing.position, keywords);
+          // 打ち間違いでも位置は進むので、苦手として数えるのは進む前の位置（間違えた文字）
+          const key = weakPointKey(
+            target,
+            state.typing.lastMissAt ?? state.typing.position,
+            keywords,
+          );
           if (key) mistakesRef.current[key] = (mistakesRef.current[key] ?? 0) + 1;
           setMissPulse((n) => n + 1);
         }

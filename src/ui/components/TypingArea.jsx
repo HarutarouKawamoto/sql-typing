@@ -65,7 +65,8 @@ export function TypingArea({ target, typing, missPulse, blanks }) {
           if (hidden.has(index)) return null;
           const state =
             index < typing.position ? 'typed' : index === typing.position ? 'current' : 'pending';
-          const isMissNow = index === typing.position && typing.lastMissAt === index;
+          // 打ち間違いでも位置は進むので、いま間違えた文字は1つ前（lastMissAt）。次に正しく打つまで目立たせる
+          const isMissNow = typing.lastMissAt === index;
           const text =
             slot.kind === 'separator' ? target.text.slice(slot.start, slot.end) : slot.expected;
           const className = [

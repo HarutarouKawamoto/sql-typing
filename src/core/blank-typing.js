@@ -167,7 +167,8 @@ export function pressBlankKey(state, target, key, randomFn) {
   if (state.active === null || state.choice === null) {
     const outcome = pressTypingKey(state.typing, target, key);
     const moved = { ...state, typing: outcome.state };
-    const next = outcome.result === 'ok' ? enterBlankIfAt(moved, randomFn) : moved;
+    // 打ち間違いでも位置は進むので、進んだ先が空欄なら、正しく打ったときと同じく空欄に入る
+    const next = outcome.result === 'ignored' ? moved : enterBlankIfAt(moved, randomFn);
     return { ...outcome, state: next, inBlank: false };
   }
 

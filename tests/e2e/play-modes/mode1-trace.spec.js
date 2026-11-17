@@ -27,13 +27,18 @@ test('小文字で最後まで打つとクリアになり、結果の表が30行
   expect(errors).toEqual([]);
 });
 
-test('打ち間違えると位置が進まず、正しいキーで進む', async ({ page }) => {
+test('打ち間違えても、その文字を赤くして次へ進み、直さずに書き進められる', async ({ page }) => {
   await startMode1(page);
   await page.keyboard.press('x');
-  expect(await typedCount(page)).toBe(0);
-  await expect(page.getByTestId('meter')).toContainText('正確さ 0%');
-  await page.keyboard.press('S');
   expect(await typedCount(page)).toBe(1);
+  await expect(page.getByTestId('meter')).toContainText('正確さ 0%');
+  const first = page.locator('[data-testid="typing-area"] [data-state="typed"]').first();
+  await expect(first).toHaveText('S');
+  await expect(first).toHaveClass(/missed/);
+  // 2文字目（E）から、そのまま続けられる
+  await page.keyboard.press('E');
+  expect(await typedCount(page)).toBe(2);
+  await expect(page.getByTestId('meter')).toContainText('正確さ 50%');
 });
 
 test('Shift・Backspace は数えず、改行の代わりに Enter でも区切りを打てる', async ({ page }) => {
@@ -109,7 +114,7 @@ test('打つSQLは合字（>= を ≥ にする描き方）を使わない', asy
   expect(ligatures).toBe('none');
 });
 
-test('文字列の中で大文字・小文字だけ違うキー（Caps Lock のまま）を打つと、理由を知らせる。正しく打てたら消える', async ({
+test('文字列の中で大文字・小文字だけ違うキー（Caps Lock のまま）を打つと、理由を知らせる。次を正しく打てたら消える', async ({
   page,
 }) => {
   const clears = ['01', '02', '03'].map((n) => ({
@@ -124,6 +129,7 @@ test('文字列の中で大文字・小文字だけ違うキー（Caps Lock の�
   await expect(page.getByTestId('case-warning')).toHaveCount(0);
   await page.keyboard.press('K');
   await expect(page.getByTestId('case-warning')).toContainText('大文字・小文字を区別します');
-  await page.keyboard.press('k');
+  // 打ち間違いでも進むので、次の文字（i）を正しく打つと知らせが消える
+  await page.keyboard.press('i');
   await expect(page.getByTestId('case-warning')).toHaveCount(0);
 });
