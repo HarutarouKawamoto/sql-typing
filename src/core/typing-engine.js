@@ -17,7 +17,8 @@ import { splitClauses } from './clause-splitter.js';
  * @typedef {{ text: string, slots: Slot[], clauseEnds: Map<number, number> }} TypingTarget
  *   clauseEnds：句の最後の文字のスロット番号 → 何番目の句か（0から）
  * @typedef {{ position: number, okCount: number, missCount: number, missedSlots: number[], lastMissAt: number | null }} TypingState
- * @typedef {{ state: TypingState, result: 'ok' | 'miss' | 'ignored', clauseEnded?: number, done?: boolean }} PressResult
+ * @typedef {{ state: TypingState, result: 'ok' | 'miss' | 'ignored', clauseEnded?: number, done?: boolean, caseOnly?: true }} PressResult
+ *   caseOnly：文字列の中で、大文字・小文字だけが違う miss（Caps Lock のまま打っていると、ここで先に進めなくなる）
  */
 
 /**
@@ -110,10 +111,19 @@ export function pressKey(state, target, key) {
     const missedSlots = state.missedSlots.includes(state.position)
       ? state.missedSlots
       : [...state.missedSlots, state.position];
-    return {
+    /** @type {PressResult} */
+    const missed = {
       state: { ...state, missCount: state.missCount + 1, missedSlots, lastMissAt: state.position },
       result: 'miss',
     };
+    if (
+      slot.kind === 'char' &&
+      slot.caseSensitive &&
+      key.toLowerCase() === slot.expected.toLowerCase()
+    ) {
+      missed.caseOnly = true;
+    }
+    return missed;
   }
 
   const typedIndex = state.position;

@@ -32,7 +32,9 @@ import { buildTarget, createTypingState, pressKey as pressTypingKey } from './ty
  *   done?: boolean,
  *   why?: string,
  *   text?: string,
+ *   caseOnly?: true,
  * }} BlankPressResult
+ *   caseOnly：空欄の外の文字列の中で、大文字・小文字だけが違う miss（TypingEngine の pressKey から受け継ぐ）
  */
 
 /**
