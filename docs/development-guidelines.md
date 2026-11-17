@@ -291,12 +291,12 @@ describe('pressKey', () => {
     expect(result).toBe('ok');
   });
 
-  it('文字列の中で大文字・小文字が違うと miss になり、位置は進まない', () => {
+  it('文字列の中で大文字・小文字が違うと miss になり、印を付けて位置は進む', () => {
     // typeText はテスト用の部品（tests/helpers/）。文字列を1文字ずつ pressKey する
     const state = typeText(createTypingState(buildTarget("WHERE name = 'Mug'")), "WHERE name = '");
     const next = pressKey(state, 'm');
     expect(next.result).toBe('miss');
-    expect(next.state.position).toBe(state.position);
+    expect(next.state.position).toBe(state.position + 1);
   });
 });
 ```

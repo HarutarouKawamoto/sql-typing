@@ -84,23 +84,32 @@ describe('pressKey', () => {
     expect(pressKey(start, target, ' ').result).toBe('miss');
   });
 
-  it('間違えたキーは miss。位置は進まず、ミスの数とミスしたスロットが記録される', () => {
+  it('間違えたキーは miss。赤い印を付けて位置は1つ進む（直さずに書き進められる）', () => {
     const start = createTypingState(target);
     const { state, result } = pressKey(start, target, 'x');
     expect(result).toBe('miss');
-    expect(state.position).toBe(0);
+    expect(state.position).toBe(1);
+    expect(state.okCount).toBe(0);
     expect(state.missCount).toBe(1);
     expect(state.missedSlots).toEqual([0]);
     expect(state.lastMissAt).toBe(0);
     // 元の状態は変えない
     expect(start.missCount).toBe(0);
+    expect(start.position).toBe(0);
   });
 
-  it('同じスロットで2回間違えても missedSlots には1回だけ入る', () => {
+  it('続けて間違えると、それぞれのスロットに印が付く。正しく打つと直前の印の目印は消える', () => {
     const once = pressKey(createTypingState(target), target, 'x').state;
     const twice = pressKey(once, target, 'y').state;
-    expect(twice.missCount).toBe(2);
-    expect(twice.missedSlots).toEqual([0]);
+    expect(twice).toMatchObject({ position: 2, missCount: 2, missedSlots: [0, 1], lastMissAt: 1 });
+    const ok = pressKey(twice, target, 'L').state;
+    expect(ok).toMatchObject({ position: 3, missedSlots: [0, 1], lastMissAt: null });
+  });
+
+  it('間違えて進んでも、句の終わり・打ち終わりは届く', () => {
+    const short = buildTarget('SELECT 1');
+    const { state } = typeText(short, 'SELECT ');
+    expect(pressKey(state, short, '2')).toMatchObject({ result: 'miss', done: true });
   });
 
   it('文字列の中で大文字・小文字が違うと miss', () => {

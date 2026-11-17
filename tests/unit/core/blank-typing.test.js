@@ -87,6 +87,13 @@ describe('pressBlankKey：空欄', () => {
     expect(state.choice.choices.map((c) => c.text)).toEqual(['FROM products', 'INTO products']);
   });
 
+  it('空欄の手前で打ち間違えて進んでも、その空欄が始まる（空欄の中は合わないキーでは進まないまま）', () => {
+    const { state, last } = typeAll(start(), target, [...'SELECT *', 'x']);
+    expect(last).toMatchObject({ result: 'miss', inBlank: false });
+    expect(state.active).toBe(0);
+    expect(state.typing.missedSlots).toEqual([8]);
+  });
+
   it('空欄の中の ok・miss も、打った数・ミスの数に入る。位置は空欄の始まりのまま', () => {
     const before = typeAll(start(), target, [...'SELECT * ']).state;
     const { state, results } = typeAll(before, target, ['F', 'x']);
