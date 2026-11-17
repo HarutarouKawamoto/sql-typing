@@ -194,3 +194,20 @@ describe('maskBlankAnswers', () => {
     expect(maskBlankAnswers('SELECT 1', [])).toBe('SELECT 1');
   });
 });
+
+describe('pressBlankKey：大文字・小文字だけが違う miss', () => {
+  it('空欄の外の文字列の中で、大文字・小文字だけが違うと caseOnly が付く', () => {
+    const sql = "SELECT * FROM t WHERE c = 'kitchen'";
+    const target = buildTarget(sql);
+    let state = createBlankTypingState(target, [], keepOrder);
+    for (const key of "SELECT * FROM t WHERE c = '") {
+      state = pressBlankKey(state, target, key, keepOrder).state;
+    }
+    expect(pressBlankKey(state, target, 'K', keepOrder)).toMatchObject({
+      result: 'miss',
+      inBlank: false,
+      caseOnly: true,
+    });
+    expect(pressBlankKey(state, target, 'k', keepOrder).result).toBe('ok');
+  });
+});

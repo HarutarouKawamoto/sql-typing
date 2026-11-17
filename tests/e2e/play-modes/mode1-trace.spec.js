@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { homeProblem, openModeSelect, openPlay } from '../helpers/open-play.js';
+import { seedProgress } from '../helpers/seed-progress.js';
 
 /** 一覧から1問目のなぞり書きを始める */
 async function startMode1(page) {
@@ -106,4 +107,23 @@ test('打つSQLは合字（>= を ≥ にする描き方）を使わない', asy
     .getByTestId('typing-area')
     .evaluate((element) => getComputedStyle(element).fontVariantLigatures);
   expect(ligatures).toBe('none');
+});
+
+test('文字列の中で大文字・小文字だけ違うキー（Caps Lock のまま）を打つと、理由を知らせる。正しく打てたら消える', async ({
+  page,
+}) => {
+  const clears = ['01', '02', '03'].map((n) => ({
+    problemId: `beginner-${n}`,
+    mode: /** @type {const} */ ('1'),
+  }));
+  await seedProgress(page, clears);
+  await openPlay(page, '1', 'beginner-04');
+  await expect(page.getByTestId('typing-area')).toBeVisible();
+  // キーワードは大文字でも通る（Caps Lock のままでも、ここまでは気づかない）
+  await page.keyboard.type("SELECT NAME, STOCK FROM PRODUCTS WHERE CATEGORY = '");
+  await expect(page.getByTestId('case-warning')).toHaveCount(0);
+  await page.keyboard.press('K');
+  await expect(page.getByTestId('case-warning')).toContainText('大文字・小文字を区別します');
+  await page.keyboard.press('k');
+  await expect(page.getByTestId('case-warning')).toHaveCount(0);
 });

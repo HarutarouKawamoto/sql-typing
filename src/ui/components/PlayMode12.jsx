@@ -131,6 +131,11 @@ export function PlayMode12({
             日本語入力がオンになっています。半角英数に切り替えてください。
           </p>
         )}
+        {session.caseWarning && (
+          <p className={styles.warning} role="alert" data-testid="case-warning">
+            文字列（'…' の中）は大文字・小文字を区別します。Caps Lock がオンになっていませんか？
+          </p>
+        )}
         <TypingArea
           target={session.target}
           typing={session.typing}

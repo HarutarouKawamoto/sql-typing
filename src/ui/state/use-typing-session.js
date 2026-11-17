@@ -66,6 +66,8 @@ export function useTypingSession({
   const [finishedAt, setFinishedAt] = useState(/** @type {number | null} */ (null));
   const [now, setNow] = useState(0);
   const [imeWarning, setImeWarning] = useState(false);
+  // 文字列の中で大文字・小文字だけが違う、または Caps Lock がオンのまま打ち間違えた（理由が出ないと、先に進めず止まったように見える）
+  const [caseWarning, setCaseWarning] = useState(false);
   const [live, setLive] = useState(
     /** @type {{ result: import('../../data/sql-runner/sql-runner.js').QueryResult | null, previousRowCount: number | null }} */ ({
       result: null,
@@ -127,7 +129,7 @@ export function useTypingSession({
       }
       if (kind === 'skip' || doneRef.current) return;
 
-      const { state, result, inBlank, clauseEnded, done, why, text } = pressBlankKey(
+      const { state, result, inBlank, clauseEnded, done, why, text, caseOnly } = pressBlankKey(
         sessionRef.current,
         target,
         event.key,
@@ -143,6 +145,11 @@ export function useTypingSession({
         startedRef.current = time;
         setStartedAt(time);
         setNow(time);
+      }
+      if (result === 'miss' && (caseOnly || event.getModifierState?.('CapsLock'))) {
+        setCaseWarning(true);
+      } else if (result !== 'miss') {
+        setCaseWarning(false);
       }
       if (result === 'miss') {
         if (inBlank) {
@@ -196,6 +203,7 @@ export function useTypingSession({
     elapsedMs,
     live,
     imeWarning,
+    caseWarning,
     done: finishedAt !== null,
   };
 }

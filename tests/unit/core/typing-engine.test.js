@@ -109,6 +109,14 @@ describe('pressKey', () => {
     expect(pressKey(state, target, 'M').result).toBe('ok');
   });
 
+  it('大文字・小文字だけが違う miss には caseOnly を付ける（Caps Lock のまま打っていると気づけるように）', () => {
+    const { state } = typeText(target, "SELECT * FROM t WHERE n = '");
+    expect(pressKey(state, target, 'm')).toMatchObject({ result: 'miss', caseOnly: true });
+    // 違う文字の miss、文字列の外の miss には付けない
+    expect(pressKey(state, target, 'x').caseOnly).toBeUndefined();
+    expect(pressKey(createTypingState(target), target, 'x').caseOnly).toBeUndefined();
+  });
+
   it('Shift・Backspace など長さ2以上のキーは ignored で、何も変わらない', () => {
     const start = createTypingState(target);
     for (const key of ['Shift', 'Backspace', 'Tab', 'ArrowLeft']) {
